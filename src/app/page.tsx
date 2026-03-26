@@ -23,9 +23,7 @@ export default function Home() {
           <h1 className="text-xl font-bold text-white">
             WonderLens Design Studio
           </h1>
-          <span className="text-gray-500 text-sm">
-            LLM settings on gallery page
-          </span>
+          <div /> {/* Spacer for layout balance */}
         </div>
       </header>
 
