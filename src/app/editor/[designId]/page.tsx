@@ -26,7 +26,6 @@ export default function EditorPage() {
   const setRubricScores = useDesignStore((s) => s.setRubricScores);
 
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
 
   if (!activeDesign || !rubricScores) {
     return (
@@ -52,7 +51,6 @@ export default function EditorPage() {
 
   const handleAskAI = async (path: string, comment: string) => {
     if (!apiKey || !activeDesign) return;
-    setIsRegenerating(true);
     try {
       const updatedValue = await regenerateField({
         design: activeDesign,
@@ -64,8 +62,6 @@ export default function EditorPage() {
       updateField(path, updatedValue);
     } catch (error) {
       console.error("Failed to regenerate field:", error);
-    } finally {
-      setIsRegenerating(false);
     }
   };
 
@@ -88,7 +84,6 @@ export default function EditorPage() {
 
   const handleRegenerateWithFeedback = async (feedback: string) => {
     if (!apiKey || !activeDesign) return;
-    setIsRegenerating(true);
     try {
       const updatedValue = await regenerateField({
         design: activeDesign,
@@ -102,8 +97,6 @@ export default function EditorPage() {
       }
     } catch (error) {
       console.error("Failed to regenerate with feedback:", error);
-    } finally {
-      setIsRegenerating(false);
     }
   };
 
