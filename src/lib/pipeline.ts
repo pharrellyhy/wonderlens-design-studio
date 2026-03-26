@@ -1,0 +1,318 @@
+import { z } from "zod";
+
+import {
+  GAME_STYLES,
+  gameDesignSchema,
+  rubricIssueSchema,
+  rubricScoresSchema,
+} from "@/lib/design-schema";
+import type {
+  GameDesign,
+  GenerationJob,
+  RubricIssue,
+  RubricScores,
+  VariantResult,
+} from "@/lib/design-schema";
+import type { LLMMessage, LLMProvider } from "@/lib/llm/provider";
+import type { ParsedEntity } from "@/lib/yaml-parser";
+import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
+import { buildFixMessages } from "@/lib/prompts/fix";
+import { buildGenerateMessages } from "@/lib/prompts/generate";
+
+// ---------------------------------------------------------------------------
+// Evaluate response schema
+// ---------------------------------------------------------------------------
+
+const evaluateResponseSchema = z.object({
+  scores: rubricScoresSchema,
+  issues: z.array(rubricIssueSchema),
+});
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const MAX_FIX_ITERATIONS = 3;
+
+// ---------------------------------------------------------------------------
+// Helper: parseJsonResponse
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip markdown code fences if present, then JSON.parse the raw string.
+ */
+export function parseJsonResponse(raw: string): unknown {
+  let cleaned = raw.trim();
+
+  // Strip ```json ... ``` or ``` ... ``` fences
+  const fencePattern = /^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/;
+  const match = fencePattern.exec(cleaned);
+  if (match) {
+    cleaned = match[1].trim();
+  }
+
+  return JSON.parse(cleaned);
+}
+
+// ---------------------------------------------------------------------------
+// Internal: LLM call with JSON parse retry
+// ---------------------------------------------------------------------------
+
+/**
+ * Send messages to the LLM, parse the response as JSON, and validate with a
+ * Zod schema. If parsing or validation fails, retry ONCE by sending the error
+ * back to the LLM asking for corrected JSON.
+ */
+async function llmJsonCall<T>(
+  provider: LLMProvider,
+  messages: LLMMessage[],
+  schema: z.ZodType<T>,
+  options: { temperature: number }
+): Promise<T> {
+  const llmOptions = {
+    jsonMode: true,
+    temperature: options.temperature,
+  };
+
+  const rawResponse = await provider.generate(messages, llmOptions);
+
+  // First attempt to parse and validate
+  try {
+    const parsed = parseJsonResponse(rawResponse);
+    return schema.parse(parsed);
+  } catch (firstError) {
+    const errorMessage =
+      firstError instanceof Error ? firstError.message : String(firstError);
+
+    // Retry: append assistant response + user correction request
+    const retryMessages: LLMMessage[] = [
+      ...messages,
+      { role: "assistant", content: rawResponse },
+      {
+        role: "user",
+        content: `Your previous JSON response failed validation with this error:\n\n${errorMessage}\n\nPlease output the corrected JSON. Output ONLY the raw JSON object, no markdown fences or explanation.`,
+      },
+    ];
+
+    const retryResponse = await provider.generate(retryMessages, llmOptions);
+
+    // Second attempt — if this fails, propagate the error
+    const retryParsed = parseJsonResponse(retryResponse);
+    return schema.parse(retryParsed);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Internal: check if any rubric dimension failed
+// ---------------------------------------------------------------------------
+
+function hasFailures(scores: RubricScores): boolean {
+  return Object.values(scores).some((score) => score === "fail");
+}
+
+// ---------------------------------------------------------------------------
+// Internal: extract failing issues from scores
+// ---------------------------------------------------------------------------
+
+function getFailingIssues(issues: RubricIssue[]): RubricIssue[] {
+  return issues.filter((issue) => issue.dimension && issue.description);
+}
+
+// ---------------------------------------------------------------------------
+// All-fail rubric scores (used for failed variants)
+// ---------------------------------------------------------------------------
+
+const ALL_FAIL_SCORES: RubricScores = {
+  d1: "fail",
+  d2: "fail",
+  d3: "fail",
+  d4: "fail",
+  d5: "fail",
+  d6: "fail",
+  d7: "fail",
+  d8: "fail",
+  d9: "fail",
+};
+
+// ---------------------------------------------------------------------------
+// generateVariant
+// ---------------------------------------------------------------------------
+
+/**
+ * Multi-pass pipeline for a single variant:
+ * 1. Generate design via LLM
+ * 2. Evaluate against rubric
+ * 3. Fix if any dimensions fail (up to MAX_FIX_ITERATIONS)
+ * 4. Re-evaluate after each fix
+ */
+export async function generateVariant(
+  entity: ParsedEntity,
+  category: string,
+  gameStyle: string,
+  provider: LLMProvider
+): Promise<VariantResult> {
+  // Pass 1 — Generate
+  const generateMessages = buildGenerateMessages(entity, category, gameStyle);
+  let design: GameDesign = await llmJsonCall(
+    provider,
+    generateMessages,
+    gameDesignSchema,
+    { temperature: 0.8 }
+  );
+
+  // Pass 2 — Evaluate
+  const evalMessages = buildEvaluateMessages(design);
+  let evaluation = await llmJsonCall(
+    provider,
+    evalMessages,
+    evaluateResponseSchema,
+    { temperature: 0.2 }
+  );
+
+  // Pass 3 & 4 — Fix loop (up to MAX_FIX_ITERATIONS)
+  let fixIteration = 0;
+  while (hasFailures(evaluation.scores) && fixIteration < MAX_FIX_ITERATIONS) {
+    fixIteration++;
+
+    const failingIssues = getFailingIssues(evaluation.issues);
+    if (failingIssues.length === 0) {
+      // Scores say fail but no issues reported — cannot fix further
+      break;
+    }
+
+    // Pass 3 — Fix
+    const fixMessages = buildFixMessages(design, failingIssues);
+    design = await llmJsonCall(provider, fixMessages, gameDesignSchema, {
+      temperature: 0.5,
+    });
+
+    // Pass 4 — Re-evaluate
+    const reEvalMessages = buildEvaluateMessages(design);
+    evaluation = await llmJsonCall(
+      provider,
+      reEvalMessages,
+      evaluateResponseSchema,
+      { temperature: 0.2 }
+    );
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    design,
+    rubricScores: evaluation.scores,
+    issues: evaluation.issues,
+    category,
+    gameStyle,
+    status: "complete",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// selectVariantConfigs
+// ---------------------------------------------------------------------------
+
+/**
+ * Auto-select variant configs for generation. Strategy:
+ * - Pick one Cat 1 style and one Cat 5 style first (for variety)
+ * - Fill remaining slots from unused styles
+ * - Cap at maxVariants (default 4)
+ */
+export function selectVariantConfigs(
+  maxVariants: number = 4
+): Array<{ category: string; gameStyle: string }> {
+  const configs: Array<{ category: string; gameStyle: string }> = [];
+
+  const cat1Styles = [...GAME_STYLES.cat1];
+  const cat5Styles = [...GAME_STYLES.cat5];
+
+  // Shuffle each pool for variety
+  shuffleArray(cat1Styles);
+  shuffleArray(cat5Styles);
+
+  // Pick one from each category first
+  if (cat1Styles.length > 0 && configs.length < maxVariants) {
+    configs.push({ category: "cat1", gameStyle: cat1Styles.shift()! });
+  }
+  if (cat5Styles.length > 0 && configs.length < maxVariants) {
+    configs.push({ category: "cat5", gameStyle: cat5Styles.shift()! });
+  }
+
+  // Fill remaining from unused styles, alternating categories
+  const remaining = [
+    ...cat1Styles.map((style) => ({ category: "cat1", gameStyle: style })),
+    ...cat5Styles.map((style) => ({ category: "cat5", gameStyle: style })),
+  ];
+  shuffleArray(remaining);
+
+  for (const config of remaining) {
+    if (configs.length >= maxVariants) break;
+    configs.push(config);
+  }
+
+  return configs;
+}
+
+// ---------------------------------------------------------------------------
+// runGenerationJob
+// ---------------------------------------------------------------------------
+
+/**
+ * Run the full generation job: iterate over variant configs sequentially,
+ * generating each variant and collecting results.
+ */
+export async function runGenerationJob(
+  job: GenerationJob,
+  entity: ParsedEntity,
+  variantConfigs: Array<{ category: string; gameStyle: string }>,
+  provider: LLMProvider
+): Promise<void> {
+  job.status = "generating";
+
+  for (let i = 0; i < variantConfigs.length; i++) {
+    job.currentVariant = i + 1;
+    const config = variantConfigs[i];
+
+    try {
+      const result = await generateVariant(
+        entity,
+        config.category,
+        config.gameStyle,
+        provider
+      );
+      job.variants.push(result);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      const failedResult: VariantResult = {
+        id: crypto.randomUUID(),
+        design: undefined,
+        rubricScores: ALL_FAIL_SCORES,
+        issues: [
+          {
+            dimension: "pipeline",
+            description: errorMessage,
+          },
+        ],
+        category: config.category,
+        gameStyle: config.gameStyle,
+        status: "failed",
+        error: errorMessage,
+      };
+      job.variants.push(failedResult);
+    }
+  }
+
+  job.status = "complete";
+}
+
+// ---------------------------------------------------------------------------
+// Internal utility: Fisher-Yates shuffle
+// ---------------------------------------------------------------------------
+
+function shuffleArray<T>(array: T[]): void {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
