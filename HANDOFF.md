@@ -4,6 +4,57 @@ Last updated: 2026-03-26
 
 ---
 
+## Phase 1: AI Pipeline — Complete
+
+### Problem
+Phase 0 delivered the full UI scaffold (Upload, Gallery, Editor screens) but all backend functionality was stubbed with `console.log()`. No API routes, no generation pipeline, no prompt engineering, no markdown export. The app couldn't generate or evaluate designs.
+
+### Solution
+Implemented the complete backend on branch `feat/phase1-ai-pipeline` — 13 new files, 5 modified files, all stateless (no DB). The generation pipeline runs multi-pass LLM calls (generate → evaluate → fix → re-evaluate) with JSON parse retry logic. API routes use an in-memory job store for async generation with polling. Frontend is fully wired to the real API.
+
+### Edits
+- `src/lib/design-schema.ts` — Added `RubricIssue`, `VariantResult` (optional design for failed variants), `GenerationJob` types + Zod schemas
+- `src/store/design-store.ts` — Added `llmProvider`, `apiKey`, `setLlmConfig` with Zustand `persist` middleware (localStorage)
+- `src/lib/prompts/generate.ts` — Pass 1 prompt builder. Loads 5 data files at module scope, builds system + user messages with JSON schema instructions
+- `src/lib/prompts/evaluate.ts` — Pass 2/4 rubric evaluation prompt with D1-D9 criteria
+- `src/lib/prompts/fix.ts` — Pass 3 targeted fix prompt using failing dimensions + issues
+- `src/lib/prompts/regenerate.ts` — Per-field regeneration prompt for Ask AI feature
+- `src/lib/pipeline.ts` — Multi-pass pipeline: `generateVariant()` (4-pass with retry), `selectVariantConfigs()`, `runGenerationJob()` (sequential with per-variant error catching)
+- `src/lib/markdown-export.ts` — `exportSpec()` (full format) and `exportProd()` (condensed per transform.md rules)
+- `src/lib/api-client.ts` — Fetch wrapper: `startGeneration`, `pollGenerationStatus`, `evaluateDesign`, `regenerateField`, `exportDesign`
+- `src/app/api/upload/route.ts` — YAML upload + parse endpoint
+- `src/app/api/generate/route.ts` — Async generation job creation with in-memory store + 30min TTL cleanup
+- `src/app/api/generate/[jobId]/status/route.ts` — Polling endpoint for generation progress
+- `src/app/api/evaluate/route.ts` — 9D rubric evaluation via LLM
+- `src/app/api/regenerate/route.ts` — Per-field AI regeneration
+- `src/app/api/export/route.ts` — Markdown export (spec + prod)
+- `src/app/gallery/[entityId]/page.tsx` — Added LLM settings bar (provider dropdown + API key input), generation trigger, 3-second polling loop with progressive variant rendering
+- `src/app/editor/[designId]/page.tsx` — Wired `handleAskAI`, `handleRerunRubric`, `handleRegenerateWithFeedback`, `handleExport` to real API calls
+- `.gitignore` — Fixed `lib/` → `/lib/` to stop ignoring `src/lib/`
+
+### NOT Changed
+- No Prisma schema, NextAuth, or database — all state is in-memory/client-side
+- No automated tests added — verification is build + lint + manual
+- No settings page — LLM config is inline on the gallery page
+- ScorecardPanel component unchanged — already accepted `isEvaluating` prop
+
+### Verification
+```bash
+npm run build    # All 9 routes compile, 0 errors
+npm run lint     # 0 warnings, 0 errors
+npm run dev      # Start dev server on http://localhost:3000
+```
+
+Manual smoke test:
+1. Upload YAML from `data/mappings_dev20_0318/animals/big_cats.yaml`
+2. Navigate to gallery, enter API key, click "Generate Variants"
+3. Watch variants appear progressively as each completes
+4. Click a variant to open in editor
+5. Click "Re-run Rubric" to re-evaluate
+6. Click "Export Design" to download spec + prod markdown
+
+---
+
 ## Phase 0 Review and Hardening — Complete
 
 ### Problem
