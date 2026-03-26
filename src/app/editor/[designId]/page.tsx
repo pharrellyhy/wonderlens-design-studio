@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDesignStore } from "@/store/design-store";
+import { evaluateDesign, regenerateField, exportDesign } from "@/lib/api-client";
 import { NavigationPanel } from "@/components/editor/NavigationPanel";
 import { ScorecardPanel } from "@/components/editor/ScorecardPanel";
 import { EditableField } from "@/components/editor/EditableField";
@@ -19,6 +21,12 @@ export default function EditorPage() {
   const activeSection = useDesignStore((s) => s.activeSection);
   const setActiveSection = useDesignStore((s) => s.setActiveSection);
   const updateField = useDesignStore((s) => s.updateField);
+  const llmProvider = useDesignStore((s) => s.llmProvider);
+  const apiKey = useDesignStore((s) => s.apiKey);
+  const setRubricScores = useDesignStore((s) => s.setRubricScores);
+
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   if (!activeDesign || !rubricScores) {
     return (
@@ -42,24 +50,96 @@ export default function EditorPage() {
     updateField(path, value);
   };
 
-  const handleAskAI = (path: string, comment: string) => {
-    // TODO: Implement per-field AI regeneration
-    console.log("Ask AI:", path, comment);
+  const handleAskAI = async (path: string, comment: string) => {
+    if (!apiKey || !activeDesign) return;
+    setIsRegenerating(true);
+    try {
+      const updatedValue = await regenerateField({
+        design: activeDesign,
+        fieldPath: path,
+        comment: comment || "Please improve this",
+        llmProvider,
+        apiKey,
+      });
+      updateField(path, updatedValue);
+    } catch (error) {
+      console.error("Failed to regenerate field:", error);
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
-  const handleRerunRubric = () => {
-    // TODO: Implement rubric re-evaluation
-    console.log("Re-run rubric");
+  const handleRerunRubric = async () => {
+    if (!activeDesign) return;
+    setIsEvaluating(true);
+    try {
+      const result = await evaluateDesign({
+        design: activeDesign,
+        llmProvider,
+        apiKey,
+      });
+      setRubricScores(result.rubricScores);
+    } catch (error) {
+      console.error("Failed to evaluate design:", error);
+    } finally {
+      setIsEvaluating(false);
+    }
   };
 
-  const handleRegenerateWithFeedback = (feedback: string) => {
-    // TODO: Implement global regeneration with feedback
-    console.log("Regenerate with feedback:", feedback);
+  const handleRegenerateWithFeedback = async (feedback: string) => {
+    if (!apiKey || !activeDesign) return;
+    setIsRegenerating(true);
+    try {
+      const updatedValue = await regenerateField({
+        design: activeDesign,
+        fieldPath: "",
+        comment: feedback,
+        llmProvider,
+        apiKey,
+      });
+      if (typeof updatedValue === "object" && updatedValue !== null) {
+        updateField("", updatedValue);
+      }
+    } catch (error) {
+      console.error("Failed to regenerate with feedback:", error);
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
-  const handleExport = () => {
-    // TODO: Implement markdown export
-    console.log("Export design");
+  const handleExport = async () => {
+    if (!activeDesign) return;
+    try {
+      const result = await exportDesign({
+        design: activeDesign,
+        format: "both",
+      });
+      const baseName = activeDesign.basicInfo.activityName
+        .replace(/\s+/g, "_")
+        .toLowerCase();
+
+      if (result.specMd) {
+        const blob = new Blob([result.specMd], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${baseName}_spec.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      if (result.prodMd) {
+        const blob = new Blob([result.prodMd], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${baseName}_prod.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error("Failed to export design:", error);
+    }
   };
 
   return (
@@ -428,6 +508,7 @@ export default function EditorPage() {
           onRerunRubric={handleRerunRubric}
           onRegenerateWithFeedback={handleRegenerateWithFeedback}
           onExport={handleExport}
+          isEvaluating={isEvaluating}
         />
       </div>
     </div>
