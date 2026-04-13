@@ -4,6 +4,105 @@ Last updated: 2026-03-26
 
 ---
 
+## Phase 1 Review and Contract Fixes — Complete
+
+### Problem
+Picked up from the existing Phase 1 handoff and reviewed the recent commit window (`fe61151`, `fa1b7be`, `37b150e`, `bd110da`, `06cd631`) plus the current workspace delta. Two end-to-end regressions were present in the newly wired API flow:
+- Gallery generation posted `entityYaml`, but `POST /api/generate` still required `entity`
+- Editor global regeneration posted an empty `fieldPath`, but `POST /api/regenerate` rejected empty strings as missing input
+
+The workspace also still contains required runtime files under `src/lib/llm/` and `src/lib/yaml-parser.ts` as untracked files, and there is still no automated test suite in the repo.
+
+### Solution
+Reviewed the committed Phase 1 flow and fixed the broken request/response contracts instead of broadening scope. `POST /api/generate` now accepts the client payload shape used by the gallery and remains backward-compatible with the older `entity` field. `POST /api/regenerate` now accepts full-design regeneration requests with an empty or omitted `fieldPath`, and the regeneration prompt now explicitly supports both field-level and full-design updates. The handoff now records these fixes and the remaining repo risks.
+
+### Edits
+- `src/app/api/generate/route.ts`
+  - Accepts `entityYaml` from the gallery client, with fallback to `entity` for compatibility.
+  - Uses the normalized YAML source for parsing.
+  - Runs `cleanupJobs()` before creating a new job.
+- `src/app/api/regenerate/route.ts`
+  - Treats `fieldPath` as optional instead of required.
+  - Allows the editor’s global feedback regeneration flow to submit an empty field path.
+- `src/lib/prompts/regenerate.ts`
+  - Expanded the prompt contract to support full-design regeneration when `fieldPath` is empty.
+  - Clarified the target description so the model can return either a single field value or a full `GameDesign` object.
+- `HANDOFF.md`
+  - Added this review entry with the commit window reviewed, fixes applied, and current risks.
+
+### NOT Changed
+- No automated tests were added. `package.json` still has no `test` script.
+- No Prisma, NextAuth, or database work was added in this pass.
+- No broader pipeline refactor was done beyond the API contract fixes above.
+- `src/lib/llm/` and `src/lib/yaml-parser.ts` remain present in the workspace as untracked files; they were reviewed but not committed in this pass.
+
+### Verification
+```bash
+git log --oneline --decorate -n 5
+npx eslint src/app/api/generate/route.ts src/app/api/regenerate/route.ts src/lib/prompts/regenerate.ts
+npm run build
+npm run lint
+git status --short
+```
+
+Notes:
+- `npm run build` passed after the API contract fixes.
+- `npm run lint` passed.
+- No automated tests were available to run.
+
+---
+
+## Phase 1: AI Pipeline — Complete
+
+### Problem
+Phase 0 delivered the full UI scaffold (Upload, Gallery, Editor screens) but all backend functionality was stubbed with `console.log()`. No API routes, no generation pipeline, no prompt engineering, no markdown export. The app couldn't generate or evaluate designs.
+
+### Solution
+Implemented the complete backend on branch `feat/phase1-ai-pipeline` — 13 new files, 5 modified files, all stateless (no DB). The generation pipeline runs multi-pass LLM calls (generate → evaluate → fix → re-evaluate) with JSON parse retry logic. API routes use an in-memory job store for async generation with polling. Frontend is fully wired to the real API.
+
+### Edits
+- `src/lib/design-schema.ts` — Added `RubricIssue`, `VariantResult` (optional design for failed variants), `GenerationJob` types + Zod schemas
+- `src/store/design-store.ts` — Added `llmProvider`, `apiKey`, `setLlmConfig` with Zustand `persist` middleware (localStorage)
+- `src/lib/prompts/generate.ts` — Pass 1 prompt builder. Loads 5 data files at module scope, builds system + user messages with JSON schema instructions
+- `src/lib/prompts/evaluate.ts` — Pass 2/4 rubric evaluation prompt with D1-D9 criteria
+- `src/lib/prompts/fix.ts` — Pass 3 targeted fix prompt using failing dimensions + issues
+- `src/lib/prompts/regenerate.ts` — Per-field regeneration prompt for Ask AI feature
+- `src/lib/pipeline.ts` — Multi-pass pipeline: `generateVariant()` (4-pass with retry), `selectVariantConfigs()`, `runGenerationJob()` (sequential with per-variant error catching)
+- `src/lib/markdown-export.ts` — `exportSpec()` (full format) and `exportProd()` (condensed per transform.md rules)
+- `src/lib/api-client.ts` — Fetch wrapper: `startGeneration`, `pollGenerationStatus`, `evaluateDesign`, `regenerateField`, `exportDesign`
+- `src/app/api/upload/route.ts` — YAML upload + parse endpoint
+- `src/app/api/generate/route.ts` — Async generation job creation with in-memory store + 30min TTL cleanup
+- `src/app/api/generate/[jobId]/status/route.ts` — Polling endpoint for generation progress
+- `src/app/api/evaluate/route.ts` — 9D rubric evaluation via LLM
+- `src/app/api/regenerate/route.ts` — Per-field AI regeneration
+- `src/app/api/export/route.ts` — Markdown export (spec + prod)
+- `src/app/gallery/[entityId]/page.tsx` — Added LLM settings bar (provider dropdown + API key input), generation trigger, 3-second polling loop with progressive variant rendering
+- `src/app/editor/[designId]/page.tsx` — Wired `handleAskAI`, `handleRerunRubric`, `handleRegenerateWithFeedback`, `handleExport` to real API calls
+- `.gitignore` — Fixed `lib/` → `/lib/` to stop ignoring `src/lib/`
+
+### NOT Changed
+- No Prisma schema, NextAuth, or database — all state is in-memory/client-side
+- No automated tests added — verification is build + lint + manual
+- No settings page — LLM config is inline on the gallery page
+- ScorecardPanel component unchanged — already accepted `isEvaluating` prop
+
+### Verification
+```bash
+npm run build    # All 9 routes compile, 0 errors
+npm run lint     # 0 warnings, 0 errors
+npm run dev      # Start dev server on http://localhost:3000
+```
+
+Manual smoke test:
+1. Upload YAML from `data/mappings_dev20_0318/animals/big_cats.yaml`
+2. Navigate to gallery, enter API key, click "Generate Variants"
+3. Watch variants appear progressively as each completes
+4. Click a variant to open in editor
+5. Click "Re-run Rubric" to re-evaluate
+6. Click "Export Design" to download spec + prod markdown
+
+---
+
 ## Phase 0 Review and Hardening — Complete
 
 ### Problem

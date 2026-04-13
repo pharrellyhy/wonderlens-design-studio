@@ -23,9 +23,7 @@ export default function Home() {
           <h1 className="text-xl font-bold text-white">
             WonderLens Design Studio
           </h1>
-          <button className="text-gray-400 hover:text-white text-sm">
-            ⚙️ Settings
-          </button>
+          <div /> {/* Spacer for layout balance */}
         </div>
       </header>
 
