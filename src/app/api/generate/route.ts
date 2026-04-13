@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-import { generationModeSchema } from "@/lib/design-schema";
-import type { GenerationJob } from "@/lib/design-schema";
+import { categorySchema, generationModeSchema } from "@/lib/design-schema";
+import type { Category, GenerationJob } from "@/lib/design-schema";
 import { jobs, cleanupJobs } from "@/lib/job-store";
 import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
 import type { LLMProviderType } from "@/lib/llm/provider";
 import { runGenerationJob, selectVariantConfigs } from "@/lib/pipeline";
 import { parseEntityYaml } from "@/lib/yaml-parser";
+
+const variantConfigsSchema = z
+  .array(
+    z.object({
+      category: categorySchema,
+      gameStyle: z.string().min(1),
+    }),
+  )
+  .optional();
 
 // ---------------------------------------------------------------------------
 // POST /api/generate
@@ -18,14 +28,14 @@ export async function POST(request: NextRequest) {
     const {
       entity,
       entityYaml,
-      variantConfigs,
+      variantConfigs: rawVariantConfigs,
       llmProvider,
       apiKey,
       generationMode: rawGenerationMode,
     } = body as {
       entity?: string;
       entityYaml?: string;
-      variantConfigs?: Array<{ category: string; gameStyle: string }>;
+      variantConfigs?: unknown;
       llmProvider: LLMProviderType;
       apiKey?: string;
       generationMode?: unknown;
@@ -52,6 +62,25 @@ export async function POST(request: NextRequest) {
       );
     }
     const generationMode = parseResult.data;
+
+    // Narrow variantConfigs to the Category union so runGenerationJob gets a
+    // strictly-typed array. Invalid entries reject the request at the boundary
+    // instead of failing silently inside generateVariant.
+    let variantConfigs:
+      | Array<{ category: Category; gameStyle: string }>
+      | undefined;
+    if (rawVariantConfigs !== undefined) {
+      const configsResult = variantConfigsSchema.safeParse(rawVariantConfigs);
+      if (!configsResult.success) {
+        return NextResponse.json(
+          {
+            error: `Invalid variantConfigs: ${configsResult.error.message}`,
+          },
+          { status: 400 },
+        );
+      }
+      variantConfigs = configsResult.data;
+    }
 
     const resolvedKey = resolveApiKey(llmProvider, apiKey);
     if (!resolvedKey) {

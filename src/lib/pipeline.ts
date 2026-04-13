@@ -7,6 +7,7 @@ import {
   rubricScoresSchema,
 } from "@/lib/design-schema";
 import type {
+  Category,
   GameDesign,
   GenerationJob,
   GenerationMode,
@@ -41,6 +42,24 @@ const evaluateResponseSchema = z.object({
 // ---------------------------------------------------------------------------
 
 const MAX_FIX_ITERATIONS = 3;
+
+/**
+ * Canonical ordered tuple of the nine rubric dimension keys. Use this rather
+ * than `Object.keys(scores)` / `Object.values(scores)` when computing totals
+ * so a future stray property on the scores object can't silently inflate the
+ * count.
+ */
+const DIMENSION_KEYS = [
+  "d1",
+  "d2",
+  "d3",
+  "d4",
+  "d5",
+  "d6",
+  "d7",
+  "d8",
+  "d9",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Helper: parseJsonResponse
@@ -155,7 +174,7 @@ const ALL_FAIL_SCORES: RubricScores = {
  */
 export async function generateVariant(
   entity: ParsedEntity,
-  category: string,
+  category: Category,
   gameStyle: string,
   generationMode: GenerationMode,
   provider: LLMProvider
@@ -228,34 +247,32 @@ export async function generateVariant(
   // ONLY place we're allowed to swallow a persistence error: a failure here
   // must not block the user receiving their successfully generated variant.
   // All other filesystem concerns live behind `runs-repository.ts`.
-  if (category === "cat1" || category === "cat5") {
-    const runId = createRunId();
-    const totalScore = Object.values(evaluation.scores).filter(
-      (score) => score === "pass",
-    ).length;
+  const runId = createRunId();
+  const totalScore = DIMENSION_KEYS.filter(
+    (d) => evaluation.scores[d] === "pass",
+  ).length;
 
-    const record: RunRecord = {
-      runId,
-      timestamp: new Date().toISOString(),
-      entity: slugifyEntity(entity.name),
-      entityDisplayName: entity.name,
-      category,
-      gameStyle,
-      generationMode,
-      isOpposite: false,
-      parentRunId: null,
-      rubric: evaluation.scores,
-      totalScore,
-      designId,
-      design,
-      durationMs,
-    };
+  const record: RunRecord = {
+    runId,
+    timestamp: new Date().toISOString(),
+    entity: slugifyEntity(entity.name),
+    entityDisplayName: entity.name,
+    category,
+    gameStyle,
+    generationMode,
+    isOpposite: false,
+    parentRunId: null,
+    rubric: evaluation.scores,
+    totalScore,
+    designId,
+    design,
+    durationMs,
+  };
 
-    try {
-      await saveRun(record);
-    } catch (error) {
-      console.error("[pipeline] failed to persist run", runId, error);
-    }
+  try {
+    await saveRun(record);
+  } catch (error) {
+    console.error("[pipeline] failed to persist run", runId, error);
   }
 
   return {
@@ -281,8 +298,8 @@ export async function generateVariant(
  */
 export function selectVariantConfigs(
   maxVariants: number = 4
-): Array<{ category: string; gameStyle: string }> {
-  const configs: Array<{ category: string; gameStyle: string }> = [];
+): Array<{ category: Category; gameStyle: string }> {
+  const configs: Array<{ category: Category; gameStyle: string }> = [];
 
   const cat1Styles = [...GAME_STYLES.cat1];
   const cat5Styles = [...GAME_STYLES.cat5];
@@ -300,9 +317,15 @@ export function selectVariantConfigs(
   }
 
   // Fill remaining from unused styles, alternating categories
-  const remaining = [
-    ...cat1Styles.map((style) => ({ category: "cat1", gameStyle: style })),
-    ...cat5Styles.map((style) => ({ category: "cat5", gameStyle: style })),
+  const remaining: Array<{ category: Category; gameStyle: string }> = [
+    ...cat1Styles.map((style) => ({
+      category: "cat1" as const,
+      gameStyle: style,
+    })),
+    ...cat5Styles.map((style) => ({
+      category: "cat5" as const,
+      gameStyle: style,
+    })),
   ];
   shuffleArray(remaining);
 
@@ -336,7 +359,7 @@ const VARIANT_CONCURRENCY = 3;
 export async function runGenerationJob(
   job: GenerationJob,
   entity: ParsedEntity,
-  variantConfigs: Array<{ category: string; gameStyle: string }>,
+  variantConfigs: Array<{ category: Category; gameStyle: string }>,
   generationMode: GenerationMode,
   provider: LLMProvider
 ): Promise<void> {

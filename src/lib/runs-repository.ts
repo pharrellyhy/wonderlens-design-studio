@@ -14,22 +14,27 @@ import {
 // RunRecord schema + type
 // ---------------------------------------------------------------------------
 
-export const runRecordSchema = z.object({
-  runId: z.string().min(1),
-  timestamp: z.string().min(1),
-  entity: z.string().min(1),
-  entityDisplayName: z.string().min(1),
-  category: z.enum(["cat1", "cat5"]),
-  gameStyle: z.string().min(1),
-  generationMode: generationModeSchema,
-  isOpposite: z.boolean(),
-  parentRunId: z.string().nullable(),
-  rubric: rubricScoresSchema,
-  totalScore: z.number().int().min(0).max(9),
-  designId: z.string().min(1),
-  design: gameDesignSchema,
-  durationMs: z.number().int().nonnegative(),
-});
+export const runRecordSchema = z
+  .object({
+    runId: z.string().min(1),
+    timestamp: z.string().datetime(),
+    entity: z.string().min(1),
+    entityDisplayName: z.string().min(1),
+    category: z.enum(["cat1", "cat5"]),
+    gameStyle: z.string().min(1),
+    generationMode: generationModeSchema,
+    isOpposite: z.boolean(),
+    // The parent's designId (matches in-memory VariantResult.id and
+    // RunRecord.designId). Despite the "parentRunId" name, this holds the
+    // design's id, not the run file's hash id. See plan Section 2.
+    parentRunId: z.string().nullable(),
+    rubric: rubricScoresSchema,
+    totalScore: z.number().int().min(0).max(9),
+    designId: z.string().min(1),
+    design: gameDesignSchema,
+    durationMs: z.number().int().nonnegative(),
+  })
+  .strict();
 
 export type RunRecord = z.infer<typeof runRecordSchema>;
 
@@ -65,11 +70,11 @@ export function slugifyEntity(raw: string): string {
 }
 
 /**
- * Build the 6-char run id used in filenames. Strips dashes from a UUID and
- * returns the first 6 characters.
+ * Build the 10-char run id used in filenames. Strips dashes from a UUID and
+ * returns the first 10 characters (collision space ~1T).
  */
 export function createRunId(): string {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 10);
 }
 
 function buildFileName(run: RunRecord): string {
@@ -105,8 +110,15 @@ function isNodeErrnoException(error: unknown): error is NodeJS.ErrnoException {
  * This guarantees readers never observe a half-written JSON file.
  */
 export async function saveRun(run: RunRecord): Promise<void> {
+  // Enforce the denormalization invariant: the embedded design is the source
+  // of truth for generationMode. See plan 2026-04-14-autodesign-parity-changes
+  // Section 4 — "Note on generationMode denormalization".
+  const normalized = {
+    ...run,
+    generationMode: run.design.basicInfo.generationMode,
+  };
   // Defensive: validate the caller-provided record before we touch disk.
-  const validated = runRecordSchema.parse(run);
+  const validated = runRecordSchema.parse(normalized);
 
   await ensureRunsDir();
 
@@ -194,27 +206,51 @@ export async function findOppositeOf(
   );
 }
 
+/**
+ * Batch lookup: given a set of parent designIds, returns a Map from
+ * parentDesignId → opposite RunRecord for every parent that has an opposite.
+ * Reads the runs directory ONCE instead of N times — use this over calling
+ * findOppositeOf in a loop. Called from the gallery when rendering variant
+ * cards to decide which "Generate opposite" buttons are disabled.
+ */
+export async function findOppositesFor(
+  parentDesignIds: readonly string[],
+): Promise<Map<string, RunRecord>> {
+  if (parentDesignIds.length === 0) return new Map();
+  const all = await listRuns();
+  const parentSet = new Set(parentDesignIds);
+  const result = new Map<string, RunRecord>();
+  for (const record of all) {
+    if (
+      record.isOpposite &&
+      record.parentRunId !== null &&
+      parentSet.has(record.parentRunId)
+    ) {
+      // First match wins — listRuns returns newest first.
+      if (!result.has(record.parentRunId)) {
+        result.set(record.parentRunId, record);
+      }
+    }
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // deleteRun
 // ---------------------------------------------------------------------------
 
 /**
  * Remove the file for `runId`. Idempotent: missing file is a no-op.
- * Any other filesystem error (permissions, etc.) is re-thrown.
+ * Scans the directory by suffix rather than reconstructing the filename, so
+ * it's robust to filename scheme changes. Any filesystem error other than
+ * ENOENT is re-thrown.
  */
 export async function deleteRun(runId: string): Promise<void> {
-  // Find the actual filename via listRuns so we don't have to parse suffix
-  // conventions in two places.
-  const all = await listRuns();
-  const target = all.find((r) => r.runId === runId);
-  if (!target) {
-    return;
-  }
-
-  const fileName = buildFileName(target);
-  const finalPath = path.join(runsDir(), fileName);
   try {
-    await fs.unlink(finalPath);
+    const entries = await fs.readdir(runsDir());
+    const match = entries.find((name) => name.endsWith(`-${runId}.json`));
+    if (!match) return; // idempotent
+    await fs.unlink(path.join(runsDir(), match));
   } catch (error) {
     if (isNodeErrnoException(error) && error.code === "ENOENT") {
       return;

@@ -61,6 +61,7 @@ export type Step = z.infer<typeof stepSchema>;
 // ── Game Design ─────────────────────────────────────────────────────────────
 
 export const categorySchema = z.enum(["cat1", "cat5"]);
+export type Category = z.infer<typeof categorySchema>;
 export const tierSchema = z.enum(["T0", "T1", "T2"]);
 export const synthesisTypeSchema = z.enum(["narrative", "classification"]);
 
