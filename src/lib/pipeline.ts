@@ -20,6 +20,12 @@ import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
 import { buildFixMessages } from "@/lib/prompts/fix";
 import { buildGenerateMessages } from "@/lib/prompts/generate";
 import { applyD5Override } from "@/lib/rubric-checks";
+import {
+  createRunId,
+  saveRun,
+  slugifyEntity,
+  type RunRecord,
+} from "@/lib/runs-repository";
 
 // ---------------------------------------------------------------------------
 // Evaluate response schema
@@ -154,6 +160,10 @@ export async function generateVariant(
   generationMode: GenerationMode,
   provider: LLMProvider
 ): Promise<VariantResult> {
+  // Measure the full multi-pass duration so the persisted RunRecord can
+  // carry end-to-end generation latency for later analysis.
+  const startTime = Date.now();
+
   // Pass 1 — Generate
   const generateMessages = buildGenerateMessages(
     entity,
@@ -211,8 +221,45 @@ export async function generateVariant(
     );
   }
 
+  const designId = crypto.randomUUID();
+  const durationMs = Date.now() - startTime;
+
+  // Persist the completed run to the dev-only filesystem store. This is the
+  // ONLY place we're allowed to swallow a persistence error: a failure here
+  // must not block the user receiving their successfully generated variant.
+  // All other filesystem concerns live behind `runs-repository.ts`.
+  if (category === "cat1" || category === "cat5") {
+    const runId = createRunId();
+    const totalScore = Object.values(evaluation.scores).filter(
+      (score) => score === "pass",
+    ).length;
+
+    const record: RunRecord = {
+      runId,
+      timestamp: new Date().toISOString(),
+      entity: slugifyEntity(entity.name),
+      entityDisplayName: entity.name,
+      category,
+      gameStyle,
+      generationMode,
+      isOpposite: false,
+      parentRunId: null,
+      rubric: evaluation.scores,
+      totalScore,
+      designId,
+      design,
+      durationMs,
+    };
+
+    try {
+      await saveRun(record);
+    } catch (error) {
+      console.error("[pipeline] failed to persist run", runId, error);
+    }
+  }
+
   return {
-    id: crypto.randomUUID(),
+    id: designId,
     design,
     rubricScores: evaluation.scores,
     issues: evaluation.issues,
