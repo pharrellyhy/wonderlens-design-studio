@@ -54,7 +54,7 @@ The pipeline's Generate pass (Pass 1 in the multi-pass flow) now branches on `ge
 **Freeform mode** (`generationMode: "freeform"`)
 - System prompt reads entity YAML for `themes[]` and `keyConcepts[]` only.
 - `tier_guidance` is injected as **soft guidance**: "Preferred language complexity and dimension profile. You may diverge when it serves the activity."
-- Bridge step produces a single generic opener. `warmStart` is populated; `coldStart` is an empty string (`""`) by convention.
+- Bridge step produces a single generic opener. `warmStart` is populated; `coldStart` is omitted entirely (undefined / not present in the JSON). The schema field `coldStart` remains `.optional()`; the prompt instructs the model to leave it out in freeform mode. `DialogueBlock` is an object, not a string, so "empty string by convention" is not a valid shape.
 - `conversation_bridge.md` content is **not** injected into the system prompt.
 
 **Mapping-informed mode** (`generationMode: "mapping-informed"`)
@@ -235,7 +235,7 @@ No automated tests exist. Run these after each section is implemented.
 
 ### After Section 2 (pipeline + opposite endpoint)
 - Upload a real entity YAML (e.g., copy `banana.yaml` from autodesign's `data/mappings_dev20_0318/` into a local test file), generate with `generationMode: "mapping-informed"` → bridge step has two distinct non-empty lines, each referencing a dimension from the mapping.
-- Same YAML, `generationMode: "freeform"` → bridge step has one opener in `warmStart`, `coldStart` is empty, no dimension-grounded language.
+- Same YAML, `generationMode: "freeform"` → bridge step has one opener in `warmStart`, `coldStart` is omitted (undefined), no dimension-grounded language.
 - `POST /api/generate/opposite { sourceDesignId }` with a cat1 design id → a cat5 sibling run file appears in `data/runs/` with `isOpposite: true` and `parentRunId` set correctly.
 - Attempt opposite on a design that already has one (client-side) → confirm the gallery button is disabled.
 

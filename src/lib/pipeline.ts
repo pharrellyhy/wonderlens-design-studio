@@ -17,6 +17,7 @@ import type {
 } from "@/lib/design-schema";
 import type { LLMMessage, LLMProvider } from "@/lib/llm/provider";
 import type { ParsedEntity } from "@/lib/yaml-parser";
+import { jobs } from "@/lib/job-store";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
 import { buildFixMessages } from "@/lib/prompts/fix";
 import { buildGenerateMessages } from "@/lib/prompts/generate";
@@ -178,7 +179,7 @@ export async function generateVariant(
   gameStyle: string,
   generationMode: GenerationMode,
   provider: LLMProvider,
-  options?: { parentDesignId?: string },
+  options?: { parentDesignId?: string; designId?: string },
 ): Promise<VariantResult> {
   // Measure the full multi-pass duration so the persisted RunRecord can
   // carry end-to-end generation latency for later analysis.
@@ -244,7 +245,11 @@ export async function generateVariant(
     );
   }
 
-  const designId = crypto.randomUUID();
+  // Callers MAY provide the target designId so that an upstream placeholder's
+  // id stays in sync with the persisted RunRecord.designId. Without this the
+  // placeholder id and the saved id diverge, and subsequent
+  // `getRunByDesignId(placeholder.id)` lookups 404.
+  const designId = options?.designId ?? crypto.randomUUID();
   const durationMs = Date.now() - startTime;
 
   // Persist the completed run to the dev-only filesystem store. This is the
@@ -391,10 +396,12 @@ export async function runGenerationJob(
           config.category,
           config.gameStyle,
           generationMode,
-          provider
+          provider,
+          { designId: placeholder.id },
         );
-        // Mutate the placeholder in place so its id (which the client may
-        // already be tracking) is preserved.
+        // Mutate the placeholder in place. Because we passed the placeholder
+        // id into generateVariant via options.designId, result.id is already
+        // equal to placeholder.id and the saved RunRecord uses the same id.
         placeholder.design = result.design;
         placeholder.rubricScores = result.rubricScores;
         placeholder.issues = result.issues;
@@ -475,4 +482,98 @@ function shuffleArray<T>(array: T[]): void {
     const j = Math.floor(Math.random() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]];
   }
+}
+
+// ---------------------------------------------------------------------------
+// enqueueSingleVariantJob
+// ---------------------------------------------------------------------------
+
+/**
+ * Enqueue a single-variant generation job. Creates the job placeholder,
+ * stores it in the job map, fires the generate background closure, and
+ * returns the jobId synchronously so the caller can respond with it.
+ *
+ * This is the shared path between:
+ * - the opposite-category endpoint
+ * - (future) any other single-variant dispatch, e.g., "retry this variant"
+ *
+ * For multi-variant batches, use `runGenerationJob` directly.
+ *
+ * The placeholder id is reused as the persisted `RunRecord.designId` by
+ * forwarding it into `generateVariant` via `options.designId`. This keeps
+ * the id the client tracks identical to the id on disk.
+ */
+export function enqueueSingleVariantJob(params: {
+  entity: ParsedEntity;
+  category: Category;
+  gameStyle: string;
+  generationMode: GenerationMode;
+  provider: LLMProvider;
+  parentDesignId?: string;
+}): { jobId: string; job: GenerationJob } {
+  const {
+    entity,
+    category,
+    gameStyle,
+    generationMode,
+    provider,
+    parentDesignId,
+  } = params;
+
+  const jobId = crypto.randomUUID();
+  const placeholder: VariantResult = {
+    id: crypto.randomUUID(),
+    category,
+    gameStyle,
+    status: "pending",
+  };
+  const job: GenerationJob = {
+    id: jobId,
+    status: "queued",
+    currentVariant: 0,
+    totalVariants: 1,
+    variants: [placeholder],
+    createdAt: Date.now(),
+  };
+  jobs.set(jobId, job);
+
+  // Fire-and-forget — the caller responds with the jobId immediately and the
+  // client polls /api/generate/[jobId]/status for progress.
+  void (async () => {
+    job.status = "generating";
+    try {
+      const result = await generateVariant(
+        entity,
+        category,
+        gameStyle,
+        generationMode,
+        provider,
+        { parentDesignId, designId: placeholder.id },
+      );
+      placeholder.design = result.design;
+      placeholder.rubricScores = result.rubricScores;
+      placeholder.issues = result.issues;
+      placeholder.status = "complete";
+      job.currentVariant = 1;
+      job.status = "complete";
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown generation error";
+      placeholder.rubricScores = ALL_FAIL_SCORES;
+      placeholder.issues = [
+        { dimension: "pipeline", description: message },
+      ];
+      placeholder.status = "failed";
+      placeholder.error = message;
+      job.currentVariant = 1;
+      job.status = "failed";
+      job.error = message;
+      console.error(
+        `[pipeline] single-variant job ${jobId} failed:`,
+        error,
+      );
+    }
+  })();
+
+  return { jobId, job };
 }
