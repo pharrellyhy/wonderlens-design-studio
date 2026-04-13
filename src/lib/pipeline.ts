@@ -177,7 +177,8 @@ export async function generateVariant(
   category: Category,
   gameStyle: string,
   generationMode: GenerationMode,
-  provider: LLMProvider
+  provider: LLMProvider,
+  options?: { parentDesignId?: string },
 ): Promise<VariantResult> {
   // Measure the full multi-pass duration so the persisted RunRecord can
   // carry end-to-end generation latency for later analysis.
@@ -205,8 +206,11 @@ export async function generateVariant(
     evaluateResponseSchema,
     { temperature: 0.2 }
   );
-  let evaluation: { scores: RubricScores; issues: RubricIssue[] } =
-    applyD5Override(llmEvaluation.scores, llmEvaluation.issues, design);
+  let evaluation = applyD5Override(
+    llmEvaluation.scores,
+    llmEvaluation.issues,
+    design,
+  );
 
   // Pass 3 & 4 — Fix loop (up to MAX_FIX_ITERATIONS)
   let fixIteration = 0;
@@ -260,13 +264,14 @@ export async function generateVariant(
     category,
     gameStyle,
     generationMode,
-    isOpposite: false,
-    parentRunId: null,
+    isOpposite: options?.parentDesignId !== undefined,
+    parentRunId: options?.parentDesignId ?? null,
     rubric: evaluation.scores,
     totalScore,
     designId,
     design,
     durationMs,
+    sourceEntityYaml: entity.rawYaml,
   };
 
   try {

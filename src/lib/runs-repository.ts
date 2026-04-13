@@ -33,6 +33,11 @@ export const runRecordSchema = z
     designId: z.string().min(1),
     design: gameDesignSchema,
     durationMs: z.number().int().nonnegative(),
+    // Raw YAML that produced this run's design. Stored so the opposite-
+    // category endpoint can re-parse a `ParsedEntity` via `parseEntityYaml`
+    // and feed it back into `generateVariant` without losing tier_guidance
+    // and dimension data that the design's `entityMapping` does not retain.
+    sourceEntityYaml: z.string().min(1),
   })
   .strict();
 
