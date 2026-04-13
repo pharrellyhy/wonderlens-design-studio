@@ -4,6 +4,54 @@ Last updated: 2026-03-26
 
 ---
 
+## Phase 1 Review and Contract Fixes — Complete
+
+### Problem
+Picked up from the existing Phase 1 handoff and reviewed the recent commit window (`fe61151`, `fa1b7be`, `37b150e`, `bd110da`, `06cd631`) plus the current workspace delta. Two end-to-end regressions were present in the newly wired API flow:
+- Gallery generation posted `entityYaml`, but `POST /api/generate` still required `entity`
+- Editor global regeneration posted an empty `fieldPath`, but `POST /api/regenerate` rejected empty strings as missing input
+
+The workspace also still contains required runtime files under `src/lib/llm/` and `src/lib/yaml-parser.ts` as untracked files, and there is still no automated test suite in the repo.
+
+### Solution
+Reviewed the committed Phase 1 flow and fixed the broken request/response contracts instead of broadening scope. `POST /api/generate` now accepts the client payload shape used by the gallery and remains backward-compatible with the older `entity` field. `POST /api/regenerate` now accepts full-design regeneration requests with an empty or omitted `fieldPath`, and the regeneration prompt now explicitly supports both field-level and full-design updates. The handoff now records these fixes and the remaining repo risks.
+
+### Edits
+- `src/app/api/generate/route.ts`
+  - Accepts `entityYaml` from the gallery client, with fallback to `entity` for compatibility.
+  - Uses the normalized YAML source for parsing.
+  - Runs `cleanupJobs()` before creating a new job.
+- `src/app/api/regenerate/route.ts`
+  - Treats `fieldPath` as optional instead of required.
+  - Allows the editor’s global feedback regeneration flow to submit an empty field path.
+- `src/lib/prompts/regenerate.ts`
+  - Expanded the prompt contract to support full-design regeneration when `fieldPath` is empty.
+  - Clarified the target description so the model can return either a single field value or a full `GameDesign` object.
+- `HANDOFF.md`
+  - Added this review entry with the commit window reviewed, fixes applied, and current risks.
+
+### NOT Changed
+- No automated tests were added. `package.json` still has no `test` script.
+- No Prisma, NextAuth, or database work was added in this pass.
+- No broader pipeline refactor was done beyond the API contract fixes above.
+- `src/lib/llm/` and `src/lib/yaml-parser.ts` remain present in the workspace as untracked files; they were reviewed but not committed in this pass.
+
+### Verification
+```bash
+git log --oneline --decorate -n 5
+npx eslint src/app/api/generate/route.ts src/app/api/regenerate/route.ts src/lib/prompts/regenerate.ts
+npm run build
+npm run lint
+git status --short
+```
+
+Notes:
+- `npm run build` passed after the API contract fixes.
+- `npm run lint` passed.
+- No automated tests were available to run.
+
+---
+
 ## Phase 1: AI Pipeline — Complete
 
 ### Problem

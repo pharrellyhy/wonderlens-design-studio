@@ -15,17 +15,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { design, fieldPath, comment, llmProvider, apiKey } = body as {
       design: unknown;
-      fieldPath: string;
+      fieldPath?: string;
       comment: string;
       llmProvider: LLMProviderType;
       apiKey: string;
     };
+    const targetFieldPath = fieldPath ?? "";
 
-    if (!design || !fieldPath || !comment || !llmProvider || !apiKey) {
+    if (!design || !comment || !llmProvider || !apiKey) {
       return NextResponse.json(
         {
           error:
-            "Missing required fields: design, fieldPath, comment, llmProvider, apiKey",
+            "Missing required fields: design, comment, llmProvider, apiKey",
         },
         { status: 400 },
       );
@@ -33,7 +34,11 @@ export async function POST(request: NextRequest) {
 
     const validatedDesign = gameDesignSchema.parse(design);
     const provider = createLLMProvider(llmProvider, apiKey);
-    const messages = buildRegenerateMessages(validatedDesign, fieldPath, comment);
+    const messages = buildRegenerateMessages(
+      validatedDesign,
+      targetFieldPath,
+      comment
+    );
 
     // No jsonMode — output may be plain text (a single string value)
     const rawResponse = await provider.generate(messages, {

@@ -5,7 +5,7 @@ import type { LLMMessage } from "@/lib/llm/provider";
 // Regeneration system prompt — self-contained (no data file loading)
 // ---------------------------------------------------------------------------
 
-const REGENERATE_SYSTEM_PROMPT = `You are a WonderLens activity design editor. You modify a single field within a GameDesign JSON object based on a user comment and field path.
+const REGENERATE_SYSTEM_PROMPT = `You are a WonderLens activity design editor. You modify a field, section, or the full GameDesign JSON object based on a user comment and field path.
 
 ## How Field Paths Work
 
@@ -16,6 +16,7 @@ The field path uses dot notation to identify the exact field to regenerate. Exam
 - "steps[0].warmStart.aiSays" -> the aiSays field in the first step's warm start
 - "steps[2].rounds[1].dialogue.childResponses.ideal" -> the ideal response in round 2 of step 3
 - "entityMapping.anchorDimensions" -> the anchor dimensions array
+- "" (empty path) -> regenerate the full GameDesign object
 
 ## Return Value Types
 
@@ -25,6 +26,7 @@ Your output depends on the field type at the given path:
 - If the field is an **array of strings**, return a JSON array: ["item1", "item2"]
 - If the field is an **object** (like a DialogueBlock or childResponses), return the full JSON object with all required fields
 - If the field is an **array of objects** (like rounds), return the full JSON array with all required object fields
+- If the field path is empty, return the full updated GameDesign JSON object
 
 ## Rules
 
@@ -55,21 +57,25 @@ export function buildRegenerateMessages(
   fieldPath: string,
   comment: string
 ): LLMMessage[] {
-  const userContent = `Regenerate a specific field in the following WonderLens activity design.
+  const targetDescription = fieldPath
+    ? `the field at path "${fieldPath}"`
+    : "the full GameDesign object";
+
+  const userContent = `Regenerate part of the following WonderLens activity design.
 
 ## Full GameDesign JSON (for context)
 
 ${JSON.stringify(design, null, 2)}
 
-## Field to Regenerate
+## Target to Regenerate
 
-**Path**: ${fieldPath}
+**Path**: ${fieldPath || "(empty path = full design regeneration)"}
 
 ## User Comment
 
 ${comment}
 
-Based on the user's comment, generate a new value for the field at the specified path. Output ONLY the raw JSON value for that field.`;
+Based on the user's comment, generate a new value for ${targetDescription}. Output ONLY the raw JSON value for that target.`;
 
   return [
     { role: "system", content: REGENERATE_SYSTEM_PROMPT },

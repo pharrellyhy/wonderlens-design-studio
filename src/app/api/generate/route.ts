@@ -36,21 +36,25 @@ export function cleanupJobs(): void {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { entity, variantConfigs, llmProvider, apiKey } = body as {
-      entity: string;
+    const { entity, entityYaml, variantConfigs, llmProvider, apiKey } = body as {
+      entity?: string;
+      entityYaml?: string;
       variantConfigs?: Array<{ category: string; gameStyle: string }>;
       llmProvider: LLMProviderType;
       apiKey: string;
     };
+    const yamlSource = entityYaml ?? entity;
 
-    if (!entity || !llmProvider || !apiKey) {
+    if (!yamlSource || !llmProvider || !apiKey) {
       return NextResponse.json(
-        { error: "Missing required fields: entity, llmProvider, apiKey" },
+        { error: "Missing required fields: entityYaml, llmProvider, apiKey" },
         { status: 400 },
       );
     }
 
-    const parsedEntity = parseEntityYaml(entity);
+    cleanupJobs();
+
+    const parsedEntity = parseEntityYaml(yamlSource);
     const provider = createLLMProvider(llmProvider, apiKey);
     const configs = variantConfigs ?? selectVariantConfigs();
 
