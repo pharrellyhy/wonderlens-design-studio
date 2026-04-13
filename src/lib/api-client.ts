@@ -149,3 +149,24 @@ export async function exportDesign(params: ExportParams): Promise<ExportResult> 
     body: JSON.stringify(params),
   });
 }
+
+// ── Library actions ─────────────────────────────────────────────────────────
+
+export interface OpenRunResult {
+  runId: string;
+  designId: string;
+  design: GameDesign;
+  rubricScores: RubricScores;
+}
+
+export async function openLibraryRun(runId: string): Promise<OpenRunResult> {
+  return apiFetch<OpenRunResult>(
+    `/api/library/${encodeURIComponent(runId)}`,
+  );
+}
+
+export async function deleteLibraryRun(runId: string): Promise<void> {
+  await apiFetch<{ ok: true }>(`/api/library/${encodeURIComponent(runId)}`, {
+    method: "DELETE",
+  });
+}
