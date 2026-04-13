@@ -22,18 +22,38 @@ import type {
 
 export interface D5CheckResult {
   pass: boolean;
-  reason: string | null;
+  reason?: string;
+}
+
+/**
+ * Escape regex metacharacters so a user-supplied concept string can be
+ * embedded safely inside a `\b...\b` match.
+ */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Normalize strings for comparison: NFKC Unicode normalization (so visually
+ * identical glyphs compare equal) plus lowercasing.
+ */
+function normalize(s: string): string {
+  return s.normalize("NFKC").toLowerCase();
 }
 
 /**
  * Deterministically verify that the design's `closing` step carries a
  * non-empty `conceptReinforcement` field whose text contains a
- * case-insensitive substring match of at least one entry in
+ * case-insensitive, word-boundary match of at least one entry in
  * `basicInfo.coreKeyConcepts`.
  *
- * Returns `{ pass: true, reason: null }` on success. On failure, `reason`
- * explains which sub-check failed so the caller can surface it as a rubric
- * issue for the fix pass.
+ * Returns `{ pass: true }` on success. On failure, `reason` explains which
+ * sub-check failed so the caller can surface it as a rubric issue for the fix
+ * pass.
+ *
+ * Known limitation: morphological variants like "change" vs "changing" are
+ * not handled — only exact word-boundary matches count. Stemming is out of
+ * scope for v1.
  */
 export function checkD5Deterministic(design: GameDesign): D5CheckResult {
   const closing = design.steps.find((step) => step.type === "closing");
@@ -54,6 +74,7 @@ export function checkD5Deterministic(design: GameDesign): D5CheckResult {
     };
   }
 
+  // Defensive: drop any empty/whitespace-only concept entries before matching.
   const concepts = design.basicInfo.coreKeyConcepts.filter(
     (c) => c.trim().length > 0,
   );
@@ -66,10 +87,12 @@ export function checkD5Deterministic(design: GameDesign): D5CheckResult {
     };
   }
 
-  const haystack = reinforcement.toLowerCase();
-  const matched = concepts.some((concept) =>
-    haystack.includes(concept.toLowerCase()),
-  );
+  const haystack = normalize(reinforcement);
+  const matched = concepts.some((concept) => {
+    const normalized = normalize(concept.trim());
+    if (normalized.length === 0) return false;
+    return new RegExp(`\\b${escapeRegex(normalized)}\\b`, "u").test(haystack);
+  });
 
   if (!matched) {
     return {
@@ -78,7 +101,7 @@ export function checkD5Deterministic(design: GameDesign): D5CheckResult {
     };
   }
 
-  return { pass: true, reason: null };
+  return { pass: true };
 }
 
 // ---------------------------------------------------------------------------

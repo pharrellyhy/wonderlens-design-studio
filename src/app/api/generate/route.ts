@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { generationModeSchema } from "@/lib/design-schema";
-import type { GenerationJob, GenerationMode } from "@/lib/design-schema";
+import type { GenerationJob } from "@/lib/design-schema";
 import { jobs, cleanupJobs } from "@/lib/job-store";
 import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
 import type { LLMProviderType } from "@/lib/llm/provider";
@@ -40,23 +40,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Default to "mapping-informed" for backwards-compat with older clients
-    // that have not yet been updated to send generationMode (Section 3).
-    let generationMode: GenerationMode;
-    if (rawGenerationMode === undefined || rawGenerationMode === null) {
-      generationMode = "mapping-informed";
-    } else {
-      const parseResult = generationModeSchema.safeParse(rawGenerationMode);
-      if (!parseResult.success) {
-        return NextResponse.json(
-          {
-            error: `Invalid generationMode — must be "freeform" or "mapping-informed".`,
-          },
-          { status: 400 },
-        );
-      }
-      generationMode = parseResult.data;
+    // generationMode is required — callers must send it explicitly. No
+    // defaulting, so the client can never silently fall back to the wrong
+    // prompt branch.
+    const parseResult = generationModeSchema.safeParse(rawGenerationMode);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: `Missing or invalid generationMode — must be "freeform" or "mapping-informed".`,
+        },
+        { status: 400 },
+      );
     }
+    const generationMode = parseResult.data;
 
     const resolvedKey = resolveApiKey(llmProvider, apiKey);
     if (!resolvedKey) {

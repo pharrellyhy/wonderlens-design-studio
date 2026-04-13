@@ -40,6 +40,8 @@ Check every step for dependency on blocked capabilities:
 - Are 2-3 ATL skills identified in basicInfo.atlSkills? -> Must be YES to pass
 - Does the closing step naturally name the Key Concepts? -> Must be YES to pass
 
+Note: the closing step's \`conceptReinforcement\` field is checked deterministically by the caller, who will override D5 to fail if that check does not pass. Focus your D5 judgment on the other criteria above — Key Concept count, Related Concepts, KUD, and ATL skills — not on the closing dialogue text.
+
 ### D6: Tier Appropriateness
 For the target tier (basicInfo.tier), check:
 - T0 (ages 2-4): Sentences <=5 words? Onomatopoeia used? Single-step instructions? Call-and-response? Max 2 rounds?
