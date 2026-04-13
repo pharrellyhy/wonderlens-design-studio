@@ -55,14 +55,16 @@ export function LibraryTabs({ runs }: LibraryTabsProps) {
         // it on mount. `setActiveDesign` also clears stale rubric issues.
         setActiveDesign(result.designId, result.design, result.rubricScores);
         router.push(`/editor/${result.designId}`);
+        // Clear immediately after kicking off navigation so that if the
+        // user comes back via the browser Back button (or our nav link),
+        // the row isn't permanently stuck on "Opening...".
+        setBusyRunId(null);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to open run";
         setError(message);
         setBusyRunId(null);
       }
-      // Note: on success we intentionally leave `busyRunId` set — the user
-      // is leaving this view, no point un-flagging.
     },
     [busyRunId, router, setActiveDesign],
   );

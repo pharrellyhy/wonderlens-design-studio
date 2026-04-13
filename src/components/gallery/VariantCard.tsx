@@ -2,10 +2,9 @@
 
 import { ArrowLeftRight, Award, Drama, TrendingUp } from "lucide-react";
 import type { GameDesign, RubricScores } from "@/lib/design-schema";
-import {
-  CATEGORY_LABELS,
-  RUBRIC_DIMENSIONS,
-} from "@/lib/design-schema";
+import { RUBRIC_DIMENSIONS } from "@/lib/design-schema";
+import { CategoryPill } from "@/components/common/CategoryPill";
+import { ModePill } from "@/components/common/ModePill";
 
 interface VariantCardProps {
   id: string;
@@ -22,17 +21,14 @@ interface VariantCardProps {
   onGenerateOpposite: (designId: string) => void;
 }
 
-function categoryTagClass(category: string): string {
+// The gameStyle pill shares the category's color (indigo for cat1, green
+// for cat5) so the two pills read as a matching pair. Kept inline because
+// gameStyle pills are only used in the variant gallery — not worth a
+// shared component for one call site.
+function gameStyleTagClass(category: string): string {
   return category === "cat1"
     ? "bg-indigo-900/50 text-indigo-300"
     : "bg-green-900/50 text-green-300";
-}
-
-function categoryLabel(category: string): string {
-  if (category in CATEGORY_LABELS) {
-    return CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS];
-  }
-  return category;
 }
 
 export function VariantCard({
@@ -49,7 +45,7 @@ export function VariantCard({
   onClick,
   onGenerateOpposite,
 }: VariantCardProps) {
-  const tagClass = categoryTagClass(category);
+  const gameStyleClass = gameStyleTagClass(category);
   const generationMode = design?.basicInfo.generationMode;
 
   // ── Pending placeholder ────────────────────────────────────────────────
@@ -57,10 +53,8 @@ export function VariantCard({
     return (
       <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-5 min-h-[220px] flex flex-col">
         <div className="flex gap-1.5 flex-wrap mb-4">
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
-            {categoryLabel(category)}
-          </span>
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+          <CategoryPill category={category} useLabel />
+          <span className={`px-2 py-0.5 rounded text-xs ${gameStyleClass}`}>
             {gameStyle}
           </span>
         </div>
@@ -83,10 +77,8 @@ export function VariantCard({
     return (
       <div className="bg-gray-800 border border-red-800/60 rounded-xl p-5 min-h-[220px] flex flex-col">
         <div className="flex gap-1.5 flex-wrap mb-3">
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
-            {categoryLabel(category)}
-          </span>
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+          <CategoryPill category={category} useLabel />
+          <span className={`px-2 py-0.5 rounded text-xs ${gameStyleClass}`}>
             {gameStyle}
           </span>
         </div>
@@ -114,28 +106,11 @@ export function VariantCard({
       {/* Tags */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex gap-1.5 flex-wrap">
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
-            {categoryLabel(category)}
-          </span>
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+          <CategoryPill category={category} useLabel />
+          <span className={`px-2 py-0.5 rounded text-xs ${gameStyleClass}`}>
             {gameStyle}
           </span>
-          {generationMode && (
-            <span
-              className={`px-2 py-0.5 rounded text-xs font-medium ${
-                generationMode === "mapping-informed"
-                  ? "bg-blue-900/60 text-blue-300"
-                  : "bg-gray-700 text-gray-300"
-              }`}
-              title={
-                generationMode === "mapping-informed"
-                  ? "Generated with tier guidance + entity dimensions"
-                  : "Generated freeform; tier guidance is a loose preference"
-              }
-            >
-              {generationMode === "mapping-informed" ? "mapping" : "freeform"}
-            </span>
-          )}
+          {generationMode && <ModePill mode={generationMode} />}
           {parentDesignId && (
             <span
               className="px-2 py-0.5 rounded text-xs font-medium bg-orange-900/50 text-orange-300"

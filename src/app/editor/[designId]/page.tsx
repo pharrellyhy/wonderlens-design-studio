@@ -9,6 +9,7 @@ import { NavigationPanel } from "@/components/editor/NavigationPanel";
 import { ScorecardPanel } from "@/components/editor/ScorecardPanel";
 import { EditableField } from "@/components/editor/EditableField";
 import { DialogueBlockEditor } from "@/components/editor/DialogueBlock";
+import { ModePill } from "@/components/common/ModePill";
 import {
   CATEGORY_LABELS,
   TIER_LABELS,
@@ -140,8 +141,15 @@ export default function EditorPage() {
     }
   };
 
+  // Layout: the global app shell in `src/app/layout.tsx` is `body` →
+  // sticky <nav> + a `flex-1 flex flex-col` wrapper for {children}. Using
+  // `flex-1 min-h-0` here makes the editor consume exactly the viewport
+  // space below the nav (without a calc()), and `min-h-0` lets the inner
+  // overflow-y-auto panel actually scroll instead of pushing the page
+  // taller than the viewport. h-screen was previously bleeding past the
+  // bottom because nav-height + 100vh > 100vh.
   return (
-    <div className="h-screen bg-gray-950 text-gray-100 flex flex-col">
+    <div className="flex-1 min-h-0 bg-gray-950 text-gray-100 flex flex-col">
       {/* Header */}
       <header className="border-b border-gray-800 px-4 py-2 flex items-center justify-between flex-shrink-0">
         <button
@@ -155,22 +163,7 @@ export default function EditorPage() {
           <h1 className="text-sm font-semibold text-white">
             {activeDesign.basicInfo.activityName}
           </h1>
-          <span
-            className={`px-2 py-0.5 rounded text-[11px] font-medium ${
-              activeDesign.basicInfo.generationMode === "mapping-informed"
-                ? "bg-blue-900/60 text-blue-300"
-                : "bg-gray-700 text-gray-300"
-            }`}
-            title={
-              activeDesign.basicInfo.generationMode === "mapping-informed"
-                ? "Generated with tier guidance + entity dimensions"
-                : "Generated freeform; tier guidance is a loose preference"
-            }
-          >
-            {activeDesign.basicInfo.generationMode === "mapping-informed"
-              ? "mapping"
-              : "freeform"}
-          </span>
+          <ModePill mode={activeDesign.basicInfo.generationMode} />
         </div>
         <div className="w-32" /> {/* Spacer for centering */}
       </header>

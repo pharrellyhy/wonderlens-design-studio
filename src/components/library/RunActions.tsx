@@ -44,6 +44,7 @@ export function RunActions({
         }}
         disabled={anyBusy}
         title="Delete run from disk"
+        aria-label="Delete run"
         className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-gray-700 text-gray-400 hover:text-red-300 hover:border-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         <Trash2 className="w-3 h-3" />

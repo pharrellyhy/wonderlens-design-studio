@@ -124,7 +124,8 @@ Both modes write to the same `GameDesign` shape — only the content differs.
   - **Grid tab** (Option B from the mockup): responsive card grid matching the variant gallery's visual style, one card per run, reading from `runs-repository`.
 - **Empty state:** "No runs yet. Generate your first design from the upload page →"
 - **Pair grouping:** in both tabs, opposite siblings are visually grouped with their parent — in the table, the opposite row is indented under its parent with a `⇄` glyph; in the grid, the opposite card is placed immediately after its parent.
-- **Open action:** when user clicks Open on a run, the server reads the run file, pushes the full `GameDesign` back into the in-memory job store under its original `designId`, and redirects to `/editor/[designId]`. This restores editability — AI regen, export, re-run rubric all work. See Section 4 for the rehydration mechanic.
+- **Open action:** when user clicks Open on a run, the server reads the run file and returns its `GameDesign` + rubric scores. The client writes them directly into the Zustand `useDesignStore` via `setActiveDesign`, then redirects to `/editor/[designId]`. This restores editability — AI regen, export, re-run rubric all work.
+  - **Implementation deviation from the original plan:** the plan originally said the server "pushes the full `GameDesign` back into the in-memory job store under its original `designId`" and the editor would rehydrate from that store. In practice the editor is a pure client component that already reads its state from Zustand, so writing directly to the store from the LibraryTabs `handleOpen` is sufficient and avoids a second indirection through the in-memory job store. No server-side rehydration helper is needed.
 
 ---
 
@@ -208,7 +209,7 @@ export async function findOppositeOf(parentRunId: string): Promise<RunRecord | n
 - `src/lib/pipeline.ts` — after each completed variant generation (including opposites), calls `saveRun()` with the assembled `RunRecord`. Compute `rubric` and `totalScore` from the final evaluation pass.
 - `src/app/library/page.tsx` — server component, calls `listRuns()` directly. No new API route needed (pure read view).
 - `src/app/api/generate/opposite/route.ts` — calls `getRun(sourceRunId)` to fetch the parent if not in the job store; calls `saveRun()` for the child.
-- `src/app/editor/[designId]/page.tsx` — gains a fallback in its design loader: if the `designId` isn't in the in-memory job store, call a new lookup helper (lists run files, finds one whose `designId` matches, or accepts `runId` as an alias query param) to rehydrate the design into the job store before rendering.
+- `src/app/editor/[designId]/page.tsx` — no rehydration helper needed. The editor reads its state from the Zustand store, and the Library "Open" handler writes the design into the store via `setActiveDesign` immediately before navigating, so the editor finds the design already loaded on mount. (The plan originally specified a server-side rehydration fallback into the in-memory job store; that turned out to be unnecessary once the data flowed through Zustand.)
 - `src/app/api/library/[runId]/delete` (optional new route) OR inline server action from the library page — handles deletion. Simplest: a server action invoked from the Delete button.
 
 ### Atomicity and concurrency
