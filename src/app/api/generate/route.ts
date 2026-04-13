@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 import { generationModeSchema } from "@/lib/design-schema";
 import type { GenerationJob } from "@/lib/design-schema";
@@ -97,12 +96,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ jobId });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: `Validation error: ${error.message}` },
-        { status: 400 },
-      );
-    }
     const message =
       error instanceof Error ? error.message : "Failed to start generation";
     return NextResponse.json({ error: message }, { status: 400 });
