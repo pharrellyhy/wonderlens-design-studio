@@ -183,6 +183,21 @@ export const RUBRIC_DIMENSIONS = {
   d9: "Entity Mapping Alignment",
 } as const;
 
+export const RUBRIC_DIMENSION_DESCRIPTIONS: Record<
+  keyof typeof RUBRIC_DIMENSIONS,
+  string
+> = {
+  d1: "Step count matches the category template, round count is in range, and all required fields are present.",
+  d2: "Step 1 (bridge) references specific entity attributes from the YAML; warm start builds on prior conversation context.",
+  d3: "Transitions between steps feel organic, not abrupt; game introduction flows naturally from the bridge.",
+  d4: "All three response paths (ideal, unexpected, silent) are distinct and appropriate; silent responses include encouraging re-engagement.",
+  d5: "Core IB key concepts are genuinely woven into the activity, not just name-dropped; ATL skills are exercised through gameplay.",
+  d6: "Language complexity, sentence length, and cognitive demands match the target tier (T0/T1/T2).",
+  d7: "AI utterances are warm, age-appropriate, and varied; no repetitive phrasing across rounds.",
+  d8: "Every step has a screen description; descriptions are specific enough for a UI designer to implement.",
+  d9: "Creative variables (metaphor, role, game mechanic) connect meaningfully to the entity's attributes and dimensions.",
+};
+
 // ── Game style options ──────────────────────────────────────────────────────
 
 export const GAME_STYLES = {

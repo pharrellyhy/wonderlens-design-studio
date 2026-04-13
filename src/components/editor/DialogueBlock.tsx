@@ -1,5 +1,6 @@
 "use client";
 
+import { Bot, Monitor, User, Wand2 } from "lucide-react";
 import type { DialogueBlock as DialogueBlockType } from "@/lib/design-schema";
 
 interface DialogueBlockProps {
@@ -20,15 +21,17 @@ export function DialogueBlockEditor({
       {/* AI Says */}
       <div className="bg-gray-800 rounded-lg p-4 border-l-[3px] border-indigo-500">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-indigo-400 text-xs font-semibold">
-            🤖 AI SAYS
+          <span className="inline-flex items-center gap-1.5 text-indigo-400 text-xs font-semibold">
+            <Bot className="w-3.5 h-3.5" />
+            AI SAYS
           </span>
           {onAskAI && (
             <button
               onClick={() => onAskAI(`${basePath}.aiSays`, "")}
-              className="text-gray-500 hover:text-blue-400 text-xs"
+              className="inline-flex items-center gap-1 text-gray-500 hover:text-blue-400 text-xs transition-colors"
             >
-              ✨ regen
+              <Wand2 className="w-3 h-3" />
+              regen
             </button>
           )}
         </div>
@@ -42,8 +45,9 @@ export function DialogueBlockEditor({
 
       {/* Child Responses */}
       <div className="bg-gray-800 rounded-lg p-4 border-l-[3px] border-green-600">
-        <span className="text-green-400 text-xs font-semibold">
-          👶 CHILD RESPONSES
+        <span className="inline-flex items-center gap-1.5 text-green-400 text-xs font-semibold">
+          <User className="w-3.5 h-3.5" />
+          CHILD RESPONSES
         </span>
 
         <div className="mt-3 space-y-2">
@@ -93,8 +97,9 @@ export function DialogueBlockEditor({
 
       {/* AI Follow-ups */}
       <div className="bg-gray-800 rounded-lg p-4 border-l-[3px] border-purple-500">
-        <span className="text-purple-400 text-xs font-semibold">
-          🤖 AI FOLLOW-UPS
+        <span className="inline-flex items-center gap-1.5 text-purple-400 text-xs font-semibold">
+          <Bot className="w-3.5 h-3.5" />
+          AI FOLLOW-UPS
         </span>
 
         <div className="mt-3 space-y-2">
@@ -144,8 +149,9 @@ export function DialogueBlockEditor({
 
       {/* Screen Description */}
       <div className="bg-gray-800 rounded-lg p-4 border-l-[3px] border-gray-500">
-        <span className="text-gray-400 text-xs font-semibold">
-          🖥️ SCREEN DESCRIPTION
+        <span className="inline-flex items-center gap-1.5 text-gray-400 text-xs font-semibold">
+          <Monitor className="w-3.5 h-3.5" />
+          SCREEN DESCRIPTION
         </span>
         <textarea
           value={dialogue.screenDescription}

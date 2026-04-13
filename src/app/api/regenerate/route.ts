@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { gameDesignSchema } from "@/lib/design-schema";
-import { createLLMProvider } from "@/lib/llm/provider";
+import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
 import type { LLMProviderType } from "@/lib/llm/provider";
 import { buildRegenerateMessages } from "@/lib/prompts/regenerate";
 
@@ -18,22 +18,31 @@ export async function POST(request: NextRequest) {
       fieldPath?: string;
       comment: string;
       llmProvider: LLMProviderType;
-      apiKey: string;
+      apiKey?: string;
     };
     const targetFieldPath = fieldPath ?? "";
 
-    if (!design || !comment || !llmProvider || !apiKey) {
+    if (!design || !comment || !llmProvider) {
       return NextResponse.json(
         {
-          error:
-            "Missing required fields: design, comment, llmProvider, apiKey",
+          error: "Missing required fields: design, comment, llmProvider",
+        },
+        { status: 400 },
+      );
+    }
+
+    const resolvedKey = resolveApiKey(llmProvider, apiKey);
+    if (!resolvedKey) {
+      return NextResponse.json(
+        {
+          error: `No API key for provider "${llmProvider}". Provide one in the request or set the matching env var.`,
         },
         { status: 400 },
       );
     }
 
     const validatedDesign = gameDesignSchema.parse(design);
-    const provider = createLLMProvider(llmProvider, apiKey);
+    const provider = createLLMProvider(llmProvider, resolvedKey);
     const messages = buildRegenerateMessages(
       validatedDesign,
       targetFieldPath,

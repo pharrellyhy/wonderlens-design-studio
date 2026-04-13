@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { MessageCircle, Sparkles, Wand2 } from "lucide-react";
 
 interface EditableFieldProps {
   label: string;
@@ -41,18 +42,20 @@ export function EditableField({
         <div className="flex gap-2">
           <button
             onClick={() => setShowComment(!showComment)}
-            className="text-gray-500 hover:text-gray-300 text-xs"
+            className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-300 text-xs transition-colors"
           >
-            💬 comment
+            <MessageCircle className="w-3 h-3" />
+            comment
           </button>
           {onAskAI && (
             <button
               onClick={() => {
                 setShowComment(true);
               }}
-              className="text-gray-500 hover:text-blue-400 text-xs"
+              className="inline-flex items-center gap-1 text-gray-500 hover:text-blue-400 text-xs transition-colors"
             >
-              ✨ regen
+              <Wand2 className="w-3 h-3" />
+              regen
             </button>
           )}
         </div>
@@ -86,9 +89,10 @@ export function EditableField({
           />
           <button
             onClick={handleAskAI}
-            className="bg-indigo-700 hover:bg-indigo-600 text-white text-xs px-3 py-1 rounded-md"
+            className="inline-flex items-center gap-1 bg-indigo-700 hover:bg-indigo-600 text-white text-xs px-3 py-1 rounded-md transition-colors"
           >
-            ✨ Ask AI
+            <Sparkles className="w-3 h-3" />
+            Ask AI
           </button>
         </div>
       )}

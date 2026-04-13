@@ -1,12 +1,28 @@
 import OpenAI from "openai";
 import type { LLMProvider, LLMMessage, LLMGenerateOptions } from "./provider";
 
-export class OpenAIProvider implements LLMProvider {
-  readonly name = "openai";
+export class OpenAICompatibleProvider implements LLMProvider {
+  readonly name = "openai-compatible";
   private client: OpenAI;
+  private model: string;
 
   constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+    const baseURL = process.env.OPENAI_COMPATIBLE_BASE_URL;
+    const model = process.env.OPENAI_COMPATIBLE_MODEL;
+
+    if (!baseURL) {
+      throw new Error(
+        "OPENAI_COMPATIBLE_BASE_URL is not set in the server environment",
+      );
+    }
+    if (!model) {
+      throw new Error(
+        "OPENAI_COMPATIBLE_MODEL is not set in the server environment",
+      );
+    }
+
+    this.client = new OpenAI({ apiKey, baseURL });
+    this.model = model;
   }
 
   async generate(
@@ -14,7 +30,7 @@ export class OpenAIProvider implements LLMProvider {
     options?: LLMGenerateOptions
   ): Promise<string> {
     const response = await this.client.chat.completions.create({
-      model: "gpt-4o",
+      model: this.model,
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,

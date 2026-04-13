@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, ClipboardList, Palette, Sparkles, Target } from "lucide-react";
 import { useDesignStore } from "@/store/design-store";
 import { evaluateDesign, regenerateField, exportDesign } from "@/lib/api-client";
 import { NavigationPanel } from "@/components/editor/NavigationPanel";
@@ -18,12 +19,14 @@ export default function EditorPage() {
   const router = useRouter();
   const activeDesign = useDesignStore((s) => s.activeDesign);
   const rubricScores = useDesignStore((s) => s.rubricScores);
+  const rubricIssues = useDesignStore((s) => s.rubricIssues);
   const activeSection = useDesignStore((s) => s.activeSection);
   const setActiveSection = useDesignStore((s) => s.setActiveSection);
   const updateField = useDesignStore((s) => s.updateField);
   const llmProvider = useDesignStore((s) => s.llmProvider);
-  const apiKey = useDesignStore((s) => s.apiKey);
+  const apiKey = useDesignStore((s) => s.apiKeys[s.llmProvider]);
   const setRubricScores = useDesignStore((s) => s.setRubricScores);
+  const setRubricIssues = useDesignStore((s) => s.setRubricIssues);
 
   const [isEvaluating, setIsEvaluating] = useState(false);
 
@@ -36,9 +39,10 @@ export default function EditorPage() {
           </p>
           <button
             onClick={() => router.push("/")}
-            className="text-indigo-400 hover:text-indigo-300"
+            className="inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300"
           >
-            ← Back to Upload
+            <ArrowLeft className="w-4 h-4" />
+            Back to Upload
           </button>
         </div>
       </div>
@@ -75,6 +79,7 @@ export default function EditorPage() {
         apiKey,
       });
       setRubricScores(result.rubricScores);
+      setRubricIssues(result.issues);
     } catch (error) {
       console.error("Failed to evaluate design:", error);
     } finally {
@@ -141,14 +146,15 @@ export default function EditorPage() {
       <header className="border-b border-gray-800 px-4 py-2 flex items-center justify-between flex-shrink-0">
         <button
           onClick={() => router.back()}
-          className="text-gray-400 hover:text-white text-sm"
+          className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors"
         >
-          ← Back to Gallery
+          <ArrowLeft className="w-4 h-4" />
+          Back to Gallery
         </button>
         <h1 className="text-sm font-semibold text-white">
           WonderLens Design Studio
         </h1>
-        <div className="w-24" /> {/* Spacer for centering */}
+        <div className="w-32" /> {/* Spacer for centering */}
       </header>
 
       {/* Three-panel layout */}
@@ -166,14 +172,16 @@ export default function EditorPage() {
           {activeSection === "basicInfo" && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-white text-lg font-semibold">
-                  📋 Basic Info
+                <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold">
+                  <ClipboardList className="w-5 h-5 text-indigo-400" />
+                  Basic Info
                 </h3>
                 <button
                   onClick={() => handleAskAI("basicInfo", "")}
-                  className="bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1.5 rounded-md text-xs"
+                  className="inline-flex items-center gap-1.5 bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1.5 rounded-md text-xs hover:bg-indigo-900/70 transition-colors"
                 >
-                  ✨ Ask AI to improve this section
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Ask AI to improve this section
                 </button>
               </div>
 
@@ -274,8 +282,9 @@ export default function EditorPage() {
           {/* Overview & KUD */}
           {activeSection === "overview" && (
             <div>
-              <h3 className="text-white text-lg font-semibold mb-4">
-                🎯 Overview & KUD
+              <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
+                <Target className="w-5 h-5 text-indigo-400" />
+                Overview & KUD
               </h3>
               <div className="space-y-4">
                 <EditableField
@@ -309,8 +318,9 @@ export default function EditorPage() {
           {/* Creative Variables */}
           {activeSection === "creativeVariables" && (
             <div>
-              <h3 className="text-white text-lg font-semibold mb-4">
-                🎨 Creative Variables
+              <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
+                <Palette className="w-5 h-5 text-indigo-400" />
+                Creative Variables
               </h3>
               <div className="space-y-4">
                 <EditableField
@@ -409,9 +419,10 @@ export default function EditorPage() {
                   </h3>
                   <button
                     onClick={() => handleAskAI(stepId, "")}
-                    className="bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1.5 rounded-md text-xs"
+                    className="inline-flex items-center gap-1.5 bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1.5 rounded-md text-xs hover:bg-indigo-900/70 transition-colors"
                   >
-                    ✨ Ask AI to improve this step
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Ask AI to improve this step
                   </button>
                 </div>
 
@@ -498,6 +509,7 @@ export default function EditorPage() {
         {/* Right: Scorecard */}
         <ScorecardPanel
           scores={rubricScores}
+          issues={rubricIssues}
           onRerunRubric={handleRerunRubric}
           onRegenerateWithFeedback={handleRegenerateWithFeedback}
           onExport={handleExport}

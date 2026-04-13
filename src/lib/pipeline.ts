@@ -284,6 +284,11 @@ export async function runGenerationJob(
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
+      console.error(
+        `[pipeline] variant ${i + 1}/${variantConfigs.length} failed (${config.category}/${config.gameStyle}):`,
+        error,
+      );
+
       const failedResult: VariantResult = {
         id: crypto.randomUUID(),
         design: undefined,
@@ -303,7 +308,13 @@ export async function runGenerationJob(
     }
   }
 
-  job.status = "complete";
+  const successCount = job.variants.filter((v) => v.status === "complete").length;
+  if (successCount === 0 && job.variants.length > 0) {
+    job.status = "failed";
+    job.error = `All ${job.variants.length} variants failed to generate.`;
+  } else {
+    job.status = "complete";
+  }
 }
 
 // ---------------------------------------------------------------------------

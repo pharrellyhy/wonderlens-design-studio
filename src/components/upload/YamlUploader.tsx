@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { Upload } from "lucide-react";
 import { parseEntityYaml, type ParsedEntity } from "@/lib/yaml-parser";
 
 interface YamlUploaderProps {
@@ -87,7 +88,11 @@ export function YamlUploader({ onEntityParsed }: YamlUploaderProps) {
           input.click();
         }}
       >
-        <div className="text-4xl mb-4">📁</div>
+        <Upload
+          className={`w-12 h-12 mx-auto mb-4 ${
+            dragActive ? "text-indigo-400" : "text-gray-500"
+          }`}
+        />
         <p className="text-lg text-gray-300 mb-2">
           Drop your entity YAML file here
         </p>

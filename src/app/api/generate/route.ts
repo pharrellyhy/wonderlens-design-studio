@@ -1,33 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import type { GenerationJob } from "@/lib/design-schema";
-import { createLLMProvider } from "@/lib/llm/provider";
+import { jobs, cleanupJobs } from "@/lib/job-store";
+import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
 import type { LLMProviderType } from "@/lib/llm/provider";
 import { runGenerationJob, selectVariantConfigs } from "@/lib/pipeline";
 import { parseEntityYaml } from "@/lib/yaml-parser";
-
-// ---------------------------------------------------------------------------
-// In-memory job store
-// ---------------------------------------------------------------------------
-
-export const jobs = new Map<string, GenerationJob>();
-
-const CLEANUP_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
-
-/**
- * Remove completed or failed jobs older than 30 minutes.
- */
-export function cleanupJobs(): void {
-  const now = Date.now();
-  for (const [id, job] of jobs) {
-    if (
-      (job.status === "complete" || job.status === "failed") &&
-      now - job.createdAt > CLEANUP_MAX_AGE_MS
-    ) {
-      jobs.delete(id);
-    }
-  }
-}
 
 // ---------------------------------------------------------------------------
 // POST /api/generate
@@ -41,13 +19,23 @@ export async function POST(request: NextRequest) {
       entityYaml?: string;
       variantConfigs?: Array<{ category: string; gameStyle: string }>;
       llmProvider: LLMProviderType;
-      apiKey: string;
+      apiKey?: string;
     };
     const yamlSource = entityYaml ?? entity;
 
-    if (!yamlSource || !llmProvider || !apiKey) {
+    if (!yamlSource || !llmProvider) {
       return NextResponse.json(
-        { error: "Missing required fields: entityYaml, llmProvider, apiKey" },
+        { error: "Missing required fields: entityYaml, llmProvider" },
+        { status: 400 },
+      );
+    }
+
+    const resolvedKey = resolveApiKey(llmProvider, apiKey);
+    if (!resolvedKey) {
+      return NextResponse.json(
+        {
+          error: `No API key for provider "${llmProvider}". Provide one in the request or set the matching env var.`,
+        },
         { status: 400 },
       );
     }
@@ -55,7 +43,7 @@ export async function POST(request: NextRequest) {
     cleanupJobs();
 
     const parsedEntity = parseEntityYaml(yamlSource);
-    const provider = createLLMProvider(llmProvider, apiKey);
+    const provider = createLLMProvider(llmProvider, resolvedKey);
     const configs = variantConfigs ?? selectVariantConfigs();
 
     const jobId = crypto.randomUUID();

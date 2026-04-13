@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { GameDesign, RubricScores } from "@/lib/design-schema";
+import type { GameDesign, RubricIssue, RubricScores } from "@/lib/design-schema";
 import type { LLMProviderType } from "@/lib/llm/provider";
 import type { ParsedEntity } from "@/lib/yaml-parser";
 
@@ -27,7 +27,9 @@ interface DesignStore {
   activeDesign: GameDesign | null;
   activeDesignId: string | null;
   rubricScores: RubricScores | null;
+  rubricIssues: RubricIssue[];
   setActiveDesign: (id: string, design: GameDesign, scores: RubricScores) => void;
+  setRubricIssues: (issues: RubricIssue[]) => void;
 
   // Update a field in the active design by path
   updateField: (path: string, value: unknown) => void;
@@ -38,13 +40,18 @@ interface DesignStore {
 
   // LLM config
   llmProvider: LLMProviderType;
-  apiKey: string;
-  setLlmConfig: (provider: LLMProviderType, apiKey: string) => void;
+  apiKeys: Record<LLMProviderType, string>;
+  setLlmProvider: (provider: LLMProviderType) => void;
+  setApiKey: (provider: LLMProviderType, apiKey: string) => void;
 
   // UI state
   activeSection: string;
   setActiveSection: (section: string) => void;
   setRubricScores: (scores: RubricScores) => void;
+
+  // Reset everything tied to the current upload session.
+  // Leaves persisted LLM config (llmProvider, apiKeys) untouched.
+  resetSession: () => void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -102,8 +109,15 @@ export const useDesignStore = create<DesignStore>()(
       activeDesign: null,
       activeDesignId: null,
       rubricScores: null,
+      rubricIssues: [],
       setActiveDesign: (id, design, scores) =>
-        set({ activeDesignId: id, activeDesign: design, rubricScores: scores }),
+        set({
+          activeDesignId: id,
+          activeDesign: design,
+          rubricScores: scores,
+          rubricIssues: [],
+        }),
+      setRubricIssues: (issues) => set({ rubricIssues: issues }),
 
       updateField: (path, value) =>
         set((state) => {
@@ -121,20 +135,52 @@ export const useDesignStore = create<DesignStore>()(
       setGenerationJobId: (id) => set({ generationJobId: id }),
 
       llmProvider: "anthropic",
-      apiKey: "",
-      setLlmConfig: (provider, apiKey) =>
-        set({ llmProvider: provider, apiKey }),
+      apiKeys: { openai: "", anthropic: "", "openai-compatible": "" },
+      setLlmProvider: (provider) => set({ llmProvider: provider }),
+      setApiKey: (provider, apiKey) =>
+        set((state) => ({
+          apiKeys: { ...state.apiKeys, [provider]: apiKey },
+        })),
 
       activeSection: "basicInfo",
       setActiveSection: (section) => set({ activeSection: section }),
       setRubricScores: (scores) => set({ rubricScores: scores }),
+
+      resetSession: () =>
+        set({
+          parsedEntity: null,
+          variants: [],
+          activeDesign: null,
+          activeDesignId: null,
+          rubricScores: null,
+          rubricIssues: [],
+          generationJobId: null,
+          activeSection: "basicInfo",
+        }),
     }),
     {
       name: "design-studio-store",
+      version: 2,
       partialize: (state) => ({
         llmProvider: state.llmProvider,
-        apiKey: state.apiKey,
+        apiKeys: state.apiKeys,
       }),
+      migrate: (persistedState, fromVersion) => {
+        // v1 had a single `apiKey` string. Drop it: it bled across providers
+        // and caused stale keys (e.g. an OpenAI key) to be sent when the user
+        // switched to a different provider.
+        const empty = { openai: "", anthropic: "", "openai-compatible": "" };
+        if (fromVersion < 2 && isRecord(persistedState)) {
+          const provider =
+            (persistedState as { llmProvider?: LLMProviderType }).llmProvider ??
+            "anthropic";
+          return { llmProvider: provider, apiKeys: empty };
+        }
+        return persistedState as {
+          llmProvider: LLMProviderType;
+          apiKeys: Record<LLMProviderType, string>;
+        };
+      },
     }
   )
 );

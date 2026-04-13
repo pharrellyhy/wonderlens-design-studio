@@ -1,5 +1,6 @@
 "use client";
 
+import { Award, Drama, TrendingUp } from "lucide-react";
 import type { GameDesign, RubricScores } from "@/lib/design-schema";
 import {
   CATEGORY_LABELS,
@@ -81,26 +82,44 @@ export function VariantCard({
       </p>
 
       {/* Creative variables */}
-      <div className="text-xs text-gray-500 space-y-1">
-        <div>🎭 Metaphor: {design.creativeVariables.metaphor}</div>
-        <div>🏅 Badge: {design.creativeVariables.roleTitle}</div>
-        <div>📈 Escalation: {design.creativeVariables.escalationAxis}</div>
+      <div className="text-xs text-gray-500 space-y-1.5">
+        <div className="flex items-start gap-2">
+          <Drama className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-indigo-400/70" />
+          <span>
+            <span className="text-gray-400 font-medium">Metaphor: </span>
+            {design.creativeVariables.metaphor}
+          </span>
+        </div>
+        <div className="flex items-start gap-2">
+          <Award className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-400/70" />
+          <span>
+            <span className="text-gray-400 font-medium">Badge: </span>
+            {design.creativeVariables.roleTitle}
+          </span>
+        </div>
+        <div className="flex items-start gap-2">
+          <TrendingUp className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-emerald-400/70" />
+          <span>
+            <span className="text-gray-400 font-medium">Escalation: </span>
+            {design.creativeVariables.escalationAxis}
+          </span>
+        </div>
       </div>
 
       {/* Rubric score bar */}
-      <div className="flex gap-1 mt-3">
+      <div className="flex gap-1 mt-3 flex-wrap">
         {(Object.keys(RUBRIC_DIMENSIONS) as (keyof typeof RUBRIC_DIMENSIONS)[]).map(
           (dim) => (
             <span
               key={dim}
-              className={`px-1.5 py-0.5 rounded text-[10px] ${
+              className={`px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
                 rubricScores[dim] === "pass"
                   ? "bg-green-900/50 text-green-400"
                   : "bg-red-900/50 text-red-400"
               }`}
               title={RUBRIC_DIMENSIONS[dim]}
             >
-              {dim.toUpperCase()}✓
+              {dim}
             </span>
           )
         )}

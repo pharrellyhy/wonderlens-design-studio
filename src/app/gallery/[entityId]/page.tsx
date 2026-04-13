@@ -1,60 +1,59 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, CheckCircle2, RefreshCcw } from "lucide-react";
 import { VariantCard } from "@/components/gallery/VariantCard";
 import { useDesignStore } from "@/store/design-store";
-import { startGeneration, pollGenerationStatus } from "@/lib/api-client";
+import { startGeneration } from "@/lib/api-client";
+import {
+  clearGenerationError,
+  isPollingJob,
+  startPolling,
+  stopPolling,
+  subscribeGenerationError,
+} from "@/lib/generation-poller";
 import type { LLMProviderType } from "@/lib/llm/provider";
-import type { DesignVariant } from "@/store/design-store";
-
-const POLL_INTERVAL_MS = 3000;
 
 export default function GalleryPage() {
   const router = useRouter();
   const parsedEntity = useDesignStore((s) => s.parsedEntity);
   const variants = useDesignStore((s) => s.variants);
   const setVariants = useDesignStore((s) => s.setVariants);
-  const addVariant = useDesignStore((s) => s.addVariant);
   const setActiveDesign = useDesignStore((s) => s.setActiveDesign);
   const llmProvider = useDesignStore((s) => s.llmProvider);
-  const apiKey = useDesignStore((s) => s.apiKey);
-  const setLlmConfig = useDesignStore((s) => s.setLlmConfig);
+  const apiKey = useDesignStore((s) => s.apiKeys[s.llmProvider]);
+  const setLlmProvider = useDesignStore((s) => s.setLlmProvider);
+  const setApiKey = useDesignStore((s) => s.setApiKey);
+  const generationJobId = useDesignStore((s) => s.generationJobId);
+  const setGenerationJobId = useDesignStore((s) => s.setGenerationJobId);
+  const resetSession = useDesignStore((s) => s.resetSession);
 
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const seenVariantIdsRef = useRef<Set<string>>(new Set());
+  const isGenerating = generationJobId !== null;
 
-  const stopPolling = useCallback(() => {
-    if (pollingIntervalRef.current !== null) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
+  // Subscribe to error stream from the poller singleton.
+  useEffect(() => {
+    return subscribeGenerationError(setGenerationError);
   }, []);
 
+  // If we land on the gallery while a job is still in-flight (e.g. user
+  // navigated back from the editor), make sure the poller is running.
   useEffect(() => {
-    return () => {
-      stopPolling();
-    };
-  }, [stopPolling]);
+    if (generationJobId && !isPollingJob(generationJobId)) {
+      startPolling(generationJobId);
+    }
+  }, [generationJobId]);
 
   const handleGenerate = useCallback(async () => {
-    if (!apiKey.trim()) {
-      setGenerationError("Please enter an API key before generating.");
-      return;
-    }
-
     if (!parsedEntity) {
       setGenerationError("No entity loaded.");
       return;
     }
 
-    setIsGenerating(true);
-    setGenerationError(null);
+    clearGenerationError();
     setVariants([]);
-    seenVariantIdsRef.current = new Set();
 
     let jobId: string;
     try {
@@ -64,54 +63,28 @@ export default function GalleryPage() {
         apiKey,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to start generation";
+      const message =
+        err instanceof Error ? err.message : "Failed to start generation";
       setGenerationError(message);
-      setIsGenerating(false);
       return;
     }
 
-    pollingIntervalRef.current = setInterval(async () => {
-      try {
-        const job = await pollGenerationStatus(jobId);
+    setGenerationJobId(jobId);
+    startPolling(jobId);
+  }, [
+    apiKey,
+    llmProvider,
+    parsedEntity,
+    setGenerationJobId,
+    setVariants,
+  ]);
 
-        // Process new variants
-        for (const result of job.variants) {
-          if (seenVariantIdsRef.current.has(result.id)) {
-            continue;
-          }
-          seenVariantIdsRef.current.add(result.id);
-
-          // Skip failed variants
-          if (result.status === "failed" || !result.design) {
-            continue;
-          }
-
-          const variant: DesignVariant = {
-            id: result.id,
-            design: result.design,
-            rubricScores: result.rubricScores,
-            isGenerating: false,
-            error: undefined,
-          };
-          addVariant(variant);
-        }
-
-        // Stop when job is terminal
-        if (job.status === "complete" || job.status === "failed") {
-          stopPolling();
-          setIsGenerating(false);
-          if (job.status === "failed" && job.error) {
-            setGenerationError(job.error);
-          }
-        }
-      } catch (err) {
-        stopPolling();
-        setIsGenerating(false);
-        const message = err instanceof Error ? err.message : "Polling failed";
-        setGenerationError(message);
-      }
-    }, POLL_INTERVAL_MS);
-  }, [apiKey, parsedEntity, llmProvider, setVariants, addVariant, stopPolling]);
+  const handleBackToUpload = useCallback(() => {
+    stopPolling();
+    resetSession();
+    clearGenerationError();
+    router.push("/");
+  }, [resetSession, router]);
 
   if (!parsedEntity) {
     return (
@@ -122,9 +95,10 @@ export default function GalleryPage() {
           </p>
           <button
             onClick={() => router.push("/")}
-            className="text-indigo-400 hover:text-indigo-300"
+            className="inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300"
           >
-            &larr; Back to Upload
+            <ArrowLeft className="w-4 h-4" />
+            Back to Upload
           </button>
         </div>
       </div>
@@ -144,26 +118,38 @@ export default function GalleryPage() {
       {/* Header */}
       <header className="border-b border-gray-800 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-white">
-              {parsedEntity.name} — Generated Variants
-            </h1>
-            <p className="text-gray-500 text-sm">
-              Entity: {parsedEntity.name} |{" "}
-              {parsedEntity.tiers.join(", ")} |{" "}
-              {variants.length} variants generated
-            </p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBackToUpload}
+              className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm"
+              title="Back to Upload"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+            <div className="h-6 w-px bg-gray-700" />
+            <div>
+              <h1 className="text-lg font-bold text-white">
+                {parsedEntity.name} — Generated Variants
+              </h1>
+              <p className="text-gray-500 text-sm">
+                Entity: {parsedEntity.name} | {parsedEntity.tiers.join(", ")} |{" "}
+                {variants.length} variants generated
+              </p>
+            </div>
           </div>
           <div className="flex gap-3">
-            <span className="bg-green-900/50 text-green-400 px-3 py-1 rounded-full text-xs">
-              &#10003; YAML parsed
+            <span className="inline-flex items-center gap-1.5 bg-green-900/50 text-green-400 px-3 py-1 rounded-full text-xs">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              YAML parsed
             </span>
             <button
               onClick={handleGenerate}
               disabled={isGenerating}
-              className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 px-4 py-1.5 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 px-4 py-1.5 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              &#x27F3; Regenerate All
+              <RefreshCcw className="w-3.5 h-3.5" />
+              Regenerate All
             </button>
           </div>
         </div>
@@ -177,12 +163,13 @@ export default function GalleryPage() {
             <select
               value={llmProvider}
               onChange={(e) =>
-                setLlmConfig(e.target.value as LLMProviderType, apiKey)
+                setLlmProvider(e.target.value as LLMProviderType)
               }
               className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="anthropic">Anthropic</option>
               <option value="openai">OpenAI</option>
+              <option value="openai-compatible">OpenAI-Compatible</option>
             </select>
           </label>
 
@@ -191,8 +178,8 @@ export default function GalleryPage() {
             <input
               type="password"
               value={apiKey}
-              onChange={(e) => setLlmConfig(llmProvider, e.target.value)}
-              placeholder="Enter your API key..."
+              onChange={(e) => setApiKey(llmProvider, e.target.value)}
+              placeholder="Leave blank to use server env key"
               className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1.5 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-600"
             />
           </label>
@@ -210,7 +197,7 @@ export default function GalleryPage() {
       {/* Generation error */}
       {generationError && (
         <div className="max-w-5xl mx-auto px-6 pt-4">
-          <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 text-red-400 text-sm">
+          <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 text-red-400 text-sm whitespace-pre-wrap">
             {generationError}
           </div>
         </div>
@@ -222,9 +209,23 @@ export default function GalleryPage() {
           <div className="text-center py-20">
             {isGenerating ? (
               <>
-                <div className="text-4xl mb-4 animate-pulse">&#128260;</div>
-                <p className="text-gray-400 text-lg">
-                  Generating design variants...
+                <div className="inline-flex items-center justify-center mb-5">
+                  <div className="relative w-14 h-14">
+                    <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20" />
+                    <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-indigo-400 border-r-indigo-400/60 animate-spin" />
+                  </div>
+                </div>
+                <p className="text-gray-300 text-lg font-medium">
+                  Generating design variants
+                  <span className="inline-flex ml-1">
+                    <span className="animate-bounce [animation-delay:-0.3s]">
+                      .
+                    </span>
+                    <span className="animate-bounce [animation-delay:-0.15s]">
+                      .
+                    </span>
+                    <span className="animate-bounce">.</span>
+                  </span>
                 </p>
                 <p className="text-gray-600 text-sm mt-2">
                   This may take a few minutes. Each variant goes through a
@@ -233,9 +234,7 @@ export default function GalleryPage() {
               </>
             ) : (
               <>
-                <p className="text-gray-500 text-lg mb-2">
-                  No variants yet.
-                </p>
+                <p className="text-gray-500 text-lg mb-2">No variants yet.</p>
                 <p className="text-gray-600 text-sm">
                   Configure your LLM provider and API key above, then click
                   &ldquo;Generate Variants&rdquo; to start.
@@ -255,11 +254,24 @@ export default function GalleryPage() {
                 onClick={() => handleSelectVariant(variant.id)}
               />
             ))}
+            {isGenerating && (
+              <div className="bg-gray-800/50 border-2 border-dashed border-gray-700 rounded-xl p-5 flex items-center justify-center min-h-[160px]">
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center mb-3">
+                    <div className="relative w-8 h-8">
+                      <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20" />
+                      <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-indigo-400 animate-spin" />
+                    </div>
+                  </div>
+                  <p className="text-gray-500 text-xs">More on the way…</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         <p className="text-center text-gray-600 text-sm mt-6">
-          Click a variant to open it in the Design Studio &rarr;
+          Click a variant to open it in the Design Studio →
         </p>
       </main>
     </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { jobs, cleanupJobs } from "../../route";
+import { jobs, cleanupJobs } from "@/lib/job-store";
 
 // ---------------------------------------------------------------------------
 // GET /api/generate/[jobId]/status

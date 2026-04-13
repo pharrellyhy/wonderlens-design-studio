@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { gameDesignSchema, rubricScoresSchema, rubricIssueSchema } from "@/lib/design-schema";
-import { createLLMProvider } from "@/lib/llm/provider";
+import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
 import type { LLMProviderType } from "@/lib/llm/provider";
 import { parseJsonResponse } from "@/lib/pipeline";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
@@ -26,18 +26,28 @@ export async function POST(request: NextRequest) {
     const { design, llmProvider, apiKey } = body as {
       design: unknown;
       llmProvider: LLMProviderType;
-      apiKey: string;
+      apiKey?: string;
     };
 
-    if (!design || !llmProvider || !apiKey) {
+    if (!design || !llmProvider) {
       return NextResponse.json(
-        { error: "Missing required fields: design, llmProvider, apiKey" },
+        { error: "Missing required fields: design, llmProvider" },
+        { status: 400 },
+      );
+    }
+
+    const resolvedKey = resolveApiKey(llmProvider, apiKey);
+    if (!resolvedKey) {
+      return NextResponse.json(
+        {
+          error: `No API key for provider "${llmProvider}". Provide one in the request or set the matching env var.`,
+        },
         { status: 400 },
       );
     }
 
     const validatedDesign = gameDesignSchema.parse(design);
-    const provider = createLLMProvider(llmProvider, apiKey);
+    const provider = createLLMProvider(llmProvider, resolvedKey);
     const messages = buildEvaluateMessages(validatedDesign);
 
     const rawResponse = await provider.generate(messages, {

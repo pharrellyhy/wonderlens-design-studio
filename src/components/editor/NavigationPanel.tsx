@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  ArrowRight,
+  BookOpen,
+  ClipboardList,
+  Hand,
+  type LucideIcon,
+  Palette,
+  PartyPopper,
+  RefreshCw,
+  Target,
+} from "lucide-react";
 import type { GameDesign } from "@/lib/design-schema";
 
 interface NavigationPanelProps {
@@ -8,19 +19,28 @@ interface NavigationPanelProps {
   onSectionChange: (section: string) => void;
 }
 
-function getStepIcon(stepType: GameDesign["steps"][number]["type"]): string {
+function getStepIcon(
+  stepType: GameDesign["steps"][number]["type"]
+): LucideIcon {
   switch (stepType) {
     case "bridge":
-      return "🌉";
+      return ArrowRight;
     case "rules":
-      return "📖";
+      return BookOpen;
     case "rounds":
-      return "🔄";
+      return RefreshCw;
     case "celebration":
-      return "🎉";
+      return PartyPopper;
     case "closing":
-      return "👋";
+      return Hand;
   }
+}
+
+interface SectionEntry {
+  id: string;
+  label: string;
+  indent: number;
+  Icon?: LucideIcon;
 }
 
 export function NavigationPanel({
@@ -28,21 +48,25 @@ export function NavigationPanel({
   activeSection,
   onSectionChange,
 }: NavigationPanelProps) {
-  const sections = [
-    { id: "basicInfo", label: "📋 Basic Info", indent: 0 },
-    { id: "overview", label: "🎯 Overview & KUD", indent: 0 },
-    { id: "creativeVariables", label: "🎨 Creative Variables", indent: 0 },
+  const sections: SectionEntry[] = [
+    { id: "basicInfo", label: "Basic Info", indent: 0, Icon: ClipboardList },
+    { id: "overview", label: "Overview & KUD", indent: 0, Icon: Target },
+    {
+      id: "creativeVariables",
+      label: "Creative Variables",
+      indent: 0,
+      Icon: Palette,
+    },
   ];
 
-  // Add steps
   for (const step of design.steps) {
     sections.push({
       id: `step-${step.stepNumber}`,
-      label: `${getStepIcon(step.type)} Step ${step.stepNumber}: ${step.title}`,
+      label: `Step ${step.stepNumber}: ${step.title}`,
       indent: 0,
+      Icon: getStepIcon(step.type),
     });
 
-    // Sub-items for bridge (warm/cold)
     if (step.type === "bridge") {
       sections.push({
         id: `step-${step.stepNumber}-warm`,
@@ -56,7 +80,6 @@ export function NavigationPanel({
       });
     }
 
-    // Sub-items for rounds
     if (step.type === "rounds" && step.rounds) {
       for (const round of step.rounds) {
         sections.push({
@@ -69,9 +92,9 @@ export function NavigationPanel({
   }
 
   return (
-    <div className="w-56 bg-gray-900 border-r border-gray-700 flex-shrink-0 overflow-y-auto">
+    <div className="w-60 bg-gray-900 border-r border-gray-800 flex-shrink-0 overflow-y-auto">
       {/* Header */}
-      <div className="p-4 border-b border-gray-700">
+      <div className="p-4 border-b border-gray-800">
         <h3 className="text-white text-sm font-semibold truncate">
           {design.basicInfo.activityName}
         </h3>
@@ -85,12 +108,13 @@ export function NavigationPanel({
       <div className="py-2">
         {sections.map((section) => {
           const isActive = activeSection === section.id;
+          const Icon = section.Icon;
           return (
             <button
               key={section.id}
               onClick={() => onSectionChange(section.id)}
               className={`
-                w-full text-left text-sm py-2 transition-colors
+                w-full text-left text-sm py-2 inline-flex items-center gap-2 transition-colors
                 ${section.indent === 1 ? "pl-10 text-xs" : "pl-4"}
                 ${
                   isActive
@@ -99,7 +123,14 @@ export function NavigationPanel({
                 }
               `}
             >
-              {section.label}
+              {Icon && (
+                <Icon
+                  className={`w-3.5 h-3.5 flex-shrink-0 ${
+                    isActive ? "text-indigo-400" : "text-gray-500"
+                  }`}
+                />
+              )}
+              <span className="truncate">{section.label}</span>
             </button>
           );
         })}
