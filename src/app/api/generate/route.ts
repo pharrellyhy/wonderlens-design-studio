@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-import type { GenerationJob } from "@/lib/design-schema";
+import { generationModeSchema } from "@/lib/design-schema";
+import type { GenerationJob, GenerationMode } from "@/lib/design-schema";
 import { jobs, cleanupJobs } from "@/lib/job-store";
 import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
 import type { LLMProviderType } from "@/lib/llm/provider";
@@ -14,12 +16,20 @@ import { parseEntityYaml } from "@/lib/yaml-parser";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { entity, entityYaml, variantConfigs, llmProvider, apiKey } = body as {
+    const {
+      entity,
+      entityYaml,
+      variantConfigs,
+      llmProvider,
+      apiKey,
+      generationMode: rawGenerationMode,
+    } = body as {
       entity?: string;
       entityYaml?: string;
       variantConfigs?: Array<{ category: string; gameStyle: string }>;
       llmProvider: LLMProviderType;
       apiKey?: string;
+      generationMode?: unknown;
     };
     const yamlSource = entityYaml ?? entity;
 
@@ -28,6 +38,24 @@ export async function POST(request: NextRequest) {
         { error: "Missing required fields: entityYaml, llmProvider" },
         { status: 400 },
       );
+    }
+
+    // Default to "mapping-informed" for backwards-compat with older clients
+    // that have not yet been updated to send generationMode (Section 3).
+    let generationMode: GenerationMode;
+    if (rawGenerationMode === undefined || rawGenerationMode === null) {
+      generationMode = "mapping-informed";
+    } else {
+      const parseResult = generationModeSchema.safeParse(rawGenerationMode);
+      if (!parseResult.success) {
+        return NextResponse.json(
+          {
+            error: `Invalid generationMode — must be "freeform" or "mapping-informed".`,
+          },
+          { status: 400 },
+        );
+      }
+      generationMode = parseResult.data;
     }
 
     const resolvedKey = resolveApiKey(llmProvider, apiKey);
@@ -59,7 +87,13 @@ export async function POST(request: NextRequest) {
     jobs.set(jobId, job);
 
     // Fire-and-forget: run the generation pipeline in the background
-    runGenerationJob(job, parsedEntity, configs, provider).catch((error) => {
+    runGenerationJob(
+      job,
+      parsedEntity,
+      configs,
+      generationMode,
+      provider,
+    ).catch((error) => {
       job.status = "failed";
       job.error =
         error instanceof Error ? error.message : "Unknown generation error";
@@ -67,6 +101,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ jobId });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: `Validation error: ${error.message}` },
+        { status: 400 },
+      );
+    }
     const message =
       error instanceof Error ? error.message : "Failed to start generation";
     return NextResponse.json({ error: message }, { status: 400 });

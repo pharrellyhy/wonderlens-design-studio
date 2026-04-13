@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 
+import type { GenerationMode } from "@/lib/design-schema";
 import type { LLMMessage } from "@/lib/llm/provider";
 import type { ParsedEntity } from "@/lib/yaml-parser";
 
@@ -49,7 +50,8 @@ The JSON must conform exactly to the following TypeScript interface (GameDesign)
     "relatedConcepts": string[],
     "atlSkills": string[],
     "gameStyle": string,
-    "ibTheme": string
+    "ibTheme": string,
+    "generationMode": "freeform" | "mapping-informed"  // must match the mode given in the user-content block
   },
   "creativeVariables": {
     "metaphor": string,
@@ -86,7 +88,10 @@ The JSON must conform exactly to the following TypeScript interface (GameDesign)
       // For all other types: provide dialogue:
       "dialogue"?: DialogueBlock,
       // For type "rounds": provide rounds array:
-      "rounds"?: Round[]
+      "rounds"?: Round[],
+      // Required for type "closing":
+      "conceptReinforcement"?: string, // one line explicitly naming at least one entry from basicInfo.coreKeyConcepts
+      "tomorrowHook"?: string          // one-line teaser for the next session
     }
   ],
   "entityMapping": {
@@ -124,6 +129,7 @@ Rules for the steps array:
 - Step type "bridge" must have warmStart and coldStart, no dialogue or rounds.
 - Step type "rules", "celebration", "closing" must have dialogue, no warmStart/coldStart/rounds.
 - Step type "rounds" must have rounds array, no dialogue/warmStart/coldStart.
+- Closing steps must include \`conceptReinforcement\` (naming one Key Concept) and \`tomorrowHook\` (one-line teaser for next session).
 - Cat 1 activities typically have 5 steps: bridge, rules, rounds, celebration, closing.
 - Cat 5 activities typically have 5-6 steps: bridge, rules, rounds, celebration (collection complete + synthesis), celebration (discovery), closing.
 
@@ -137,7 +143,8 @@ Output ONLY the JSON object. No wrapping, no explanation.
 export function buildGenerateMessages(
   entity: ParsedEntity,
   category: string,
-  gameStyle: string
+  gameStyle: string,
+  generationMode: GenerationMode
 ): LLMMessage[] {
   const systemContent = [
     programMd,
@@ -165,6 +172,7 @@ ${entity.rawYaml}
 - **Entity name**: ${entity.name}
 - **Category**: ${category}
 - **Game style**: ${gameStyle}
+- **Generation mode**: ${generationMode}
 - **IB Themes from mapping**: ${entity.themes.join(", ") || "none"}
 - **Key Concepts from mapping**: ${entity.keyConcepts.join(", ") || "none"}
 - **Related Concepts from mapping**: ${entity.relatedConcepts.join(", ") || "none"}
@@ -177,8 +185,9 @@ ${dimensionEntries || "  (no dimensions)"}
 1. Follow the structural template for the assigned category from templates.md.
 2. Brainstorm fresh creative variables (metaphor, role, game mechanic) specific to this entity.
 3. Generate a complete GameDesign JSON object following the exact schema described in the system prompt.
-4. Ensure all 9 rubric dimensions pass (D1-D9). Self-evaluate and fix before outputting.
-5. Output ONLY the raw JSON object. No markdown fences, no explanation.`;
+4. Set \`basicInfo.generationMode\` to "${generationMode}" exactly — it must match the mode listed above.
+5. Ensure all 9 rubric dimensions pass (D1-D9). Self-evaluate and fix before outputting.
+6. Output ONLY the raw JSON object. No markdown fences, no explanation.`;
 
   return [
     { role: "system", content: systemContent },

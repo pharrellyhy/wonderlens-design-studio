@@ -9,6 +9,7 @@ import {
 import type {
   GameDesign,
   GenerationJob,
+  GenerationMode,
   RubricIssue,
   RubricScores,
   VariantResult,
@@ -18,6 +19,7 @@ import type { ParsedEntity } from "@/lib/yaml-parser";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
 import { buildFixMessages } from "@/lib/prompts/fix";
 import { buildGenerateMessages } from "@/lib/prompts/generate";
+import { applyD5Override } from "@/lib/rubric-checks";
 
 // ---------------------------------------------------------------------------
 // Evaluate response schema
@@ -149,10 +151,16 @@ export async function generateVariant(
   entity: ParsedEntity,
   category: string,
   gameStyle: string,
+  generationMode: GenerationMode,
   provider: LLMProvider
 ): Promise<VariantResult> {
   // Pass 1 — Generate
-  const generateMessages = buildGenerateMessages(entity, category, gameStyle);
+  const generateMessages = buildGenerateMessages(
+    entity,
+    category,
+    gameStyle,
+    generationMode,
+  );
   let design: GameDesign = await llmJsonCall(
     provider,
     generateMessages,
@@ -160,14 +168,16 @@ export async function generateVariant(
     { temperature: 0.8 }
   );
 
-  // Pass 2 — Evaluate
+  // Pass 2 — Evaluate (with deterministic D5 pre-check override)
   const evalMessages = buildEvaluateMessages(design);
-  let evaluation = await llmJsonCall(
+  const llmEvaluation = await llmJsonCall(
     provider,
     evalMessages,
     evaluateResponseSchema,
     { temperature: 0.2 }
   );
+  let evaluation: { scores: RubricScores; issues: RubricIssue[] } =
+    applyD5Override(llmEvaluation.scores, llmEvaluation.issues, design);
 
   // Pass 3 & 4 — Fix loop (up to MAX_FIX_ITERATIONS)
   let fixIteration = 0;
@@ -186,13 +196,18 @@ export async function generateVariant(
       temperature: 0.5,
     });
 
-    // Pass 4 — Re-evaluate
+    // Pass 4 — Re-evaluate (same D5 override applied to the re-evaluation)
     const reEvalMessages = buildEvaluateMessages(design);
-    evaluation = await llmJsonCall(
+    const reLlmEvaluation = await llmJsonCall(
       provider,
       reEvalMessages,
       evaluateResponseSchema,
       { temperature: 0.2 }
+    );
+    evaluation = applyD5Override(
+      reLlmEvaluation.scores,
+      reLlmEvaluation.issues,
+      design,
     );
   }
 
@@ -275,6 +290,7 @@ export async function runGenerationJob(
   job: GenerationJob,
   entity: ParsedEntity,
   variantConfigs: Array<{ category: string; gameStyle: string }>,
+  generationMode: GenerationMode,
   provider: LLMProvider
 ): Promise<void> {
   job.status = "generating";
@@ -299,6 +315,7 @@ export async function runGenerationJob(
           entity,
           config.category,
           config.gameStyle,
+          generationMode,
           provider
         );
         // Mutate the placeholder in place so its id (which the client may
