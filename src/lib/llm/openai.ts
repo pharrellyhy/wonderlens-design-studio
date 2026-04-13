@@ -4,9 +4,12 @@ import type { LLMProvider, LLMMessage, LLMGenerateOptions } from "./provider";
 export class OpenAIProvider implements LLMProvider {
   readonly name = "openai";
   private client: OpenAI;
+  private model: string;
 
   constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+    const baseURL = process.env.OPENAI_BASE_URL;
+    this.client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+    this.model = process.env.OPENAI_MODEL ?? "gpt-4o";
   }
 
   async generate(
@@ -14,7 +17,7 @@ export class OpenAIProvider implements LLMProvider {
     options?: LLMGenerateOptions
   ): Promise<string> {
     const response = await this.client.chat.completions.create({
-      model: "gpt-4o",
+      model: this.model,
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
