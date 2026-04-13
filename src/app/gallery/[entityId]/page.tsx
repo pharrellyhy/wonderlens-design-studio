@@ -1,18 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, RefreshCcw } from "lucide-react";
 import { VariantCard } from "@/components/gallery/VariantCard";
 import { useDesignStore } from "@/store/design-store";
-import { startGeneration } from "@/lib/api-client";
+import {
+  fetchParentsWithOpposite,
+  generateOppositeVariant,
+  startGeneration,
+} from "@/lib/api-client";
 import {
   clearGenerationError,
   isPollingJob,
+  startOppositePolling,
   startPolling,
   stopPolling,
   subscribeGenerationError,
 } from "@/lib/generation-poller";
+import type { GenerationMode } from "@/lib/design-schema";
 import type { LLMProviderType } from "@/lib/llm/provider";
 
 export default function GalleryPage() {
@@ -27,11 +33,40 @@ export default function GalleryPage() {
   const setApiKey = useDesignStore((s) => s.setApiKey);
   const generationJobId = useDesignStore((s) => s.generationJobId);
   const setGenerationJobId = useDesignStore((s) => s.setGenerationJobId);
+  const generationMode = useDesignStore((s) => s.generationMode);
+  const setGenerationMode = useDesignStore((s) => s.setGenerationMode);
+  const parentsWithOpposite = useDesignStore((s) => s.parentsWithOpposite);
+  const setParentsWithOpposite = useDesignStore(
+    (s) => s.setParentsWithOpposite,
+  );
   const resetSession = useDesignStore((s) => s.resetSession);
 
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [oppositeBusyParents, setOppositeBusyParents] = useState<string[]>([]);
 
   const isGenerating = generationJobId !== null;
+
+  const parentsWithOppositeSet = useMemo(
+    () => new Set(parentsWithOpposite),
+    [parentsWithOpposite],
+  );
+  // The opposite child variant having reached a terminal state means the
+  // per-parent "busy" flag should be cleared. We derive this during render
+  // instead of pushing it through an effect so we don't trip the
+  // react-hooks/set-state-in-effect rule (cascading renders).
+  const oppositeBusySet = useMemo(() => {
+    const result = new Set(oppositeBusyParents);
+    for (const variant of variants) {
+      if (
+        variant.parentDesignId &&
+        (variant.status === "complete" || variant.status === "failed") &&
+        result.has(variant.parentDesignId)
+      ) {
+        result.delete(variant.parentDesignId);
+      }
+    }
+    return result;
+  }, [oppositeBusyParents, variants]);
 
   // Subscribe to error stream from the poller singleton.
   useEffect(() => {
@@ -46,6 +81,39 @@ export default function GalleryPage() {
     }
   }, [generationJobId]);
 
+  // Fetch which parents already have a persisted opposite, so the card can
+  // disable the "Generate opposite" button correctly. Keyed by a sorted
+  // comma-joined string of complete, non-opposite designIds so we only
+  // re-fetch when the actual set changes — not on every poll tick.
+  const parentCandidateKey = useMemo(
+    () =>
+      variants
+        .filter((v) => v.status === "complete" && !v.parentDesignId)
+        .map((v) => v.id)
+        .sort()
+        .join(","),
+    [variants],
+  );
+
+  useEffect(() => {
+    if (parentCandidateKey.length === 0) return;
+    const ids = parentCandidateKey.split(",");
+    let cancelled = false;
+    (async () => {
+      try {
+        const matches = await fetchParentsWithOpposite(ids);
+        if (cancelled) return;
+        setParentsWithOpposite(matches);
+      } catch (err) {
+        if (cancelled) return;
+        console.warn("[gallery] failed to fetch opposites map:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [parentCandidateKey, setParentsWithOpposite]);
+
   const handleGenerate = useCallback(async () => {
     if (!parsedEntity) {
       setGenerationError("No entity loaded.");
@@ -54,6 +122,8 @@ export default function GalleryPage() {
 
     clearGenerationError();
     setVariants([]);
+    setParentsWithOpposite([]);
+    setOppositeBusyParents([]);
 
     let jobId: string;
     try {
@@ -61,6 +131,7 @@ export default function GalleryPage() {
         entityYaml: parsedEntity.rawYaml,
         llmProvider,
         apiKey,
+        generationMode,
       });
     } catch (err) {
       const message =
@@ -73,11 +144,46 @@ export default function GalleryPage() {
     startPolling(jobId);
   }, [
     apiKey,
+    generationMode,
     llmProvider,
     parsedEntity,
     setGenerationJobId,
+    setParentsWithOpposite,
     setVariants,
   ]);
+
+  const handleGenerateOpposite = useCallback(
+    async (designId: string) => {
+      clearGenerationError();
+      setOppositeBusyParents((prev) =>
+        prev.includes(designId) ? prev : [...prev, designId],
+      );
+      let jobId: string;
+      try {
+        jobId = await generateOppositeVariant({
+          sourceDesignId: designId,
+          llmProvider,
+          apiKey,
+        });
+      } catch (err) {
+        setOppositeBusyParents((prev) => prev.filter((id) => id !== designId));
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to start opposite generation";
+        setGenerationError(message);
+        return;
+      }
+      startOppositePolling(jobId, designId);
+      // Clear busy state after a short delay — the poller owns the terminal
+      // state and will call addParentWithOpposite on success. We don't want
+      // to leave the button "Generating..." forever on failure, so listen
+      // for the variant transitioning to complete/failed in a watcher below.
+      // (Handled by the effect that watches `variants` + `parentDesignId`.)
+    },
+    [apiKey, llmProvider],
+  );
+
 
   const handleBackToUpload = useCallback(() => {
     stopPolling();
@@ -192,6 +298,21 @@ export default function GalleryPage() {
             />
           </label>
 
+          <label className="flex items-center gap-2 text-sm text-gray-400">
+            Mode
+            <select
+              value={generationMode}
+              onChange={(e) =>
+                setGenerationMode(e.target.value as GenerationMode)
+              }
+              className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              title="Mapping-informed uses entity dimensions for grounded bridges; freeform uses tier guidance loosely."
+            >
+              <option value="mapping-informed">Mapping-informed</option>
+              <option value="freeform">Freeform</option>
+            </select>
+          </label>
+
           <button
             onClick={handleGenerate}
             disabled={isGenerating}
@@ -226,13 +347,18 @@ export default function GalleryPage() {
             {variants.map((variant) => (
               <VariantCard
                 key={variant.id}
+                id={variant.id}
                 status={variant.status}
                 category={variant.category}
                 gameStyle={variant.gameStyle}
                 design={variant.design}
                 rubricScores={variant.rubricScores}
                 error={variant.error}
+                parentDesignId={variant.parentDesignId}
+                hasOpposite={parentsWithOppositeSet.has(variant.id)}
+                oppositeBusy={oppositeBusySet.has(variant.id)}
                 onClick={() => handleSelectVariant(variant.id)}
+                onGenerateOpposite={handleGenerateOpposite}
               />
             ))}
           </div>

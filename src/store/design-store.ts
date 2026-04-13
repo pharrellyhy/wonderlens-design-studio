@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { GameDesign, RubricIssue, RubricScores } from "@/lib/design-schema";
+import type {
+  GameDesign,
+  GenerationMode,
+  RubricIssue,
+  RubricScores,
+} from "@/lib/design-schema";
 import type { LLMProviderType } from "@/lib/llm/provider";
 import type { ParsedEntity } from "@/lib/yaml-parser";
 
@@ -12,6 +17,11 @@ export interface DesignVariant {
   design?: GameDesign;
   rubricScores?: RubricScores;
   error?: string;
+  // When set, this variant was generated as the opposite category of
+  // another variant in the same gallery. Populated client-side at dispatch
+  // time — the in-memory VariantResult pushed by the poller does not carry
+  // parent info, so we stitch it in via `addVariant(..., { parentDesignId })`.
+  parentDesignId?: string;
 }
 
 interface DesignStore {
@@ -39,6 +49,19 @@ interface DesignStore {
   // Generation job tracking
   generationJobId: string | null;
   setGenerationJobId: (id: string | null) => void;
+
+  // Generation mode (mapping-informed vs freeform). Session-only — not
+  // persisted so it defaults fresh each visit. Threaded into POST /api/generate.
+  generationMode: GenerationMode;
+  setGenerationMode: (mode: GenerationMode) => void;
+
+  // Set of parent designIds that already have a persisted opposite on disk.
+  // Populated on gallery mount via GET /api/runs/opposites and updated when
+  // an opposite-generation job completes. Disables the "Generate opposite"
+  // button on cards whose parent is already in this set.
+  parentsWithOpposite: string[];
+  setParentsWithOpposite: (ids: string[]) => void;
+  addParentWithOpposite: (id: string) => void;
 
   // LLM config
   llmProvider: LLMProviderType;
@@ -136,6 +159,18 @@ export const useDesignStore = create<DesignStore>()(
       generationJobId: null,
       setGenerationJobId: (id) => set({ generationJobId: id }),
 
+      generationMode: "mapping-informed",
+      setGenerationMode: (mode) => set({ generationMode: mode }),
+
+      parentsWithOpposite: [],
+      setParentsWithOpposite: (ids) => set({ parentsWithOpposite: ids }),
+      addParentWithOpposite: (id) =>
+        set((state) =>
+          state.parentsWithOpposite.includes(id)
+            ? state
+            : { parentsWithOpposite: [...state.parentsWithOpposite, id] },
+        ),
+
       llmProvider: "anthropic",
       apiKeys: { openai: "", anthropic: "", "openai-compatible": "" },
       setLlmProvider: (provider) => set({ llmProvider: provider }),
@@ -157,31 +192,34 @@ export const useDesignStore = create<DesignStore>()(
           rubricScores: null,
           rubricIssues: [],
           generationJobId: null,
+          generationMode: "mapping-informed",
+          parentsWithOpposite: [],
           activeSection: "basicInfo",
         }),
     }),
     {
       name: "design-studio-store",
-      version: 2,
+      version: 3,
+      // Persist only the provider choice. API keys are session-only: a
+      // persisted key in localStorage would shadow the server env var on
+      // every request (see resolveApiKey) and survive server restarts /
+      // key rotations until the user manually cleared storage.
       partialize: (state) => ({
         llmProvider: state.llmProvider,
-        apiKeys: state.apiKeys,
       }),
       migrate: (persistedState, fromVersion) => {
-        // v1 had a single `apiKey` string. Drop it: it bled across providers
-        // and caused stale keys (e.g. an OpenAI key) to be sent when the user
-        // switched to a different provider.
-        const empty = { openai: "", anthropic: "", "openai-compatible": "" };
-        if (fromVersion < 2 && isRecord(persistedState)) {
-          const provider =
-            (persistedState as { llmProvider?: LLMProviderType }).llmProvider ??
-            "anthropic";
-          return { llmProvider: provider, apiKeys: empty };
+        if (!isRecord(persistedState)) {
+          return { llmProvider: "anthropic" as LLMProviderType };
         }
-        return persistedState as {
-          llmProvider: LLMProviderType;
-          apiKeys: Record<LLMProviderType, string>;
-        };
+        const provider =
+          (persistedState as { llmProvider?: LLMProviderType }).llmProvider ??
+          "anthropic";
+        // v1 stored a single `apiKey`; v2 stored per-provider `apiKeys`.
+        // From v3 on we drop both — keys live in memory only.
+        if (fromVersion < 3) {
+          return { llmProvider: provider };
+        }
+        return { llmProvider: provider };
       },
     }
   )

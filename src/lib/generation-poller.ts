@@ -1,5 +1,5 @@
 import { pollGenerationStatus } from "@/lib/api-client";
-import type { GenerationJob } from "@/lib/design-schema";
+import type { GenerationJob, VariantResult } from "@/lib/design-schema";
 import { useDesignStore, type DesignVariant } from "@/store/design-store";
 
 const POLL_INTERVAL_MS = 3000;
@@ -11,6 +11,17 @@ interface ActivePoll {
 }
 
 let active: ActivePoll | null = null;
+
+// Separate poll slot for single-variant "opposite" jobs. Kept distinct from
+// the main `active` slot so kicking off an opposite generation does not
+// cancel an in-flight multi-variant run (or vice-versa).
+interface OppositePoll {
+  jobId: string;
+  parentDesignId: string;
+  intervalId: ReturnType<typeof setInterval>;
+}
+
+const oppositePolls = new Map<string, OppositePoll>();
 
 /**
  * Stop the currently running poller (if any). Safe to call repeatedly.
@@ -167,4 +178,97 @@ export function subscribeGenerationError(listener: ErrorListener): () => void {
   return () => {
     errorListeners.delete(listener);
   };
+}
+
+// ---------------------------------------------------------------------------
+// Opposite-job polling
+// ---------------------------------------------------------------------------
+
+/**
+ * Poll a single-variant "opposite" generation job and merge the resulting
+ * variant into the gallery store when it becomes terminal. Lives in a
+ * separate poll slot from the main multi-variant poller so both can run
+ * concurrently without cancelling each other.
+ */
+export function startOppositePolling(
+  jobId: string,
+  parentDesignId: string,
+): void {
+  // Replace any existing poll for the same jobId.
+  stopOppositePolling(jobId);
+
+  const intervalId = setInterval(() => {
+    void oppositeTick(jobId);
+  }, POLL_INTERVAL_MS);
+
+  oppositePolls.set(jobId, { jobId, parentDesignId, intervalId });
+
+  // Fire an immediate poll so the skeleton shows up without waiting for the
+  // first interval tick.
+  void oppositeTick(jobId);
+}
+
+export function stopOppositePolling(jobId: string): void {
+  const entry = oppositePolls.get(jobId);
+  if (entry) {
+    clearInterval(entry.intervalId);
+    oppositePolls.delete(jobId);
+  }
+}
+
+async function oppositeTick(jobId: string): Promise<void> {
+  const entry = oppositePolls.get(jobId);
+  if (!entry) return;
+
+  const store = useDesignStore.getState();
+
+  let job: GenerationJob;
+  try {
+    job = await pollGenerationStatus(jobId);
+  } catch (err) {
+    stopOppositePolling(jobId);
+    const message =
+      err instanceof Error ? err.message : "Opposite polling failed";
+    setGenerationError(message);
+    return;
+  }
+
+  // Opposite jobs always carry exactly one variant (enqueueSingleVariantJob).
+  const variantResult: VariantResult | undefined = job.variants[0];
+  if (!variantResult) {
+    // Nothing yet — wait for next tick.
+    return;
+  }
+
+  const variant: DesignVariant = {
+    id: variantResult.id,
+    category: variantResult.category,
+    gameStyle: variantResult.gameStyle,
+    status: variantResult.status,
+    design: variantResult.design,
+    rubricScores: variantResult.rubricScores,
+    error: variantResult.error,
+    parentDesignId: entry.parentDesignId,
+  };
+
+  const existing = store.variants.find((v) => v.id === variant.id);
+  if (existing) {
+    store.updateVariant(variant.id, variant);
+  } else {
+    store.addVariant(variant);
+  }
+
+  const isTerminal = job.status === "complete" || job.status === "failed";
+  if (isTerminal) {
+    stopOppositePolling(jobId);
+    if (variantResult.status === "complete") {
+      // Persistence guarantees the parent → opposite link is now on disk.
+      store.addParentWithOpposite(entry.parentDesignId);
+    }
+    if (variantResult.status === "failed") {
+      const errorText =
+        variantResult.error ?? job.error ?? "Opposite generation failed";
+      setGenerationError(errorText);
+    }
+  }
 }

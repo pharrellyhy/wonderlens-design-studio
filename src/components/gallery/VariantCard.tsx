@@ -1,6 +1,6 @@
 "use client";
 
-import { Award, Drama, TrendingUp } from "lucide-react";
+import { ArrowLeftRight, Award, Drama, TrendingUp } from "lucide-react";
 import type { GameDesign, RubricScores } from "@/lib/design-schema";
 import {
   CATEGORY_LABELS,
@@ -8,13 +8,18 @@ import {
 } from "@/lib/design-schema";
 
 interface VariantCardProps {
+  id: string;
   status: "pending" | "complete" | "failed";
   category: string;
   gameStyle: string;
   design?: GameDesign;
   rubricScores?: RubricScores;
   error?: string;
+  parentDesignId?: string;
+  hasOpposite: boolean;
+  oppositeBusy: boolean;
   onClick: () => void;
+  onGenerateOpposite: (designId: string) => void;
 }
 
 function categoryTagClass(category: string): string {
@@ -31,15 +36,21 @@ function categoryLabel(category: string): string {
 }
 
 export function VariantCard({
+  id,
   status,
   category,
   gameStyle,
   design,
   rubricScores,
   error,
+  parentDesignId,
+  hasOpposite,
+  oppositeBusy,
   onClick,
+  onGenerateOpposite,
 }: VariantCardProps) {
   const tagClass = categoryTagClass(category);
+  const generationMode = design?.basicInfo.generationMode;
 
   // ── Pending placeholder ────────────────────────────────────────────────
   if (status === "pending" || (status === "complete" && !design)) {
@@ -109,6 +120,30 @@ export function VariantCard({
           <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
             {gameStyle}
           </span>
+          {generationMode && (
+            <span
+              className={`px-2 py-0.5 rounded text-xs font-medium ${
+                generationMode === "mapping-informed"
+                  ? "bg-blue-900/60 text-blue-300"
+                  : "bg-gray-700 text-gray-300"
+              }`}
+              title={
+                generationMode === "mapping-informed"
+                  ? "Generated with tier guidance + entity dimensions"
+                  : "Generated freeform; tier guidance is a loose preference"
+              }
+            >
+              {generationMode === "mapping-informed" ? "mapping" : "freeform"}
+            </span>
+          )}
+          {parentDesignId && (
+            <span
+              className="px-2 py-0.5 rounded text-xs font-medium bg-orange-900/50 text-orange-300"
+              title="Generated as opposite category of another variant in this gallery"
+            >
+              opposite
+            </span>
+          )}
         </div>
         <span
           className={`text-xs font-semibold ${
@@ -169,6 +204,30 @@ export function VariantCard({
             </span>
           ),
         )}
+      </div>
+
+      {/* Action row */}
+      <div className="flex justify-end mt-4">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (hasOpposite || oppositeBusy) return;
+            onGenerateOpposite(id);
+          }}
+          disabled={hasOpposite || oppositeBusy}
+          title={
+            hasOpposite
+              ? "This variant already has an opposite in the gallery"
+              : oppositeBusy
+                ? "Opposite generation in progress"
+                : "Generate the opposite-category counterpart"
+          }
+          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-gray-700 text-gray-300 hover:text-white hover:border-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-300 disabled:hover:border-gray-700 transition-colors"
+        >
+          <ArrowLeftRight className="w-3 h-3" />
+          {oppositeBusy ? "Generating..." : "Generate opposite"}
+        </button>
       </div>
     </div>
   );

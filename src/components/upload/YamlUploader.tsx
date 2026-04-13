@@ -3,15 +3,27 @@
 import { useCallback, useState } from "react";
 import { Upload } from "lucide-react";
 import { parseEntityYaml, type ParsedEntity } from "@/lib/yaml-parser";
+import type { GenerationMode } from "@/lib/design-schema";
+import { useDesignStore } from "@/store/design-store";
 
 interface YamlUploaderProps {
   onEntityParsed: (entity: ParsedEntity) => void;
 }
 
+const MODE_TOOLTIPS: Record<GenerationMode, string> = {
+  "mapping-informed":
+    "Uses the entity's tier guidance and dimensions to generate dual warm/cold bridges grounded in specific topics.",
+  freeform:
+    "Uses tier guidance as a loose preference; bridges are single generic openers.",
+};
+
 export function YamlUploader({ onEntityParsed }: YamlUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parsedEntity, setParsedEntity] = useState<ParsedEntity | null>(null);
+
+  const generationMode = useDesignStore((s) => s.generationMode);
+  const setGenerationMode = useDesignStore((s) => s.setGenerationMode);
 
   const handleFile = useCallback(
     (file: File) => {
@@ -104,6 +116,52 @@ export function YamlUploader({ onEntityParsed }: YamlUploaderProps) {
           {error}
         </div>
       )}
+
+      {/* Generation mode toggle */}
+      <div className="mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-gray-400 text-xs uppercase tracking-wider">
+            Generation mode
+          </label>
+          <span className="text-gray-600 text-xs">
+            {MODE_TOOLTIPS[generationMode]}
+          </span>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label="Generation mode"
+          className="inline-flex rounded-md border border-gray-700 bg-gray-800 p-1"
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={generationMode === "mapping-informed"}
+            onClick={() => setGenerationMode("mapping-informed")}
+            title={MODE_TOOLTIPS["mapping-informed"]}
+            className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
+              generationMode === "mapping-informed"
+                ? "bg-indigo-600 text-white"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            Mapping-informed
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={generationMode === "freeform"}
+            onClick={() => setGenerationMode("freeform")}
+            title={MODE_TOOLTIPS.freeform}
+            className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
+              generationMode === "freeform"
+                ? "bg-indigo-600 text-white"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            Freeform
+          </button>
+        </div>
+      </div>
 
       {/* Entity summary */}
       {parsedEntity && (

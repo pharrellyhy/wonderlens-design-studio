@@ -151,9 +151,27 @@ export default function EditorPage() {
           <ArrowLeft className="w-4 h-4" />
           Back to Gallery
         </button>
-        <h1 className="text-sm font-semibold text-white">
-          WonderLens Design Studio
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-sm font-semibold text-white">
+            {activeDesign.basicInfo.activityName}
+          </h1>
+          <span
+            className={`px-2 py-0.5 rounded text-[11px] font-medium ${
+              activeDesign.basicInfo.generationMode === "mapping-informed"
+                ? "bg-blue-900/60 text-blue-300"
+                : "bg-gray-700 text-gray-300"
+            }`}
+            title={
+              activeDesign.basicInfo.generationMode === "mapping-informed"
+                ? "Generated with tier guidance + entity dimensions"
+                : "Generated freeform; tier guidance is a loose preference"
+            }
+          >
+            {activeDesign.basicInfo.generationMode === "mapping-informed"
+              ? "mapping"
+              : "freeform"}
+          </span>
+        </div>
         <div className="w-32" /> {/* Spacer for centering */}
       </header>
 
@@ -501,6 +519,28 @@ export default function EditorPage() {
                       onAskAI={handleAskAI}
                     />
                   )}
+
+                {/* Closing-only fields: concept reinforcement + tomorrow hook */}
+                {step.type === "closing" && (
+                  <div className="mt-6 space-y-4">
+                    <EditableField
+                      label="Concept Reinforcement"
+                      value={step.conceptReinforcement ?? ""}
+                      fieldPath={`steps.${stepIndex}.conceptReinforcement`}
+                      onChange={handleFieldChange}
+                      onAskAI={handleAskAI}
+                      multiline
+                    />
+                    <EditableField
+                      label="Tomorrow Hook"
+                      value={step.tomorrowHook ?? ""}
+                      fieldPath={`steps.${stepIndex}.tomorrowHook`}
+                      onChange={handleFieldChange}
+                      onAskAI={handleAskAI}
+                      multiline
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
