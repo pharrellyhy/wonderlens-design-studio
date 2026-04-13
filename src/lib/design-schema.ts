@@ -138,11 +138,11 @@ export type RubricIssue = z.infer<typeof rubricIssueSchema>;
 export const variantResultSchema = z.object({
   id: z.string(),
   design: gameDesignSchema.optional(),
-  rubricScores: rubricScoresSchema,
-  issues: z.array(rubricIssueSchema),
+  rubricScores: rubricScoresSchema.optional(),
+  issues: z.array(rubricIssueSchema).optional(),
   category: z.string(),
   gameStyle: z.string(),
-  status: z.enum(["complete", "failed"]),
+  status: z.enum(["pending", "complete", "failed"]),
   error: z.string().optional(),
 });
 

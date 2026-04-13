@@ -8,46 +8,92 @@ import {
 } from "@/lib/design-schema";
 
 interface VariantCardProps {
-  design: GameDesign;
-  rubricScores: RubricScores;
-  isGenerating?: boolean;
+  status: "pending" | "complete" | "failed";
+  category: string;
+  gameStyle: string;
+  design?: GameDesign;
+  rubricScores?: RubricScores;
   error?: string;
   onClick: () => void;
 }
 
+function categoryTagClass(category: string): string {
+  return category === "cat1"
+    ? "bg-indigo-900/50 text-indigo-300"
+    : "bg-green-900/50 text-green-300";
+}
+
+function categoryLabel(category: string): string {
+  if (category in CATEGORY_LABELS) {
+    return CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS];
+  }
+  return category;
+}
+
 export function VariantCard({
+  status,
+  category,
+  gameStyle,
   design,
   rubricScores,
-  isGenerating,
   error,
   onClick,
 }: VariantCardProps) {
-  const passCount = Object.values(rubricScores).filter((score) => score === "pass").length;
+  const tagClass = categoryTagClass(category);
+
+  // ── Pending placeholder ────────────────────────────────────────────────
+  if (status === "pending" || (status === "complete" && !design)) {
+    return (
+      <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-5 min-h-[220px] flex flex-col">
+        <div className="flex gap-1.5 flex-wrap mb-4">
+          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+            {categoryLabel(category)}
+          </span>
+          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+            {gameStyle}
+          </span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center">
+          <div className="relative w-10 h-10 mb-3">
+            <div className="absolute inset-0 rounded-full border-[3px] border-indigo-500/20" />
+            <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-indigo-400 border-r-indigo-400/60 animate-spin" />
+          </div>
+          <p className="text-gray-400 text-sm">Generating…</p>
+          <p className="text-gray-600 text-xs mt-1">
+            Multi-pass quality pipeline
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Failed ─────────────────────────────────────────────────────────────
+  if (status === "failed" || !design || !rubricScores) {
+    return (
+      <div className="bg-gray-800 border border-red-800/60 rounded-xl p-5 min-h-[220px] flex flex-col">
+        <div className="flex gap-1.5 flex-wrap mb-3">
+          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+            {categoryLabel(category)}
+          </span>
+          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+            {gameStyle}
+          </span>
+        </div>
+        <p className="text-red-400 text-sm font-semibold mb-1">
+          Generation failed
+        </p>
+        <p className="text-red-300/80 text-xs leading-relaxed whitespace-pre-wrap">
+          {error ?? "Unknown error"}
+        </p>
+      </div>
+    );
+  }
+
+  // ── Complete ───────────────────────────────────────────────────────────
+  const passCount = Object.values(rubricScores).filter(
+    (score) => score === "pass",
+  ).length;
   const allPass = passCount === 9;
-
-  if (isGenerating) {
-    return (
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 animate-pulse">
-        <div className="h-4 bg-gray-700 rounded w-1/3 mb-3" />
-        <div className="h-6 bg-gray-700 rounded w-2/3 mb-3" />
-        <div className="h-16 bg-gray-700 rounded mb-3" />
-        <p className="text-sm text-gray-500">Generating...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-gray-800 border border-red-800 rounded-xl p-5">
-        <p className="text-red-400 text-sm">Generation failed: {error}</p>
-      </div>
-    );
-  }
-
-  const isCat1 = design.basicInfo.category === "cat1";
-  const tagClassName = isCat1
-    ? "bg-indigo-900/50 text-indigo-300"
-    : "bg-green-900/50 text-green-300";
 
   return (
     <div
@@ -57,11 +103,11 @@ export function VariantCard({
       {/* Tags */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex gap-1.5 flex-wrap">
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClassName}`}>
-            {CATEGORY_LABELS[design.basicInfo.category]}
+          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+            {categoryLabel(category)}
           </span>
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClassName}`}>
-            {design.basicInfo.gameStyle}
+          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+            {gameStyle}
           </span>
         </div>
         <span
@@ -121,7 +167,7 @@ export function VariantCard({
             >
               {dim}
             </span>
-          )
+          ),
         )}
       </div>
     </div>

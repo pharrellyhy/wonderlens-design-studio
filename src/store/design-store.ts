@@ -6,9 +6,11 @@ import type { ParsedEntity } from "@/lib/yaml-parser";
 
 export interface DesignVariant {
   id: string;
-  design: GameDesign;
-  rubricScores: RubricScores;
-  isGenerating: boolean;
+  category: string;
+  gameStyle: string;
+  status: "pending" | "complete" | "failed";
+  design?: GameDesign;
+  rubricScores?: RubricScores;
   error?: string;
 }
 

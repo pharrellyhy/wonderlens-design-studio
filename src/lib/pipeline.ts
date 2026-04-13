@@ -257,8 +257,19 @@ export function selectVariantConfigs(
 // ---------------------------------------------------------------------------
 
 /**
- * Run the full generation job: iterate over variant configs sequentially,
- * generating each variant and collecting results.
+ * Maximum number of variants generated in parallel. Each variant runs the
+ * full multi-pass pipeline (generate → evaluate → fix → re-evaluate), so the
+ * effective concurrent request count against the LLM provider is up to this
+ * value. Tuned conservatively to stay below typical free-tier QPS limits on
+ * DashScope, OpenRouter, etc.
+ */
+const VARIANT_CONCURRENCY = 3;
+
+/**
+ * Run the full generation job: push placeholder VariantResults up front so
+ * the UI can render the final layout immediately, then process configs
+ * through a small concurrency pool, mutating each placeholder in place as it
+ * completes or fails.
  */
 export async function runGenerationJob(
   job: GenerationJob,
@@ -268,45 +279,58 @@ export async function runGenerationJob(
 ): Promise<void> {
   job.status = "generating";
 
-  for (let i = 0; i < variantConfigs.length; i++) {
-    job.currentVariant = i + 1;
-    const config = variantConfigs[i];
-
-    try {
-      const result = await generateVariant(
-        entity,
-        config.category,
-        config.gameStyle,
-        provider
-      );
-      job.variants.push(result);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-
-      console.error(
-        `[pipeline] variant ${i + 1}/${variantConfigs.length} failed (${config.category}/${config.gameStyle}):`,
-        error,
-      );
-
-      const failedResult: VariantResult = {
-        id: crypto.randomUUID(),
-        design: undefined,
-        rubricScores: ALL_FAIL_SCORES,
-        issues: [
-          {
-            dimension: "pipeline",
-            description: errorMessage,
-          },
-        ],
-        category: config.category,
-        gameStyle: config.gameStyle,
-        status: "failed",
-        error: errorMessage,
-      };
-      job.variants.push(failedResult);
-    }
+  // Push placeholders for every planned variant first.
+  for (const config of variantConfigs) {
+    job.variants.push({
+      id: crypto.randomUUID(),
+      category: config.category,
+      gameStyle: config.gameStyle,
+      status: "pending",
+    });
   }
+
+  await runWithConcurrency(
+    variantConfigs,
+    VARIANT_CONCURRENCY,
+    async (config, index) => {
+      const placeholder = job.variants[index];
+      try {
+        const result = await generateVariant(
+          entity,
+          config.category,
+          config.gameStyle,
+          provider
+        );
+        // Mutate the placeholder in place so its id (which the client may
+        // already be tracking) is preserved.
+        placeholder.design = result.design;
+        placeholder.rubricScores = result.rubricScores;
+        placeholder.issues = result.issues;
+        placeholder.status = "complete";
+        job.currentVariant = job.variants.filter(
+          (v) => v.status === "complete" || v.status === "failed",
+        ).length;
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        console.error(
+          `[pipeline] variant ${index + 1}/${variantConfigs.length} failed (${config.category}/${config.gameStyle}):`,
+          error,
+        );
+
+        placeholder.rubricScores = ALL_FAIL_SCORES;
+        placeholder.issues = [
+          { dimension: "pipeline", description: errorMessage },
+        ];
+        placeholder.status = "failed";
+        placeholder.error = errorMessage;
+        job.currentVariant = job.variants.filter(
+          (v) => v.status === "complete" || v.status === "failed",
+        ).length;
+      }
+    },
+  );
 
   const successCount = job.variants.filter((v) => v.status === "complete").length;
   if (successCount === 0 && job.variants.length > 0) {
@@ -315,6 +339,39 @@ export async function runGenerationJob(
   } else {
     job.status = "complete";
   }
+}
+
+// ---------------------------------------------------------------------------
+// Internal utility: bounded-concurrency worker pool
+// ---------------------------------------------------------------------------
+
+/**
+ * Run `worker` over each item with at most `limit` invocations in flight.
+ * Items are pulled in submission order; workers exit when the queue drains.
+ * Errors thrown by `worker` are swallowed (the caller is expected to record
+ * them on the item itself).
+ */
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  const runners = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) return;
+        try {
+          await worker(items[i], i);
+        } catch {
+          // Worker is responsible for recording its own failures.
+        }
+      }
+    },
+  );
+  await Promise.all(runners);
 }
 
 // ---------------------------------------------------------------------------

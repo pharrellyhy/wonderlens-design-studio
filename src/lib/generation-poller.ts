@@ -76,42 +76,48 @@ async function tick(jobId: string, seen: Set<string>): Promise<void> {
   const allFailures: string[] = [];
 
   for (const result of job.variants) {
-    if (result.status === "failed" || !result.design) {
+    if (result.status === "failed") {
       const errorText =
         result.error ?? result.issues?.[0]?.description ?? "unknown error";
       allFailures.push(`${result.category}/${result.gameStyle}: ${errorText}`);
     }
 
-    if (seen.has(result.id)) continue;
-    seen.add(result.id);
-
-    if (result.status === "failed" || !result.design) {
-      console.warn(
-        `[gallery] variant failed (${result.category}/${result.gameStyle}):`,
-        result.error ?? result.issues,
-      );
-      continue;
-    }
-
     const variant: DesignVariant = {
       id: result.id,
+      category: result.category,
+      gameStyle: result.gameStyle,
+      status: result.status,
       design: result.design,
       rubricScores: result.rubricScores,
-      isGenerating: false,
-      error: undefined,
+      error: result.error,
     };
-    store.addVariant(variant);
+
+    if (seen.has(result.id)) {
+      // In-place update for placeholders transitioning pending → complete/failed.
+      store.updateVariant(result.id, variant);
+      if (result.status === "failed") {
+        console.warn(
+          `[gallery] variant failed (${result.category}/${result.gameStyle}):`,
+          result.error ?? result.issues,
+        );
+      }
+    } else {
+      seen.add(result.id);
+      store.addVariant(variant);
+    }
   }
 
-  const totalSeen = seen.size;
-  const successCount = totalSeen - allFailures.length;
+  const totalVariants = job.variants.length;
+  const successCount = job.variants.filter(
+    (v) => v.status === "complete",
+  ).length;
   const isTerminal = job.status === "complete" || job.status === "failed";
 
   if (allFailures.length > 0) {
     const header = isTerminal
       ? successCount === 0
-        ? `All ${totalSeen} variant${totalSeen === 1 ? "" : "s"} failed`
-        : `${allFailures.length} of ${totalSeen} variants failed`
+        ? `All ${totalVariants} variant${totalVariants === 1 ? "" : "s"} failed`
+        : `${allFailures.length} of ${totalVariants} variants failed`
       : `${allFailures.length} variant${allFailures.length === 1 ? "" : "s"} failed so far`;
     const jobErrorLine = job.error ? `\n${job.error}` : "";
     setGenerationError(

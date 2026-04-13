@@ -107,7 +107,7 @@ export default function GalleryPage() {
 
   const handleSelectVariant = (variantId: string) => {
     const variant = variants.find((v) => v.id === variantId);
-    if (variant) {
+    if (variant && variant.design && variant.rubricScores) {
       setActiveDesign(variantId, variant.design, variant.rubricScores);
       router.push(`/editor/${variantId}`);
     }
@@ -134,7 +134,15 @@ export default function GalleryPage() {
               </h1>
               <p className="text-gray-500 text-sm">
                 Entity: {parsedEntity.name} | {parsedEntity.tiers.join(", ")} |{" "}
-                {variants.length} variants generated
+                {(() => {
+                  const total = variants.length;
+                  const complete = variants.filter(
+                    (v) => v.status === "complete",
+                  ).length;
+                  if (total === 0) return "no variants yet";
+                  if (complete === total) return `${total} variants ready`;
+                  return `${complete} of ${total} ready`;
+                })()}
               </p>
             </div>
           </div>
@@ -207,66 +215,26 @@ export default function GalleryPage() {
       <main className="max-w-5xl mx-auto px-6 py-8">
         {variants.length === 0 ? (
           <div className="text-center py-20">
-            {isGenerating ? (
-              <>
-                <div className="inline-flex items-center justify-center mb-5">
-                  <div className="relative w-14 h-14">
-                    <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20" />
-                    <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-indigo-400 border-r-indigo-400/60 animate-spin" />
-                  </div>
-                </div>
-                <p className="text-gray-300 text-lg font-medium">
-                  Generating design variants
-                  <span className="inline-flex ml-1">
-                    <span className="animate-bounce [animation-delay:-0.3s]">
-                      .
-                    </span>
-                    <span className="animate-bounce [animation-delay:-0.15s]">
-                      .
-                    </span>
-                    <span className="animate-bounce">.</span>
-                  </span>
-                </p>
-                <p className="text-gray-600 text-sm mt-2">
-                  This may take a few minutes. Each variant goes through a
-                  multi-pass quality pipeline.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-gray-500 text-lg mb-2">No variants yet.</p>
-                <p className="text-gray-600 text-sm">
-                  Configure your LLM provider and API key above, then click
-                  &ldquo;Generate Variants&rdquo; to start.
-                </p>
-              </>
-            )}
+            <p className="text-gray-500 text-lg mb-2">No variants yet.</p>
+            <p className="text-gray-600 text-sm">
+              Configure your LLM provider and API key above, then click
+              &ldquo;Generate Variants&rdquo; to start.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {variants.map((variant) => (
               <VariantCard
                 key={variant.id}
+                status={variant.status}
+                category={variant.category}
+                gameStyle={variant.gameStyle}
                 design={variant.design}
                 rubricScores={variant.rubricScores}
-                isGenerating={variant.isGenerating}
                 error={variant.error}
                 onClick={() => handleSelectVariant(variant.id)}
               />
             ))}
-            {isGenerating && (
-              <div className="bg-gray-800/50 border-2 border-dashed border-gray-700 rounded-xl p-5 flex items-center justify-center min-h-[160px]">
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center mb-3">
-                    <div className="relative w-8 h-8">
-                      <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20" />
-                      <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-indigo-400 animate-spin" />
-                    </div>
-                  </div>
-                  <p className="text-gray-500 text-xs">More on the way…</p>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
