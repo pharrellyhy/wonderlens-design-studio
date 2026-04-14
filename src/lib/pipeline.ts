@@ -6,6 +6,7 @@ import {
   gameDesignSchema,
   rubricIssueSchema,
   rubricScoresSchema,
+  styleToPillar,
 } from "@/lib/design-schema";
 import type {
   Category,
@@ -172,11 +173,20 @@ export async function generateVariant(
   // carry end-to-end generation latency for later analysis.
   const startTime = Date.now();
 
+  // Resolve experience pillar from game style
+  const pillar = styleToPillar(gameStyle);
+  if (!pillar) {
+    throw new Error(
+      `generateVariant: unknown gameStyle "${gameStyle}" — no pillar mapping`,
+    );
+  }
+
   // Pass 1 — Generate
   const generateMessages = buildGenerateMessages(
     entity,
     category,
     gameStyle,
+    pillar,
     generationMode,
   );
   let design: GameDesign = await llmJsonCall(
