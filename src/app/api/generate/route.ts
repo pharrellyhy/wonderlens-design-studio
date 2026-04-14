@@ -4,8 +4,7 @@ import { z } from "zod";
 import { categorySchema, generationModeSchema } from "@/lib/design-schema";
 import type { GenerationJob } from "@/lib/design-schema";
 import { jobs, cleanupJobs } from "@/lib/job-store";
-import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
-import type { LLMProviderType } from "@/lib/llm/provider";
+import { getServerLLMProvider } from "@/lib/llm/provider";
 import { runGenerationJob, selectVariantConfigs } from "@/lib/pipeline";
 import { parseEntityYaml } from "@/lib/yaml-parser";
 
@@ -29,22 +28,18 @@ export async function POST(request: NextRequest) {
       entity,
       entityYaml,
       variantConfigs: rawVariantConfigs,
-      llmProvider,
-      apiKey,
       generationMode: rawGenerationMode,
     } = body as {
       entity?: string;
       entityYaml?: string;
       variantConfigs?: unknown;
-      llmProvider: LLMProviderType;
-      apiKey?: string;
       generationMode?: unknown;
     };
     const yamlSource = entityYaml ?? entity;
 
-    if (!yamlSource || !llmProvider) {
+    if (!yamlSource) {
       return NextResponse.json(
-        { error: "Missing required fields: entityYaml, llmProvider" },
+        { error: "Missing required field: entityYaml" },
         { status: 400 },
       );
     }
@@ -76,20 +71,20 @@ export async function POST(request: NextRequest) {
     }
     const variantConfigs = configsResult.data;
 
-    const resolvedKey = resolveApiKey(llmProvider, apiKey);
-    if (!resolvedKey) {
-      return NextResponse.json(
-        {
-          error: `No API key for provider "${llmProvider}". Provide one in the request or set the matching env var.`,
-        },
-        { status: 400 },
-      );
-    }
-
     cleanupJobs();
 
+    let provider;
+    try {
+      provider = getServerLLMProvider();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Server LLM provider not configured";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+
     const parsedEntity = parseEntityYaml(yamlSource);
-    const provider = createLLMProvider(llmProvider, resolvedKey);
     const configs = variantConfigs ?? selectVariantConfigs();
 
     const jobId = crypto.randomUUID();

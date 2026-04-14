@@ -25,8 +25,6 @@ export default function EditorPage() {
   const activeSection = useDesignStore((s) => s.activeSection);
   const setActiveSection = useDesignStore((s) => s.setActiveSection);
   const updateField = useDesignStore((s) => s.updateField);
-  const llmProvider = useDesignStore((s) => s.llmProvider);
-  const apiKey = useDesignStore((s) => s.apiKeys[s.llmProvider]);
   const setRubricScores = useDesignStore((s) => s.setRubricScores);
   const setRubricIssues = useDesignStore((s) => s.setRubricIssues);
 
@@ -56,14 +54,12 @@ export default function EditorPage() {
   };
 
   const handleAskAI = async (path: string, comment: string) => {
-    if (!apiKey || !activeDesign) return;
+    if (!activeDesign) return;
     try {
       const updatedValue = await regenerateField({
         design: activeDesign,
         fieldPath: path,
         comment: comment || "Please improve this",
-        llmProvider,
-        apiKey,
       });
       updateField(path, updatedValue);
     } catch (error) {
@@ -75,11 +71,7 @@ export default function EditorPage() {
     if (!activeDesign) return;
     setIsEvaluating(true);
     try {
-      const result = await evaluateDesign({
-        design: activeDesign,
-        llmProvider,
-        apiKey,
-      });
+      const result = await evaluateDesign({ design: activeDesign });
       setRubricScores(result.rubricScores);
       setRubricIssues(result.issues);
     } catch (error) {
@@ -90,14 +82,12 @@ export default function EditorPage() {
   };
 
   const handleRegenerateWithFeedback = async (feedback: string) => {
-    if (!apiKey || !activeDesign) return;
+    if (!activeDesign) return;
     try {
       const updatedValue = await regenerateField({
         design: activeDesign,
         fieldPath: "",
         comment: feedback,
-        llmProvider,
-        apiKey,
       });
       if (typeof updatedValue === "object" && updatedValue !== null) {
         updateField("", updatedValue);

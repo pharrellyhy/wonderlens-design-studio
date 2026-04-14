@@ -5,7 +5,6 @@ import type {
   RubricScores,
   RubricIssue,
 } from "./design-schema";
-import type { LLMProviderType } from "./llm/provider";
 import type { ParsedEntity } from "./yaml-parser";
 
 // ── Param / Result interfaces ───────────────────────────────────────────────
@@ -13,8 +12,6 @@ import type { ParsedEntity } from "./yaml-parser";
 export interface GenerateParams {
   entityYaml: string;
   variantConfigs?: Array<{ category: string; gameStyle: string }>;
-  llmProvider: LLMProviderType;
-  apiKey: string;
   // Required: the /api/generate route returns 400 if missing. Threaded from
   // the upload/gallery UI toggle — never defaulted client-side.
   generationMode: GenerationMode;
@@ -22,14 +19,10 @@ export interface GenerateParams {
 
 export interface GenerateOppositeParams {
   sourceDesignId: string;
-  llmProvider: LLMProviderType;
-  apiKey: string;
 }
 
 export interface EvaluateParams {
   design: GameDesign;
-  llmProvider: LLMProviderType;
-  apiKey: string;
 }
 
 export interface EvaluationResult {
@@ -41,8 +34,6 @@ export interface RegenerateParams {
   design: GameDesign;
   fieldPath: string;
   comment: string;
-  llmProvider: LLMProviderType;
-  apiKey: string;
 }
 
 export interface ExportParams {

@@ -19,7 +19,6 @@ import {
   subscribeGenerationError,
 } from "@/lib/generation-poller";
 import type { GenerationMode } from "@/lib/design-schema";
-import type { LLMProviderType } from "@/lib/llm/provider";
 
 export default function GalleryPage() {
   const router = useRouter();
@@ -27,10 +26,6 @@ export default function GalleryPage() {
   const variants = useDesignStore((s) => s.variants);
   const setVariants = useDesignStore((s) => s.setVariants);
   const setActiveDesign = useDesignStore((s) => s.setActiveDesign);
-  const llmProvider = useDesignStore((s) => s.llmProvider);
-  const apiKey = useDesignStore((s) => s.apiKeys[s.llmProvider]);
-  const setLlmProvider = useDesignStore((s) => s.setLlmProvider);
-  const setApiKey = useDesignStore((s) => s.setApiKey);
   const generationJobId = useDesignStore((s) => s.generationJobId);
   const setGenerationJobId = useDesignStore((s) => s.setGenerationJobId);
   const generationMode = useDesignStore((s) => s.generationMode);
@@ -156,8 +151,6 @@ export default function GalleryPage() {
     try {
       jobId = await startGeneration({
         entityYaml: parsedEntity.rawYaml,
-        llmProvider,
-        apiKey,
         generationMode,
       });
     } catch (err) {
@@ -170,9 +163,7 @@ export default function GalleryPage() {
     setGenerationJobId(jobId);
     startPolling(jobId);
   }, [
-    apiKey,
     generationMode,
-    llmProvider,
     parsedEntity,
     setGenerationJobId,
     setParentsWithOpposite,
@@ -192,8 +183,6 @@ export default function GalleryPage() {
       try {
         jobId = await generateOppositeVariant({
           sourceDesignId: designId,
-          llmProvider,
-          apiKey,
         });
       } catch (err) {
         setOppositeBusySet((prev) => {
@@ -214,7 +203,7 @@ export default function GalleryPage() {
       // useEffect above watches `variants` and prunes this designId from
       // `oppositeBusySet` when its child reaches complete/failed.
     },
-    [apiKey, llmProvider],
+    [],
   );
 
 
@@ -302,35 +291,9 @@ export default function GalleryPage() {
         </div>
       </header>
 
-      {/* LLM Settings Bar */}
+      {/* Generation settings bar */}
       <div className="border-b border-gray-800 px-6 py-3 bg-gray-900/50">
         <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-gray-400">
-            Provider
-            <select
-              value={llmProvider}
-              onChange={(e) =>
-                setLlmProvider(e.target.value as LLMProviderType)
-              }
-              className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="anthropic">Anthropic</option>
-              <option value="openai">OpenAI</option>
-              <option value="openai-compatible">OpenAI-Compatible</option>
-            </select>
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-gray-400 flex-1">
-            API Key
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(llmProvider, e.target.value)}
-              placeholder="Leave blank to use server env key"
-              className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1.5 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-600"
-            />
-          </label>
-
           <label className="flex items-center gap-2 text-sm text-gray-400">
             Mode
             <select
@@ -345,6 +308,8 @@ export default function GalleryPage() {
               <option value="freeform">Freeform</option>
             </select>
           </label>
+
+          <div className="flex-1" />
 
           <button
             onClick={handleGenerate}

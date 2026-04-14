@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { gameDesignSchema, rubricScoresSchema, rubricIssueSchema } from "@/lib/design-schema";
-import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
-import type { LLMProviderType } from "@/lib/llm/provider";
+import { getServerLLMProvider } from "@/lib/llm/provider";
 import { parseJsonResponse } from "@/lib/pipeline";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
 import { applyD4Override } from "@/lib/rubric-checks";
@@ -24,31 +23,28 @@ const evaluateResponseSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { design, llmProvider, apiKey } = body as {
-      design: unknown;
-      llmProvider: LLMProviderType;
-      apiKey?: string;
-    };
+    const { design } = body as { design: unknown };
 
-    if (!design || !llmProvider) {
+    if (!design) {
       return NextResponse.json(
-        { error: "Missing required fields: design, llmProvider" },
-        { status: 400 },
-      );
-    }
-
-    const resolvedKey = resolveApiKey(llmProvider, apiKey);
-    if (!resolvedKey) {
-      return NextResponse.json(
-        {
-          error: `No API key for provider "${llmProvider}". Provide one in the request or set the matching env var.`,
-        },
+        { error: "Missing required field: design" },
         { status: 400 },
       );
     }
 
     const validatedDesign = gameDesignSchema.parse(design);
-    const provider = createLLMProvider(llmProvider, resolvedKey);
+
+    let provider;
+    try {
+      provider = getServerLLMProvider();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Server LLM provider not configured";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+
     const messages = buildEvaluateMessages(validatedDesign);
 
     const rawResponse = await provider.generate(messages, {

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { PILLAR_STYLES } from "@/lib/design-schema";
 import type { Category } from "@/lib/design-schema";
 import { cleanupJobs } from "@/lib/job-store";
-import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
+import { getServerLLMProvider } from "@/lib/llm/provider";
 import { enqueueSingleVariantJob } from "@/lib/pipeline";
 import { getRunByDesignId } from "@/lib/runs-repository";
 import { parseEntityYaml } from "@/lib/yaml-parser";
@@ -15,8 +15,6 @@ import { parseEntityYaml } from "@/lib/yaml-parser";
 
 const oppositeRequestSchema = z.object({
   sourceDesignId: z.string().min(1),
-  llmProvider: z.enum(["openai", "anthropic", "openai-compatible"]),
-  apiKey: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -49,17 +47,7 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const { sourceDesignId, llmProvider, apiKey } = parseResult.data;
-
-  const resolvedKey = resolveApiKey(llmProvider, apiKey);
-  if (!resolvedKey) {
-    return NextResponse.json(
-      {
-        error: `No API key for provider "${llmProvider}". Provide one in the request or set the matching env var.`,
-      },
-      { status: 400 },
-    );
-  }
+  const { sourceDesignId } = parseResult.data;
 
   // Authoritative lookup: the persisted run file is the only place we can
   // recover the raw entity YAML and original generationMode. In-memory
@@ -99,7 +87,16 @@ export async function POST(request: NextRequest) {
   const targetGameStyle = PILLAR_STYLES[sourcePillar][targetCategory];
   const generationMode = sourceRun.generationMode;
 
-  const provider = createLLMProvider(llmProvider, resolvedKey);
+  let provider;
+  try {
+    provider = getServerLLMProvider();
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Server LLM provider not configured";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   cleanupJobs();
 
