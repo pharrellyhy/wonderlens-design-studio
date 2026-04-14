@@ -145,10 +145,9 @@ function getFailingIssues(issues: RubricIssue[]): RubricIssue[] {
 // All-fail rubric scores (used for failed variants)
 // ---------------------------------------------------------------------------
 
-const ALL_FAIL_SCORES: RubricScores = {
-  d1: "fail", d2: "fail", d3: "fail", d4: "fail", d5: "fail",
-  d6: "fail", d7: "fail", d8: "fail", d9: "fail", d10: "fail",
-};
+const ALL_FAIL_SCORES: RubricScores = Object.fromEntries(
+  DIMENSION_KEYS.map((k) => [k, "fail"] as const),
+) as RubricScores;
 
 // ---------------------------------------------------------------------------
 // generateVariant
@@ -312,8 +311,9 @@ export function selectVariantConfigs(
   const pickCount = Math.min(maxVariants, pillarPool.length);
   const pickedPillars = pillarPool.slice(0, pickCount);
 
-  // Balanced category split: floor(N/2) cat1 + ceil(N/2) cat5 (or vice
-  // versa on odd N — we arbitrarily give the extra slot to cat1).
+  // Balanced category split: ceil(N/2) cat1 + floor(N/2) cat5. On odd N
+  // the extra slot goes to cat1 (arbitrary choice — documenting it so
+  // single-variant callers know they always get cat1).
   const cat1Count = Math.ceil(pickCount / 2);
   const categories: Category[] = [
     ...Array<Category>(cat1Count).fill("cat1"),

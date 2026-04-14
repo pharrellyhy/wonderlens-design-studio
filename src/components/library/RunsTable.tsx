@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowLeftRight, ArrowUp, Download } from "lucide-react";
 
 import type { RunRecord } from "@/lib/runs-repository";
-import { RUBRIC_DIMENSIONS, RUBRIC_DIMENSION_COUNT } from "@/lib/design-schema";
+import {
+  RUBRIC_DIMENSION_COUNT,
+  RUBRIC_DIMENSION_KEYS,
+} from "@/lib/design-schema";
 import {
   flattenGroups,
   groupRunsWithOpposites,
@@ -92,10 +95,6 @@ function formatTimestamp(iso: string): string {
   )} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const RUBRIC_KEYS = Object.keys(RUBRIC_DIMENSIONS) as Array<
-  keyof typeof RUBRIC_DIMENSIONS
->;
-
 // ---------------------------------------------------------------------------
 // CSV export
 // ---------------------------------------------------------------------------
@@ -115,16 +114,7 @@ function rowsToCsv(rows: FlatRow[]): string {
     "game_style",
     "mode",
     "is_opposite",
-    "d1",
-    "d2",
-    "d3",
-    "d4",
-    "d5",
-    "d6",
-    "d7",
-    "d8",
-    "d9",
-    "d10",
+    ...RUBRIC_DIMENSION_KEYS,
     "score",
     "timestamp",
     "run_id",
@@ -140,7 +130,7 @@ function rowsToCsv(rows: FlatRow[]): string {
       run.gameStyle,
       run.generationMode,
       run.isOpposite ? "true" : "false",
-      ...RUBRIC_KEYS.map((k) => run.rubric[k]),
+      ...RUBRIC_DIMENSION_KEYS.map((k) => run.rubric[k]),
       run.totalScore.toString(),
       run.timestamp,
       run.runId,

@@ -117,22 +117,19 @@ export const PILLAR_LABELS: Record<ExperiencePillar, string> = {
   nurture:     "Nurture — I helped!",
 };
 
-export const ALL_PILLARS: ExperiencePillar[] = [
-  "mystery",
-  "creation",
-  "performance",
-  "discovery",
-  "adventure",
-  "nurture",
-];
+export const ALL_PILLARS = Object.keys(PILLAR_STYLES) as ExperiencePillar[];
+
+// Reverse index: game style → owning pillar. Built once at module load so
+// styleToPillar is an O(1) lookup instead of scanning PILLAR_STYLES each call.
+const STYLE_TO_PILLAR: Record<string, ExperiencePillar> = Object.fromEntries(
+  ALL_PILLARS.flatMap((pillar) => [
+    [PILLAR_STYLES[pillar].cat1, pillar],
+    [PILLAR_STYLES[pillar].cat5, pillar],
+  ]),
+);
 
 export function styleToPillar(style: string): ExperiencePillar | null {
-  for (const [pillar, styles] of Object.entries(PILLAR_STYLES)) {
-    if (styles.cat1 === style || styles.cat5 === style) {
-      return pillar as ExperiencePillar;
-    }
-  }
-  return null;
+  return STYLE_TO_PILLAR[style] ?? null;
 }
 
 // ── Game Design schema ───────────────────────────────────────────────────────
@@ -297,7 +294,11 @@ export const RUBRIC_DIMENSION_DESCRIPTIONS: Record<
   d10: "A blind reader could identify the experience pillar (Mystery / Creation / Performance / Discovery / Adventure / Nurture) from this design alone; the emotional arc matches the pillar's promise.",
 };
 
-export const RUBRIC_DIMENSION_COUNT = Object.keys(RUBRIC_DIMENSIONS).length;
+export const RUBRIC_DIMENSION_KEYS = Object.keys(RUBRIC_DIMENSIONS) as Array<
+  keyof typeof RUBRIC_DIMENSIONS
+>;
+
+export const RUBRIC_DIMENSION_COUNT = RUBRIC_DIMENSION_KEYS.length;
 
 // ── Category + tier labels ───────────────────────────────────────────────────
 

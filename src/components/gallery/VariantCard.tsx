@@ -2,7 +2,11 @@
 
 import { ArrowLeftRight, Award, Drama, TrendingUp } from "lucide-react";
 import type { GameDesign, RubricScores } from "@/lib/design-schema";
-import { RUBRIC_DIMENSIONS, RUBRIC_DIMENSION_COUNT } from "@/lib/design-schema";
+import {
+  RUBRIC_DIMENSIONS,
+  RUBRIC_DIMENSION_COUNT,
+  RUBRIC_DIMENSION_KEYS,
+} from "@/lib/design-schema";
 import { CategoryPill } from "@/components/common/CategoryPill";
 import { ModePill } from "@/components/common/ModePill";
 import { PillarPill } from "@/components/common/PillarPill";
@@ -166,21 +170,19 @@ export function VariantCard({
 
       {/* Rubric score bar */}
       <div className="flex gap-1 mt-3 flex-wrap">
-        {(Object.keys(RUBRIC_DIMENSIONS) as (keyof typeof RUBRIC_DIMENSIONS)[]).map(
-          (dim) => (
-            <span
-              key={dim}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
-                rubricScores[dim] === "pass"
-                  ? "bg-green-900/50 text-green-400"
-                  : "bg-red-900/50 text-red-400"
-              }`}
-              title={RUBRIC_DIMENSIONS[dim]}
-            >
-              {dim}
-            </span>
-          ),
-        )}
+        {RUBRIC_DIMENSION_KEYS.map((dim) => (
+          <span
+            key={dim}
+            className={`px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
+              rubricScores[dim] === "pass"
+                ? "bg-green-900/50 text-green-400"
+                : "bg-red-900/50 text-red-400"
+            }`}
+            title={RUBRIC_DIMENSIONS[dim]}
+          >
+            {dim}
+          </span>
+        ))}
       </div>
 
       {/* Action row */}
