@@ -6,6 +6,7 @@ import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
 import type { LLMProviderType } from "@/lib/llm/provider";
 import { parseJsonResponse } from "@/lib/pipeline";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
+import { applyD5Override } from "@/lib/rubric-checks";
 
 // ---------------------------------------------------------------------------
 // Response schema for evaluate LLM output
@@ -58,9 +59,18 @@ export async function POST(request: NextRequest) {
     const parsed = parseJsonResponse(rawResponse);
     const result = evaluateResponseSchema.parse(parsed);
 
+    // Apply deterministic D5 pre-check override — if the closing step's
+    // conceptReinforcement does not name at least one coreKeyConcept, D5 is a
+    // hard fail regardless of what the LLM decided.
+    const { scores, issues } = applyD5Override(
+      result.scores,
+      result.issues,
+      validatedDesign,
+    );
+
     return NextResponse.json({
-      rubricScores: result.scores,
-      issues: result.issues,
+      rubricScores: scores,
+      issues,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

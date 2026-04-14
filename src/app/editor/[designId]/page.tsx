@@ -9,6 +9,7 @@ import { NavigationPanel } from "@/components/editor/NavigationPanel";
 import { ScorecardPanel } from "@/components/editor/ScorecardPanel";
 import { EditableField } from "@/components/editor/EditableField";
 import { DialogueBlockEditor } from "@/components/editor/DialogueBlock";
+import { ModePill } from "@/components/common/ModePill";
 import {
   CATEGORY_LABELS,
   TIER_LABELS,
@@ -140,8 +141,15 @@ export default function EditorPage() {
     }
   };
 
+  // Layout: the global app shell in `src/app/layout.tsx` is `body` →
+  // sticky <nav> + a `flex-1 flex flex-col` wrapper for {children}. Using
+  // `flex-1 min-h-0` here makes the editor consume exactly the viewport
+  // space below the nav (without a calc()), and `min-h-0` lets the inner
+  // overflow-y-auto panel actually scroll instead of pushing the page
+  // taller than the viewport. h-screen was previously bleeding past the
+  // bottom because nav-height + 100vh > 100vh.
   return (
-    <div className="h-screen bg-gray-950 text-gray-100 flex flex-col">
+    <div className="flex-1 min-h-0 bg-gray-950 text-gray-100 flex flex-col">
       {/* Header */}
       <header className="border-b border-gray-800 px-4 py-2 flex items-center justify-between flex-shrink-0">
         <button
@@ -151,9 +159,12 @@ export default function EditorPage() {
           <ArrowLeft className="w-4 h-4" />
           Back to Gallery
         </button>
-        <h1 className="text-sm font-semibold text-white">
-          WonderLens Design Studio
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-sm font-semibold text-white">
+            {activeDesign.basicInfo.activityName}
+          </h1>
+          <ModePill mode={activeDesign.basicInfo.generationMode} />
+        </div>
         <div className="w-32" /> {/* Spacer for centering */}
       </header>
 
@@ -501,6 +512,28 @@ export default function EditorPage() {
                       onAskAI={handleAskAI}
                     />
                   )}
+
+                {/* Closing-only fields: concept reinforcement + tomorrow hook */}
+                {step.type === "closing" && (
+                  <div className="mt-6 space-y-4">
+                    <EditableField
+                      label="Concept Reinforcement"
+                      value={step.conceptReinforcement ?? ""}
+                      fieldPath={`steps.${stepIndex}.conceptReinforcement`}
+                      onChange={handleFieldChange}
+                      onAskAI={handleAskAI}
+                      multiline
+                    />
+                    <EditableField
+                      label="Tomorrow Hook"
+                      value={step.tomorrowHook ?? ""}
+                      fieldPath={`steps.${stepIndex}.tomorrowHook`}
+                      onChange={handleFieldChange}
+                      onAskAI={handleAskAI}
+                      multiline
+                    />
+                  </div>
+                )}
               </div>
             );
           })}

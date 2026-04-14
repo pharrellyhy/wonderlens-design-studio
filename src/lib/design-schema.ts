@@ -47,6 +47,13 @@ export const stepSchema = z.object({
   dialogue: dialogueBlockSchema.optional(),
   // For type === 'rounds'
   rounds: z.array(roundSchema).optional(),
+  // For type === 'closing': one-line reinforcement naming at least one
+  // coreKeyConcept, plus a one-line teaser for the next session.
+  // Optional on the base schema (mirrors the warmStart/coldStart pattern used
+  // for bridge steps); the evaluate pipeline enforces them for closing steps
+  // via a deterministic D5 pre-check in `src/lib/rubric-checks.ts`.
+  conceptReinforcement: z.string().optional(),
+  tomorrowHook: z.string().optional(),
 });
 
 export type Step = z.infer<typeof stepSchema>;
@@ -54,8 +61,12 @@ export type Step = z.infer<typeof stepSchema>;
 // ── Game Design ─────────────────────────────────────────────────────────────
 
 export const categorySchema = z.enum(["cat1", "cat5"]);
+export type Category = z.infer<typeof categorySchema>;
 export const tierSchema = z.enum(["T0", "T1", "T2"]);
 export const synthesisTypeSchema = z.enum(["narrative", "classification"]);
+
+export const generationModeSchema = z.enum(["freeform", "mapping-informed"]);
+export type GenerationMode = z.infer<typeof generationModeSchema>;
 
 export const gameDesignSchema = z.object({
   basicInfo: z.object({
@@ -69,6 +80,7 @@ export const gameDesignSchema = z.object({
     atlSkills: z.array(z.string()),
     gameStyle: z.string(),
     ibTheme: z.string(),
+    generationMode: generationModeSchema,
   }),
   creativeVariables: z.object({
     metaphor: z.string(),

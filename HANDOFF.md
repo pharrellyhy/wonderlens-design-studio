@@ -1,6 +1,120 @@
 # Session Handoff
 
-Last updated: 2026-03-26
+Last updated: 2026-04-14
+
+---
+
+## Autodesign Parity Changes — Complete
+
+### Problem
+Four concrete gaps between `wonderlens-design-studio` (Next.js SaaS) and the original `wonderlens-activity-autodesign` repo were identified during a brainstorming pass:
+1. No first-class switch for mapping-informed vs freeform generation (autodesign Batch 1 vs Batch 2 contracts)
+2. Closing step missing `tomorrowHook` (cross-session retention) and `conceptReinforcement` (auditable IB concept surfacing)
+3. No opposite-category variant mode (autodesign Batch 3 flipped same entity to the other category)
+4. No batch/comparative view or persistence — the in-memory job store cleaned jobs after 30 min, so there was no library of previously generated designs
+
+### Solution
+Shipped on branch `feat/autodesign-parity-changes` in 10 commits covering schema, pipeline, persistence, UI, and a follow-up fix pass. Every section went through implementer → spec review → code-reviewer → (optional) simplifier per superpowers subagent-driven-development. Full golden path verified end-to-end in the browser with real LLM generation (mapping-informed + freeform + opposite flow).
+
+**Four design decisions locked:**
+- **Freeform mode** means YAML still required, bridges use a single generic `warmStart` with `coldStart` omitted, `conversation_bridge.md` NOT injected, `tier_guidance` is soft guidance
+- **Mapping-informed mode** produces dual `warmStart` + `coldStart` grounded in different dimensions, `conversation_bridge.md` flavor patterns injected, `tier_guidance` hard constraint
+- **Opposite generation** is a per-variant gallery button (not automatic, not upload-form toggle) — lazy, explicit, low disruption
+- **Persistence** via file-per-run JSON under `data/runs/` — dev-only transitional store, isolated behind `runs-repository.ts`, embeds full `GameDesign` for durable editor rehydration
+
+### Edits
+
+**Schema + rubric (commits `83c8308`, `0126dcb`, `dd8bc40`)**
+- `src/lib/design-schema.ts` — added `generationMode: z.enum(["freeform", "mapping-informed"])` required on `basicInfo`; `conceptReinforcement` + `tomorrowHook` optional strings on `stepSchema` (semantically required on closing steps, following the warmStart/coldStart precedent); added `Category` type alias.
+- `src/lib/rubric-checks.ts` (NEW) — `checkD5Deterministic` + `applyD5Override` helpers. Deterministic D5 pre-check: closing step must exist, `conceptReinforcement` must contain a word-boundary match of at least one `coreKeyConcepts[]` entry (NFKC-normalized, case-insensitive). Used by both `POST /api/evaluate` and both LLM-evaluate call sites in `generateVariant` — single helper, no duplication.
+- `src/lib/prompts/generate.ts` — new 4th parameter `generationMode`; updated `JSON_SCHEMA_INSTRUCTIONS` to describe the new fields; mode-specific bridge rules for freeform vs mapping-informed.
+- `src/lib/prompts/evaluate.ts` — D5 rubric section now notes the deterministic override and directs the LLM to judge D5 on Key Concept count, Related Concepts, KUD, and ATL skills.
+- `src/app/api/generate/route.ts` — accepts `generationMode` in the POST body, validates via Zod `safeParse`, returns 400 on missing/invalid. No default — explicit is required.
+- `src/app/api/evaluate/route.ts` — applies `applyD5Override` after LLM evaluate.
+- Dead `z.ZodError instanceof` guard dropped from `api/generate/route.ts` catch block (refactor).
+
+**Persistence (commits `e8c5388`, `1faec07`)**
+- `src/lib/runs-repository.ts` (NEW) — filesystem-backed run persistence. Exports `saveRun`, `listRuns`, `getRun`, `getRunByDesignId`, `deleteRun`, `findOppositeOf`, `findOppositesFor` (batch), plus Zod `runRecordSchema.strict()`. Atomic writes via `fs.writeFile(tmp)` + `fs.rename`. Enforces the `generationMode` denormalization invariant: the embedded design is source of truth, `saveRun` copies from `design.basicInfo.generationMode` to the top-level field before parse. 10-char hex `runId`, ISO-safe filename with `:`/`.` replaced, `deleteRun` scans by suffix (not filename reconstruction) to be robust to scheme changes.
+- `src/lib/pipeline.ts` — `generateVariant` measures end-to-end `durationMs`, constructs a `RunRecord` on the happy path (including `sourceEntityYaml: entity.rawYaml` so the opposite endpoint can re-parse the source later), and calls `saveRun` inside a try/catch that suppresses persistence failures with `console.error` so they can't block generation. New `DIMENSION_KEYS` module constant makes `totalScore` computation explicit. `category: string` tightened to `category: Category` union across `generateVariant`, `selectVariantConfigs`, `runGenerationJob`.
+- `src/app/api/generate/route.ts` — `variantConfigs` body field now validated through Zod with a narrowed `Category` enum, returning 400 with Zod error messages on malformed input.
+- `.gitignore` — `data/runs/*.json`, `data/runs/*.tmp` ignored; `data/runs/.gitkeep` preserved.
+- `data/runs/.gitkeep` (NEW) — preserves the empty run directory across clones.
+
+**Mode-aware pipeline + opposite endpoint (commits `3adecf6`, `9b72260`)**
+- `src/lib/prompts/generate.ts` — split prompt construction into `buildSystemContent` (conditionally includes `conversation_bridge.md` only for mapping-informed) and `buildModeGuidance` (returns the mode-specific user-content block). Freeform guidance: soft tier_guidance, single warmStart, coldStart optional, no flavor patterns. Mapping-informed guidance: hard tier_guidance, dual bridges grounded in different dimensions, flavor selection from conversation_bridge.md.
+- `src/app/api/generate/opposite/route.ts` (NEW) — `POST /api/generate/opposite { sourceDesignId, llmProvider, apiKey? }`. Validates body via Zod. Looks up source via `getRunByDesignId` (the persisted run file is the authoritative source — in-memory-only designs without a run file return 404). Flips category, picks the first game style for the target category, inherits the source's `generationMode`, re-parses `sourceEntityYaml` into a `ParsedEntity`, and delegates to `enqueueSingleVariantJob` which returns a `{jobId}` that the client polls via the existing `/api/generate/[jobId]/status` endpoint.
+- `src/lib/pipeline.ts` — `generateVariant` gains `options?: { parentDesignId?: string; designId?: string }`. The saved `RunRecord` uses `isOpposite: options?.parentDesignId !== undefined` and `parentRunId: options?.parentDesignId ?? null`. `options?.designId ?? crypto.randomUUID()` is the crucial fix: the placeholder id minted in `runGenerationJob` and the persisted `designId` used to be two different UUIDs, so `getRunByDesignId(placeholder.id)` would have 404'd every opposite request. Now the caller controls the id and both match.
+- New exported helper `enqueueSingleVariantJob` in `pipeline.ts` — creates the placeholder + jobs.set + fire-and-forget background closure, used by both the opposite endpoint and potentially future single-variant flows. The main multi-variant path still uses `runGenerationJob`. Both now thread `{ designId: placeholder.id }` into `generateVariant` so the placeholder id and the persisted id are identical.
+- `src/lib/runs-repository.ts` — `runRecordSchema` gains `sourceEntityYaml: z.string().min(1)` so opposite generation can re-parse a `ParsedEntity` with full tier_guidance + dimension data (the embedded `GameDesign.entityMapping` alone lacks tier_guidance).
+
+**UI: upload toggle, gallery opposite, editor closing fields (commit `cf61760`)**
+- `src/components/upload/YamlUploader.tsx` — new segmented `radiogroup "Generation mode"` with Mapping-informed / Freeform. Default `mapping-informed`. Tooltip text changes based on selection. Flows into design-store's new `generationMode` slot (session-only, not persisted across reloads).
+- `src/components/gallery/VariantCard.tsx` — mode pill badge, `⇄ Generate opposite` button (disabled when parent already has an opposite), orange opposite badge on sibling cards, visual link to parent via left border accent.
+- `src/app/gallery/[entityId]/page.tsx` — fetches parents-with-opposite set via new `GET /api/runs/opposites?parentIds=...` route on gallery mount; `oppositeBusyParents` tracked as a Set (trimmed when children reach terminal state). Concurrent polling: the main multi-variant poller and per-opposite single-variant pollers run independently without clobbering each other.
+- `src/components/editor/ScorecardPanel.tsx` / step renderer — two new `EditableField` textareas on closing steps: `conceptReinforcement` and `tomorrowHook`. Each uses field paths `steps.${stepIndex}.conceptReinforcement` / `.tomorrowHook` which `/api/regenerate` resolves via dot-notation against the live `GameDesign`. Editor header gains a mode chip next to the design title.
+- `src/lib/api-client.ts` — `startGeneration` now requires `generationMode`; `generateOppositeVariant` added.
+- `src/lib/generation-poller.ts` — `startOppositePolling` slot keyed by jobId in a `Map`, distinct from the singleton `active` slot for multi-variant jobs.
+- `src/app/api/runs/opposites/route.ts` (NEW) — thin wrapper over `runs-repository.findOppositesFor` so the client-side gallery can query by parent designIds.
+
+**Library view: Table + Grid tabs (commit `a49292b`)**
+- `src/app/library/page.tsx` (NEW) — server component, calls `listRuns()` directly, passes `RunRecord[]` to client components.
+- `src/components/library/LibraryTabs.tsx` (NEW) — client component owning tab state + Open/Delete handlers.
+- `src/components/library/RunsTable.tsx` (NEW) — sortable columns (entity / category / mode / score / timestamp / game style / opposite / D1–D9 / actions), client-side sort cycle asc → desc → none → asc, CSV export button with RFC-4180 quote escaping, pair grouping applied at the group level so children stay attached to parents under any sort column.
+- `src/components/library/RunsGrid.tsx` (NEW) — card grid sharing the same pair grouping helper.
+- `src/components/library/RunActions.tsx` (NEW) — shared Open/Delete buttons.
+- `src/lib/run-groupings.ts` (NEW) — pure `groupRunsWithOpposites` + `flattenGroups` helpers. Orphaned opposites (parent missing) render in their natural timestamp position with an `orphan` tag.
+- `src/app/api/library/[runId]/route.ts` (NEW) — `GET` returns `{designId, design, rubricScores}` for Open rehydration; `DELETE` calls `runs-repository.deleteRun`. Open skips the in-memory job store entirely and writes directly to the Zustand store via `setActiveDesign`, because the editor's data flow reads from Zustand, not from `jobs`. (Deviation from the plan text; documented in `docs/plans/2026-04-14-autodesign-parity-changes.md`.)
+- `src/app/layout.tsx` — new sticky global nav header with Upload / Library links.
+- `src/lib/api-client.ts` — `openLibraryRun`, `deleteLibraryRun` added.
+
+**Fix pass: shared pills, busy-set trim, editor layout (commit `b7479d9`)**
+- `src/components/common/ModePill.tsx`, `CategoryPill.tsx`, `RubricDots.tsx` (NEW) — extracted the duplicated pills that had been copy-pasted across VariantCard, RunsTable, RunsGrid, and the editor header. CategoryPill accepts a `useLabel` prop since the gallery shows the long `CATEGORY_LABELS` form while the library uses the short `cat1`/`cat5` key.
+- `src/app/editor/[designId]/page.tsx` — `h-screen` → `flex-1 min-h-0` so the editor consumes exactly the leftover viewport space below the sticky nav (the prior value made the body taller than the viewport, pushing the scorecard's bottom below the fold).
+- `src/app/gallery/[entityId]/page.tsx` — `oppositeBusyParents` is now a `Set<string>` with explicit trim-on-terminal-state via a Zustand `subscribe` effect that prunes parents whose child reached `complete` or `failed`. Also added an effect to reset `parentsWithOpposite` to `[]` whenever `parsedEntity.name` changes, preventing stale entity-A pills from flickering on entity-B's first render.
+- `src/components/library/LibraryTabs.tsx` — `busyRunId` cleared synchronously after `router.push` in `handleOpen` so the row doesn't appear stuck on "Opening..." forever if the user navigates back.
+- `src/components/library/RunsTable.tsx` — `aria-sort` on sortable `<th>` elements; headers and CSV still use the 9-dimension shape.
+- `src/components/library/RunActions.tsx` — explicit `aria-label="Delete run"` on the icon-only delete button.
+- `src/app/page.tsx` — removed the duplicate page-level title that duplicated the global nav.
+- `docs/plans/2026-04-14-autodesign-parity-changes.md` — Section 3 Open-action description updated to match the actual implementation (Zustand direct-write, not job-store rehydration).
+
+**Docs + plans**
+- `docs/plans/2026-04-14-autodesign-parity-changes.md` — full design plan committed alongside Section 1, amended during the Section 3 fix pass.
+- `docs/game_design_playbook.md` (NEW, user-provided) — new source of truth for game design; 6 pillars × 12 styles × 10D rubric. Referenced by the next plan.
+- `docs/plans/2026-04-14-playbook-alignment.md` (NEW) — Phase 1 + Phase 2 plan for aligning the codebase with the playbook: bracket tone markers, 10D rubric with renumbering, `experiencePillar` field, 12-style expansion, `selectVariantConfigs` rewrite. Phase 3 (Tier A/B/P pipeline, property-bridge templates, constellation bridging) deferred. Execute in a fresh session.
+
+### NOT Changed
+- **No Prisma / PostgreSQL.** Plan explicitly defers this. `data/runs/*.json` is a transitional dev-only store and is NOT safe on Vercel serverless. Section 4 of the plan documents that `runs-repository.ts` is the single seam where the backend can be swapped.
+- **No automated tests.** Project has no `*.test.ts` setup; verification is manual via `npm run build` / `npm run lint` / browser playwright drive.
+- **No editor rehydration of the in-memory job store.** The Open-from-library flow writes the design directly into the Zustand store via `setActiveDesign` and navigates to `/editor/[designId]`. The plan originally said "push back into in-memory job store" but the editor reads from Zustand, so that was unnecessary indirection.
+- **No freeform coldStart.** Freeform mode emits only `warmStart`; `coldStart` is omitted entirely (undefined). The plan text was corrected to reflect this.
+- **Old `data/runs/*.json` files** from manual verification remain on disk. They are valid under the current schema. They will become invalid when the next plan's 10D rubric + `experiencePillar` ships — delete them then.
+- **No Visual Companion artifacts committed.** `.superpowers/brainstorm/` is gitignored. `library-pair-grouping.png` (a verification screenshot) was deleted before commit, not archived.
+
+### Verification
+```bash
+git log --oneline b7933a9^..HEAD           # 10 commits
+npm run build                                # clean, 14 routes
+npm run lint                                 # clean
+ls data/runs/*.json                          # 5+ run files from manual verification
+python3 -c "import json; d = json.load(open('data/runs/2026-04-14T01-45-01-433Z-sunflower-cat5-396327d6d0.json')); print(d['isOpposite'], d['parentRunId'])"
+```
+
+**Manual browser drive (playwright)** confirmed:
+1. Upload toggle flips Mapping-informed ↔ Freeform with tooltip update
+2. YAML upload parses entity + shows summary
+3. Gallery produces 4 variants (mapping-informed mode) with dual warm/cold bridges, all 9/9 PASS
+4. Editor mode chip visible, Step 5 Closing renders `CONCEPT REINFORCEMENT` + `TOMORROW HOOK` textareas with per-field Ask AI
+5. Editor layout fills viewport exactly (2360 = 2360, no overflow past sticky nav)
+6. Run files persisted with correct filename format, denormalization invariant holds, D5 deterministic check passes ("Form" matches, "transform" does NOT)
+7. `POST /api/generate/opposite` with a cat1 designId → 9/9 PASS cat5 sibling, `isOpposite: true`, `parentRunId` matches source `designId` (placeholder id fix verified)
+8. Library Table + Grid render, pair grouping visually indents the opposite under its parent with `⇄` glyph, Export CSV button present
+9. Delete action removes row from UI and file from disk atomically
+10. Open action rehydrates via Zustand and renders the full design with all scorecard scores
+11. **Freeform mode verified** in a separate generation pass: all freeform variants emit `warmStart` only, `coldStart` omitted, `conceptReinforcement` populated with concepts like "the magic of FUNCTION" and "the Form of sunflower parts" that pass the word-boundary D5 match
+
+### Next steps
+- Merge this branch (PR to follow)
+- Start a fresh session to execute `docs/plans/2026-04-14-playbook-alignment.md` on a new branch `feat/playbook-alignment`. Before starting, delete `data/runs/*.json` (the 10D rubric + `experiencePillar` changes will invalidate all existing run files)
 
 ---
 

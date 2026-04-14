@@ -17,15 +17,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">
-            WonderLens Design Studio
-          </h1>
-          <div /> {/* Spacer for layout balance */}
-        </div>
-      </header>
+      {/* No page-level header — the global app shell nav in `layout.tsx`
+          already shows the "WonderLens Design Studio" wordmark. The hero
+          headline below carries the page-specific context. */}
 
       {/* Main */}
       <main className="max-w-4xl mx-auto px-6 py-12">

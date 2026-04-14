@@ -1,55 +1,60 @@
 "use client";
 
-import { Award, Drama, TrendingUp } from "lucide-react";
+import { ArrowLeftRight, Award, Drama, TrendingUp } from "lucide-react";
 import type { GameDesign, RubricScores } from "@/lib/design-schema";
-import {
-  CATEGORY_LABELS,
-  RUBRIC_DIMENSIONS,
-} from "@/lib/design-schema";
+import { RUBRIC_DIMENSIONS } from "@/lib/design-schema";
+import { CategoryPill } from "@/components/common/CategoryPill";
+import { ModePill } from "@/components/common/ModePill";
 
 interface VariantCardProps {
+  id: string;
   status: "pending" | "complete" | "failed";
   category: string;
   gameStyle: string;
   design?: GameDesign;
   rubricScores?: RubricScores;
   error?: string;
+  parentDesignId?: string;
+  hasOpposite: boolean;
+  oppositeBusy: boolean;
   onClick: () => void;
+  onGenerateOpposite: (designId: string) => void;
 }
 
-function categoryTagClass(category: string): string {
+// The gameStyle pill shares the category's color (indigo for cat1, green
+// for cat5) so the two pills read as a matching pair. Kept inline because
+// gameStyle pills are only used in the variant gallery — not worth a
+// shared component for one call site.
+function gameStyleTagClass(category: string): string {
   return category === "cat1"
     ? "bg-indigo-900/50 text-indigo-300"
     : "bg-green-900/50 text-green-300";
 }
 
-function categoryLabel(category: string): string {
-  if (category in CATEGORY_LABELS) {
-    return CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS];
-  }
-  return category;
-}
-
 export function VariantCard({
+  id,
   status,
   category,
   gameStyle,
   design,
   rubricScores,
   error,
+  parentDesignId,
+  hasOpposite,
+  oppositeBusy,
   onClick,
+  onGenerateOpposite,
 }: VariantCardProps) {
-  const tagClass = categoryTagClass(category);
+  const gameStyleClass = gameStyleTagClass(category);
+  const generationMode = design?.basicInfo.generationMode;
 
   // ── Pending placeholder ────────────────────────────────────────────────
   if (status === "pending" || (status === "complete" && !design)) {
     return (
       <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-5 min-h-[220px] flex flex-col">
         <div className="flex gap-1.5 flex-wrap mb-4">
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
-            {categoryLabel(category)}
-          </span>
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+          <CategoryPill category={category} useLabel />
+          <span className={`px-2 py-0.5 rounded text-xs ${gameStyleClass}`}>
             {gameStyle}
           </span>
         </div>
@@ -72,10 +77,8 @@ export function VariantCard({
     return (
       <div className="bg-gray-800 border border-red-800/60 rounded-xl p-5 min-h-[220px] flex flex-col">
         <div className="flex gap-1.5 flex-wrap mb-3">
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
-            {categoryLabel(category)}
-          </span>
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+          <CategoryPill category={category} useLabel />
+          <span className={`px-2 py-0.5 rounded text-xs ${gameStyleClass}`}>
             {gameStyle}
           </span>
         </div>
@@ -103,12 +106,19 @@ export function VariantCard({
       {/* Tags */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex gap-1.5 flex-wrap">
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
-            {categoryLabel(category)}
-          </span>
-          <span className={`px-2 py-0.5 rounded text-xs ${tagClass}`}>
+          <CategoryPill category={category} useLabel />
+          <span className={`px-2 py-0.5 rounded text-xs ${gameStyleClass}`}>
             {gameStyle}
           </span>
+          {generationMode && <ModePill mode={generationMode} />}
+          {parentDesignId && (
+            <span
+              className="px-2 py-0.5 rounded text-xs font-medium bg-orange-900/50 text-orange-300"
+              title="Generated as opposite category of another variant in this gallery"
+            >
+              opposite
+            </span>
+          )}
         </div>
         <span
           className={`text-xs font-semibold ${
@@ -169,6 +179,30 @@ export function VariantCard({
             </span>
           ),
         )}
+      </div>
+
+      {/* Action row */}
+      <div className="flex justify-end mt-4">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (hasOpposite || oppositeBusy) return;
+            onGenerateOpposite(id);
+          }}
+          disabled={hasOpposite || oppositeBusy}
+          title={
+            hasOpposite
+              ? "This variant already has an opposite in the gallery"
+              : oppositeBusy
+                ? "Opposite generation in progress"
+                : "Generate the opposite-category counterpart"
+          }
+          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-gray-700 text-gray-300 hover:text-white hover:border-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-300 disabled:hover:border-gray-700 transition-colors"
+        >
+          <ArrowLeftRight className="w-3 h-3" />
+          {oppositeBusy ? "Generating..." : "Generate opposite"}
+        </button>
       </div>
     </div>
   );

@@ -7,17 +7,27 @@ import {
   rubricScoresSchema,
 } from "@/lib/design-schema";
 import type {
+  Category,
   GameDesign,
   GenerationJob,
+  GenerationMode,
   RubricIssue,
   RubricScores,
   VariantResult,
 } from "@/lib/design-schema";
 import type { LLMMessage, LLMProvider } from "@/lib/llm/provider";
 import type { ParsedEntity } from "@/lib/yaml-parser";
+import { jobs } from "@/lib/job-store";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
 import { buildFixMessages } from "@/lib/prompts/fix";
 import { buildGenerateMessages } from "@/lib/prompts/generate";
+import { applyD5Override } from "@/lib/rubric-checks";
+import {
+  createRunId,
+  saveRun,
+  slugifyEntity,
+  type RunRecord,
+} from "@/lib/runs-repository";
 
 // ---------------------------------------------------------------------------
 // Evaluate response schema
@@ -33,6 +43,24 @@ const evaluateResponseSchema = z.object({
 // ---------------------------------------------------------------------------
 
 const MAX_FIX_ITERATIONS = 3;
+
+/**
+ * Canonical ordered tuple of the nine rubric dimension keys. Use this rather
+ * than `Object.keys(scores)` / `Object.values(scores)` when computing totals
+ * so a future stray property on the scores object can't silently inflate the
+ * count.
+ */
+const DIMENSION_KEYS = [
+  "d1",
+  "d2",
+  "d3",
+  "d4",
+  "d5",
+  "d6",
+  "d7",
+  "d8",
+  "d9",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Helper: parseJsonResponse
@@ -147,12 +175,23 @@ const ALL_FAIL_SCORES: RubricScores = {
  */
 export async function generateVariant(
   entity: ParsedEntity,
-  category: string,
+  category: Category,
   gameStyle: string,
-  provider: LLMProvider
+  generationMode: GenerationMode,
+  provider: LLMProvider,
+  options?: { parentDesignId?: string; designId?: string },
 ): Promise<VariantResult> {
+  // Measure the full multi-pass duration so the persisted RunRecord can
+  // carry end-to-end generation latency for later analysis.
+  const startTime = Date.now();
+
   // Pass 1 — Generate
-  const generateMessages = buildGenerateMessages(entity, category, gameStyle);
+  const generateMessages = buildGenerateMessages(
+    entity,
+    category,
+    gameStyle,
+    generationMode,
+  );
   let design: GameDesign = await llmJsonCall(
     provider,
     generateMessages,
@@ -160,13 +199,18 @@ export async function generateVariant(
     { temperature: 0.8 }
   );
 
-  // Pass 2 — Evaluate
+  // Pass 2 — Evaluate (with deterministic D5 pre-check override)
   const evalMessages = buildEvaluateMessages(design);
-  let evaluation = await llmJsonCall(
+  const llmEvaluation = await llmJsonCall(
     provider,
     evalMessages,
     evaluateResponseSchema,
     { temperature: 0.2 }
+  );
+  let evaluation = applyD5Override(
+    llmEvaluation.scores,
+    llmEvaluation.issues,
+    design,
   );
 
   // Pass 3 & 4 — Fix loop (up to MAX_FIX_ITERATIONS)
@@ -186,18 +230,63 @@ export async function generateVariant(
       temperature: 0.5,
     });
 
-    // Pass 4 — Re-evaluate
+    // Pass 4 — Re-evaluate (same D5 override applied to the re-evaluation)
     const reEvalMessages = buildEvaluateMessages(design);
-    evaluation = await llmJsonCall(
+    const reLlmEvaluation = await llmJsonCall(
       provider,
       reEvalMessages,
       evaluateResponseSchema,
       { temperature: 0.2 }
     );
+    evaluation = applyD5Override(
+      reLlmEvaluation.scores,
+      reLlmEvaluation.issues,
+      design,
+    );
+  }
+
+  // Callers MAY provide the target designId so that an upstream placeholder's
+  // id stays in sync with the persisted RunRecord.designId. Without this the
+  // placeholder id and the saved id diverge, and subsequent
+  // `getRunByDesignId(placeholder.id)` lookups 404.
+  const designId = options?.designId ?? crypto.randomUUID();
+  const durationMs = Date.now() - startTime;
+
+  // Persist the completed run to the dev-only filesystem store. This is the
+  // ONLY place we're allowed to swallow a persistence error: a failure here
+  // must not block the user receiving their successfully generated variant.
+  // All other filesystem concerns live behind `runs-repository.ts`.
+  const runId = createRunId();
+  const totalScore = DIMENSION_KEYS.filter(
+    (d) => evaluation.scores[d] === "pass",
+  ).length;
+
+  const record: RunRecord = {
+    runId,
+    timestamp: new Date().toISOString(),
+    entity: slugifyEntity(entity.name),
+    entityDisplayName: entity.name,
+    category,
+    gameStyle,
+    generationMode,
+    isOpposite: options?.parentDesignId !== undefined,
+    parentRunId: options?.parentDesignId ?? null,
+    rubric: evaluation.scores,
+    totalScore,
+    designId,
+    design,
+    durationMs,
+    sourceEntityYaml: entity.rawYaml,
+  };
+
+  try {
+    await saveRun(record);
+  } catch (error) {
+    console.error("[pipeline] failed to persist run", runId, error);
   }
 
   return {
-    id: crypto.randomUUID(),
+    id: designId,
     design,
     rubricScores: evaluation.scores,
     issues: evaluation.issues,
@@ -219,8 +308,8 @@ export async function generateVariant(
  */
 export function selectVariantConfigs(
   maxVariants: number = 4
-): Array<{ category: string; gameStyle: string }> {
-  const configs: Array<{ category: string; gameStyle: string }> = [];
+): Array<{ category: Category; gameStyle: string }> {
+  const configs: Array<{ category: Category; gameStyle: string }> = [];
 
   const cat1Styles = [...GAME_STYLES.cat1];
   const cat5Styles = [...GAME_STYLES.cat5];
@@ -238,9 +327,15 @@ export function selectVariantConfigs(
   }
 
   // Fill remaining from unused styles, alternating categories
-  const remaining = [
-    ...cat1Styles.map((style) => ({ category: "cat1", gameStyle: style })),
-    ...cat5Styles.map((style) => ({ category: "cat5", gameStyle: style })),
+  const remaining: Array<{ category: Category; gameStyle: string }> = [
+    ...cat1Styles.map((style) => ({
+      category: "cat1" as const,
+      gameStyle: style,
+    })),
+    ...cat5Styles.map((style) => ({
+      category: "cat5" as const,
+      gameStyle: style,
+    })),
   ];
   shuffleArray(remaining);
 
@@ -274,7 +369,8 @@ const VARIANT_CONCURRENCY = 3;
 export async function runGenerationJob(
   job: GenerationJob,
   entity: ParsedEntity,
-  variantConfigs: Array<{ category: string; gameStyle: string }>,
+  variantConfigs: Array<{ category: Category; gameStyle: string }>,
+  generationMode: GenerationMode,
   provider: LLMProvider
 ): Promise<void> {
   job.status = "generating";
@@ -299,10 +395,13 @@ export async function runGenerationJob(
           entity,
           config.category,
           config.gameStyle,
-          provider
+          generationMode,
+          provider,
+          { designId: placeholder.id },
         );
-        // Mutate the placeholder in place so its id (which the client may
-        // already be tracking) is preserved.
+        // Mutate the placeholder in place. Because we passed the placeholder
+        // id into generateVariant via options.designId, result.id is already
+        // equal to placeholder.id and the saved RunRecord uses the same id.
         placeholder.design = result.design;
         placeholder.rubricScores = result.rubricScores;
         placeholder.issues = result.issues;
@@ -383,4 +482,98 @@ function shuffleArray<T>(array: T[]): void {
     const j = Math.floor(Math.random() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]];
   }
+}
+
+// ---------------------------------------------------------------------------
+// enqueueSingleVariantJob
+// ---------------------------------------------------------------------------
+
+/**
+ * Enqueue a single-variant generation job. Creates the job placeholder,
+ * stores it in the job map, fires the generate background closure, and
+ * returns the jobId synchronously so the caller can respond with it.
+ *
+ * This is the shared path between:
+ * - the opposite-category endpoint
+ * - (future) any other single-variant dispatch, e.g., "retry this variant"
+ *
+ * For multi-variant batches, use `runGenerationJob` directly.
+ *
+ * The placeholder id is reused as the persisted `RunRecord.designId` by
+ * forwarding it into `generateVariant` via `options.designId`. This keeps
+ * the id the client tracks identical to the id on disk.
+ */
+export function enqueueSingleVariantJob(params: {
+  entity: ParsedEntity;
+  category: Category;
+  gameStyle: string;
+  generationMode: GenerationMode;
+  provider: LLMProvider;
+  parentDesignId?: string;
+}): { jobId: string; job: GenerationJob } {
+  const {
+    entity,
+    category,
+    gameStyle,
+    generationMode,
+    provider,
+    parentDesignId,
+  } = params;
+
+  const jobId = crypto.randomUUID();
+  const placeholder: VariantResult = {
+    id: crypto.randomUUID(),
+    category,
+    gameStyle,
+    status: "pending",
+  };
+  const job: GenerationJob = {
+    id: jobId,
+    status: "queued",
+    currentVariant: 0,
+    totalVariants: 1,
+    variants: [placeholder],
+    createdAt: Date.now(),
+  };
+  jobs.set(jobId, job);
+
+  // Fire-and-forget — the caller responds with the jobId immediately and the
+  // client polls /api/generate/[jobId]/status for progress.
+  void (async () => {
+    job.status = "generating";
+    try {
+      const result = await generateVariant(
+        entity,
+        category,
+        gameStyle,
+        generationMode,
+        provider,
+        { parentDesignId, designId: placeholder.id },
+      );
+      placeholder.design = result.design;
+      placeholder.rubricScores = result.rubricScores;
+      placeholder.issues = result.issues;
+      placeholder.status = "complete";
+      job.currentVariant = 1;
+      job.status = "complete";
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown generation error";
+      placeholder.rubricScores = ALL_FAIL_SCORES;
+      placeholder.issues = [
+        { dimension: "pipeline", description: message },
+      ];
+      placeholder.status = "failed";
+      placeholder.error = message;
+      job.currentVariant = 1;
+      job.status = "failed";
+      job.error = message;
+      console.error(
+        `[pipeline] single-variant job ${jobId} failed:`,
+        error,
+      );
+    }
+  })();
+
+  return { jobId, job };
 }

@@ -1,4 +1,10 @@
-import type { GameDesign, GenerationJob, RubricScores, RubricIssue } from "./design-schema";
+import type {
+  GameDesign,
+  GenerationJob,
+  GenerationMode,
+  RubricScores,
+  RubricIssue,
+} from "./design-schema";
 import type { LLMProviderType } from "./llm/provider";
 import type { ParsedEntity } from "./yaml-parser";
 
@@ -7,6 +13,15 @@ import type { ParsedEntity } from "./yaml-parser";
 export interface GenerateParams {
   entityYaml: string;
   variantConfigs?: Array<{ category: string; gameStyle: string }>;
+  llmProvider: LLMProviderType;
+  apiKey: string;
+  // Required: the /api/generate route returns 400 if missing. Threaded from
+  // the upload/gallery UI toggle — never defaulted client-side.
+  generationMode: GenerationMode;
+}
+
+export interface GenerateOppositeParams {
+  sourceDesignId: string;
   llmProvider: LLMProviderType;
   apiKey: string;
 }
@@ -81,8 +96,32 @@ export async function startGeneration(params: GenerateParams): Promise<string> {
   return data.jobId;
 }
 
+export async function generateOppositeVariant(
+  params: GenerateOppositeParams,
+): Promise<string> {
+  const data = await apiFetch<{ jobId: string }>("/api/generate/opposite", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  return data.jobId;
+}
+
 export async function pollGenerationStatus(jobId: string): Promise<GenerationJob> {
   return apiFetch<GenerationJob>(`/api/generate/${jobId}/status`);
+}
+
+export async function fetchParentsWithOpposite(
+  parentDesignIds: readonly string[],
+): Promise<string[]> {
+  if (parentDesignIds.length === 0) return [];
+  const params = new URLSearchParams();
+  params.set("parentIds", parentDesignIds.join(","));
+  const data = await apiFetch<{ parentIdsWithOpposite: string[] }>(
+    `/api/runs/opposites?${params.toString()}`,
+  );
+  return data.parentIdsWithOpposite;
 }
 
 export async function evaluateDesign(params: EvaluateParams): Promise<EvaluationResult> {
@@ -108,5 +147,26 @@ export async function exportDesign(params: ExportParams): Promise<ExportResult> 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
+  });
+}
+
+// ── Library actions ─────────────────────────────────────────────────────────
+
+export interface OpenRunResult {
+  runId: string;
+  designId: string;
+  design: GameDesign;
+  rubricScores: RubricScores;
+}
+
+export async function openLibraryRun(runId: string): Promise<OpenRunResult> {
+  return apiFetch<OpenRunResult>(
+    `/api/library/${encodeURIComponent(runId)}`,
+  );
+}
+
+export async function deleteLibraryRun(runId: string): Promise<void> {
+  await apiFetch<{ ok: true }>(`/api/library/${encodeURIComponent(runId)}`, {
+    method: "DELETE",
   });
 }
