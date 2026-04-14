@@ -21,7 +21,7 @@ import { jobs } from "@/lib/job-store";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
 import { buildFixMessages } from "@/lib/prompts/fix";
 import { buildGenerateMessages } from "@/lib/prompts/generate";
-import { applyD5Override } from "@/lib/rubric-checks";
+import { applyD4Override } from "@/lib/rubric-checks";
 import {
   createRunId,
   saveRun,
@@ -199,7 +199,7 @@ export async function generateVariant(
     { temperature: 0.8 }
   );
 
-  // Pass 2 — Evaluate (with deterministic D5 pre-check override)
+  // Pass 2 — Evaluate (with deterministic D4 pre-check override)
   const evalMessages = buildEvaluateMessages(design);
   const llmEvaluation = await llmJsonCall(
     provider,
@@ -207,7 +207,7 @@ export async function generateVariant(
     evaluateResponseSchema,
     { temperature: 0.2 }
   );
-  let evaluation = applyD5Override(
+  let evaluation = applyD4Override(
     llmEvaluation.scores,
     llmEvaluation.issues,
     design,
@@ -230,7 +230,7 @@ export async function generateVariant(
       temperature: 0.5,
     });
 
-    // Pass 4 — Re-evaluate (same D5 override applied to the re-evaluation)
+    // Pass 4 — Re-evaluate (same D4 override applied to the re-evaluation)
     const reEvalMessages = buildEvaluateMessages(design);
     const reLlmEvaluation = await llmJsonCall(
       provider,
@@ -238,7 +238,7 @@ export async function generateVariant(
       evaluateResponseSchema,
       { temperature: 0.2 }
     );
-    evaluation = applyD5Override(
+    evaluation = applyD4Override(
       reLlmEvaluation.scores,
       reLlmEvaluation.issues,
       design,

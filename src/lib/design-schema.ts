@@ -51,7 +51,7 @@ export const stepSchema = z.object({
   // coreKeyConcept, plus a one-line teaser for the next session.
   // Optional on the base schema (mirrors the warmStart/coldStart pattern used
   // for bridge steps); the evaluate pipeline enforces them for closing steps
-  // via a deterministic D5 pre-check in `src/lib/rubric-checks.ts`.
+  // via a deterministic D4 pre-check in `src/lib/rubric-checks.ts`.
   conceptReinforcement: z.string().optional(),
   tomorrowHook: z.string().optional(),
 });
