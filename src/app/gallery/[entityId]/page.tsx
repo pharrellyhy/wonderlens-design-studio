@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, RefreshCcw } from "lucide-react";
 import { VariantCard } from "@/components/gallery/VariantCard";
@@ -170,6 +170,24 @@ export default function GalleryPage() {
     setVariants,
   ]);
 
+  // Auto-kick generation when the user lands on the gallery for the first
+  // time. Skips if variants already exist (back-from-editor) or a job is
+  // already in flight. The ref guard prevents StrictMode's double-mount in
+  // dev from firing two parallel generation jobs. The handleGenerate call
+  // is deferred via queueMicrotask so its setState calls run after the
+  // effect commits, satisfying react-hooks/set-state-in-effect.
+  const autoKickedRef = useRef(false);
+  useEffect(() => {
+    if (autoKickedRef.current) return;
+    if (!parsedEntity) return;
+    if (variants.length > 0) return;
+    if (generationJobId !== null) return;
+    autoKickedRef.current = true;
+    queueMicrotask(() => {
+      void handleGenerate();
+    });
+  }, [parsedEntity, variants.length, generationJobId, handleGenerate]);
+
   const handleGenerateOpposite = useCallback(
     async (designId: string) => {
       clearGenerationError();
@@ -308,16 +326,9 @@ export default function GalleryPage() {
               <option value="freeform">Freeform</option>
             </select>
           </label>
-
-          <div className="flex-1" />
-
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-1.5 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isGenerating ? "Generating..." : "Generate Variants"}
-          </button>
+          <span className="text-xs text-gray-600">
+            Change mode and click Regenerate All to re-run.
+          </span>
         </div>
       </div>
 
