@@ -68,53 +68,137 @@ export const synthesisTypeSchema = z.enum(["narrative", "classification"]);
 export const generationModeSchema = z.enum(["freeform", "mapping-informed"]);
 export type GenerationMode = z.infer<typeof generationModeSchema>;
 
-export const gameDesignSchema = z.object({
-  basicInfo: z.object({
-    activityName: z.string(),
-    category: categorySchema,
-    tier: tierSchema,
-    triggerEntity: z.string(),
-    triggerScene: z.string(),
-    coreKeyConcepts: z.array(z.string()),
-    relatedConcepts: z.array(z.string()),
-    atlSkills: z.array(z.string()),
-    gameStyle: z.string(),
-    ibTheme: z.string(),
-    generationMode: generationModeSchema,
-  }),
-  creativeVariables: z.object({
-    metaphor: z.string(),
-    roleTitle: z.string(),
-    gameMechanic: z.string(),
-    scenarioType: z.string(),
-    targetResponseType: z.string(),
-    escalationAxis: z.string(),
-    // Cat 5 only
-    visualFeature: z.string().optional(),
-    collectionCriterion: z.string().optional(),
-    synthesisType: synthesisTypeSchema.optional(),
-    stuckHint: z.string().optional(),
-    reflectiveQuestion: z.string().optional(),
-  }),
-  overview: z.object({
-    briefDescription: z.string(),
-    kud: z.object({
-      know: z.array(z.string()),
-      understand: z.array(z.string()),
-      do: z.array(z.string()),
+export const experiencePillarSchema = z.enum([
+  "mystery",
+  "creation",
+  "performance",
+  "discovery",
+  "adventure",
+  "nurture",
+]);
+export type ExperiencePillar = z.infer<typeof experiencePillarSchema>;
+
+// ── Game style + pillar constants ────────────────────────────────────────────
+
+export const GAME_STYLES = {
+  cat1: [
+    "mystery_lens",
+    "inventor_workshop",
+    "voice_stage",
+    "prediction_lab",
+    "time_traveler",
+    "care_station",
+  ],
+  cat5: [
+    "mystery_trail",
+    "mix_lab",
+    "ensemble_show",
+    "field_experiment",
+    "quest_collector",
+    "rescue_team",
+  ],
+} as const;
+
+export const PILLAR_STYLES: Record<ExperiencePillar, { cat1: string; cat5: string }> = {
+  mystery:     { cat1: "mystery_lens",      cat5: "mystery_trail" },
+  creation:    { cat1: "inventor_workshop", cat5: "mix_lab" },
+  performance: { cat1: "voice_stage",       cat5: "ensemble_show" },
+  discovery:   { cat1: "prediction_lab",    cat5: "field_experiment" },
+  adventure:   { cat1: "time_traveler",     cat5: "quest_collector" },
+  nurture:     { cat1: "care_station",      cat5: "rescue_team" },
+};
+
+export const PILLAR_LABELS: Record<ExperiencePillar, string> = {
+  mystery:     "Mystery — I figured it out!",
+  creation:    "Creation — I made this!",
+  performance: "Performance — They loved it!",
+  discovery:   "Discovery — Was I right?!",
+  adventure:   "Adventure — Look how far we went!",
+  nurture:     "Nurture — I helped!",
+};
+
+export const ALL_PILLARS: ExperiencePillar[] = [
+  "mystery",
+  "creation",
+  "performance",
+  "discovery",
+  "adventure",
+  "nurture",
+];
+
+export function styleToPillar(style: string): ExperiencePillar | null {
+  for (const [pillar, styles] of Object.entries(PILLAR_STYLES)) {
+    if (styles.cat1 === style || styles.cat5 === style) {
+      return pillar as ExperiencePillar;
+    }
+  }
+  return null;
+}
+
+// ── Game Design schema ───────────────────────────────────────────────────────
+
+export const gameDesignSchema = z
+  .object({
+    basicInfo: z.object({
+      activityName: z.string(),
+      category: categorySchema,
+      tier: tierSchema,
+      triggerEntity: z.string(),
+      triggerScene: z.string(),
+      coreKeyConcepts: z.array(z.string()),
+      relatedConcepts: z.array(z.string()),
+      atlSkills: z.array(z.string()),
+      gameStyle: z.string(),
+      experiencePillar: experiencePillarSchema,
+      ibTheme: z.string(),
+      generationMode: generationModeSchema,
     }),
-    designHighlight: z.string(),
-    typicalScenario: z.string(),
-  }),
-  steps: z.array(stepSchema),
-  entityMapping: z.object({
-    mappingSource: z.string(),
-    anchorDimensions: z.array(z.string()),
-    conversationAnchorDimensions: z.array(z.string()),
-    themes: z.array(z.string()),
-    keyConcepts: z.array(z.string()),
-  }),
-});
+    creativeVariables: z.object({
+      metaphor: z.string(),
+      roleTitle: z.string(),
+      gameMechanic: z.string(),
+      scenarioType: z.string(),
+      targetResponseType: z.string(),
+      escalationAxis: z.string(),
+      // Cat 5 only
+      visualFeature: z.string().optional(),
+      collectionCriterion: z.string().optional(),
+      synthesisType: synthesisTypeSchema.optional(),
+      stuckHint: z.string().optional(),
+      reflectiveQuestion: z.string().optional(),
+    }),
+    overview: z.object({
+      briefDescription: z.string(),
+      kud: z.object({
+        know: z.array(z.string()),
+        understand: z.array(z.string()),
+        do: z.array(z.string()),
+      }),
+      designHighlight: z.string(),
+      typicalScenario: z.string(),
+    }),
+    steps: z.array(stepSchema),
+    entityMapping: z.object({
+      mappingSource: z.string(),
+      anchorDimensions: z.array(z.string()),
+      conversationAnchorDimensions: z.array(z.string()),
+      themes: z.array(z.string()),
+      keyConcepts: z.array(z.string()),
+    }),
+  })
+  .superRefine((data, ctx) => {
+    const pillarStyles = PILLAR_STYLES[data.basicInfo.experiencePillar];
+    const category = data.basicInfo.category;
+    const expectedStyle =
+      category === "cat1" ? pillarStyles.cat1 : pillarStyles.cat5;
+    if (data.basicInfo.gameStyle !== expectedStyle) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["basicInfo", "gameStyle"],
+        message: `gameStyle '${data.basicInfo.gameStyle}' does not match experiencePillar '${data.basicInfo.experiencePillar}' for category '${category}' (expected '${expectedStyle}')`,
+      });
+    }
+  });
 
 export type GameDesign = z.infer<typeof gameDesignSchema>;
 
@@ -132,6 +216,7 @@ export const rubricScoresSchema = z.object({
   d7: rubricScoreSchema,
   d8: rubricScoreSchema,
   d9: rubricScoreSchema,
+  d10: rubricScoreSchema,
 });
 
 export type RubricScores = z.infer<typeof rubricScoresSchema>;
@@ -184,15 +269,16 @@ export type GenerationJob = z.infer<typeof generationJobSchema>;
 // ── Rubric dimension labels ─────────────────────────────────────────────────
 
 export const RUBRIC_DIMENSIONS = {
-  d1: "Technical Constraints",
-  d2: "Hook Rule",
-  d3: "Transition Naturalness",
-  d4: "Edge Case Handling",
-  d5: "IB Alignment",
-  d6: "Tier Appropriateness",
-  d7: "Dialogue Quality",
-  d8: "Screen Descriptions",
-  d9: "Entity Mapping Alignment",
+  d1: "V1 Technical Compliance",
+  d2: "Hook & Transition",
+  d3: "Edge Case Coverage",
+  d4: "IB Completeness",
+  d5: "Tier Appropriateness",
+  d6: "Dialogue Specificity",
+  d7: "Screen & UI Completeness",
+  d8: "Entity Mapping Alignment",
+  d9: "Game Feel",
+  d10: "Pillar Fidelity",
 } as const;
 
 export const RUBRIC_DIMENSION_DESCRIPTIONS: Record<
@@ -200,27 +286,18 @@ export const RUBRIC_DIMENSION_DESCRIPTIONS: Record<
   string
 > = {
   d1: "Step count matches the category template, round count is in range, and all required fields are present.",
-  d2: "Step 1 (bridge) references specific entity attributes from the YAML; warm start builds on prior conversation context.",
-  d3: "Transitions between steps feel organic, not abrupt; game introduction flows naturally from the bridge.",
-  d4: "All three response paths (ideal, unexpected, silent) are distinct and appropriate; silent responses include encouraging re-engagement.",
-  d5: "Core IB key concepts are genuinely woven into the activity, not just name-dropped; ATL skills are exercised through gameplay.",
-  d6: "Language complexity, sentence length, and cognitive demands match the target tier (T0/T1/T2).",
-  d7: "AI utterances are warm, age-appropriate, and varied; no repetitive phrasing across rounds.",
-  d8: "Every step has a screen description; descriptions are specific enough for a UI designer to implement.",
-  d9: "Creative variables (metaphor, role, game mechanic) connect meaningfully to the entity's attributes and dimensions.",
+  d2: "Step 1 (bridge) references specific entity attributes, warm start builds on prior context, and the transition into the game flows naturally.",
+  d3: "All three response paths (ideal, unexpected, silent) are distinct and appropriate; silent responses include encouraging re-engagement.",
+  d4: "Core IB key concepts are genuinely woven into the activity, and the closing step's conceptReinforcement explicitly names at least one coreKeyConcept.",
+  d5: "Language complexity, sentence length, and cognitive demands match the target tier (T0/T1/T2).",
+  d6: "AI utterances are warm, age-appropriate, specific, and varied; no repetitive phrasing across rounds.",
+  d7: "Every step has a specific screenDescription a UI designer could implement; key UI affordances are named.",
+  d8: "Creative variables (metaphor, role, game mechanic) connect meaningfully to the entity's attributes and dimensions.",
+  d9: "The design creates genuine uncertainty with a satisfying resolution; the child experiences real stakes, not just structured Q&A.",
+  d10: "A blind reader could identify the experience pillar (Mystery / Creation / Performance / Discovery / Adventure / Nurture) from this design alone; the emotional arc matches the pillar's promise.",
 };
 
-// ── Game style options ──────────────────────────────────────────────────────
-
-export const GAME_STYLES = {
-  cat1: [
-    "voice_acting",
-    "storytelling_chain",
-    "prediction_game",
-    "helper_hotline",
-  ],
-  cat5: ["comparison_chart", "naming_story"],
-} as const;
+// ── Category + tier labels ───────────────────────────────────────────────────
 
 export const CATEGORY_LABELS = {
   cat1: "Sustained Verbal Interaction (In-Device)",
