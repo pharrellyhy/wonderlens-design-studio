@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { GAME_STYLES } from "@/lib/design-schema";
+import { PILLAR_STYLES } from "@/lib/design-schema";
 import type { Category } from "@/lib/design-schema";
 import { cleanupJobs } from "@/lib/job-store";
 import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
@@ -25,12 +25,6 @@ const oppositeRequestSchema = z.object({
 
 function oppositeCategory(category: Category): Category {
   return category === "cat1" ? "cat5" : "cat1";
-}
-
-function defaultGameStyleFor(category: Category): string {
-  // GAME_STYLES is `as const`, so both cat1 and cat5 arrays are statically
-  // non-empty — the first entry is always defined.
-  return GAME_STYLES[category][0];
 }
 
 // ---------------------------------------------------------------------------
@@ -97,8 +91,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Preserve the source design's experience pillar — "opposite" flips the
+  // category only. PILLAR_STYLES is a total Record over all pillars so
+  // both branches are statically defined.
   const targetCategory = oppositeCategory(sourceRun.category);
-  const targetGameStyle = defaultGameStyleFor(targetCategory);
+  const sourcePillar = sourceRun.design.basicInfo.experiencePillar;
+  const targetGameStyle = PILLAR_STYLES[sourcePillar][targetCategory];
   const generationMode = sourceRun.generationMode;
 
   const provider = createLLMProvider(llmProvider, resolvedKey);
