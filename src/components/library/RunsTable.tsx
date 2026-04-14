@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowLeftRight, ArrowUp, Download } from "lucide-react";
 
 import type { RunRecord } from "@/lib/runs-repository";
-import { RUBRIC_DIMENSIONS } from "@/lib/design-schema";
+import {
+  RUBRIC_DIMENSION_COUNT,
+  RUBRIC_DIMENSION_KEYS,
+} from "@/lib/design-schema";
 import {
   flattenGroups,
   groupRunsWithOpposites,
@@ -92,10 +95,6 @@ function formatTimestamp(iso: string): string {
   )} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const RUBRIC_KEYS = Object.keys(RUBRIC_DIMENSIONS) as Array<
-  keyof typeof RUBRIC_DIMENSIONS
->;
-
 // ---------------------------------------------------------------------------
 // CSV export
 // ---------------------------------------------------------------------------
@@ -115,15 +114,7 @@ function rowsToCsv(rows: FlatRow[]): string {
     "game_style",
     "mode",
     "is_opposite",
-    "d1",
-    "d2",
-    "d3",
-    "d4",
-    "d5",
-    "d6",
-    "d7",
-    "d8",
-    "d9",
+    ...RUBRIC_DIMENSION_KEYS,
     "score",
     "timestamp",
     "run_id",
@@ -139,7 +130,7 @@ function rowsToCsv(rows: FlatRow[]): string {
       run.gameStyle,
       run.generationMode,
       run.isOpposite ? "true" : "false",
-      ...RUBRIC_KEYS.map((k) => run.rubric[k]),
+      ...RUBRIC_DIMENSION_KEYS.map((k) => run.rubric[k]),
       run.totalScore.toString(),
       run.timestamp,
       run.runId,
@@ -265,7 +256,7 @@ export function RunsTable({
                 Opp.
               </th>
               <th scope="col" className="px-4 py-3 text-left font-medium">
-                D1–D9
+                D1–D10
               </th>
               <th scope="col" className="px-4 py-3 text-right font-medium">
                 Actions
@@ -323,12 +314,12 @@ export function RunsTable({
                   <td className="px-4 py-3 align-top text-right">
                     <span
                       className={`font-mono text-xs font-semibold ${
-                        run.totalScore === 9
+                        run.totalScore === RUBRIC_DIMENSION_COUNT
                           ? "text-green-400"
                           : "text-yellow-400"
                       }`}
                     >
-                      {run.totalScore}/9
+                      {run.totalScore}/{RUBRIC_DIMENSION_COUNT}
                     </span>
                   </td>
 
@@ -354,7 +345,7 @@ export function RunsTable({
                     )}
                   </td>
 
-                  {/* D1–D9 dot strip */}
+                  {/* D1–D10 dot strip */}
                   <td className="px-4 py-3 align-top">
                     <RubricDots rubric={run.rubric} />
                   </td>

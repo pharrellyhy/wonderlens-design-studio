@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { gameDesignSchema } from "@/lib/design-schema";
-import { createLLMProvider, resolveApiKey } from "@/lib/llm/provider";
-import type { LLMProviderType } from "@/lib/llm/provider";
+import { getServerLLMProvider } from "@/lib/llm/provider";
 import { buildRegenerateMessages } from "@/lib/prompts/regenerate";
 
 // ---------------------------------------------------------------------------
@@ -13,36 +12,33 @@ import { buildRegenerateMessages } from "@/lib/prompts/regenerate";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { design, fieldPath, comment, llmProvider, apiKey } = body as {
+    const { design, fieldPath, comment } = body as {
       design: unknown;
       fieldPath?: string;
       comment: string;
-      llmProvider: LLMProviderType;
-      apiKey?: string;
     };
     const targetFieldPath = fieldPath ?? "";
 
-    if (!design || !comment || !llmProvider) {
+    if (!design || !comment) {
       return NextResponse.json(
-        {
-          error: "Missing required fields: design, comment, llmProvider",
-        },
-        { status: 400 },
-      );
-    }
-
-    const resolvedKey = resolveApiKey(llmProvider, apiKey);
-    if (!resolvedKey) {
-      return NextResponse.json(
-        {
-          error: `No API key for provider "${llmProvider}". Provide one in the request or set the matching env var.`,
-        },
+        { error: "Missing required fields: design, comment" },
         { status: 400 },
       );
     }
 
     const validatedDesign = gameDesignSchema.parse(design);
-    const provider = createLLMProvider(llmProvider, resolvedKey);
+
+    let provider;
+    try {
+      provider = getServerLLMProvider();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Server LLM provider not configured";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+
     const messages = buildRegenerateMessages(
       validatedDesign,
       targetFieldPath,

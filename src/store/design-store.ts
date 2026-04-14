@@ -1,12 +1,10 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import type {
   GameDesign,
   GenerationMode,
   RubricIssue,
   RubricScores,
 } from "@/lib/design-schema";
-import type { LLMProviderType } from "@/lib/llm/provider";
 import type { ParsedEntity } from "@/lib/yaml-parser";
 
 export interface DesignVariant {
@@ -63,19 +61,12 @@ interface DesignStore {
   setParentsWithOpposite: (ids: string[]) => void;
   addParentWithOpposite: (id: string) => void;
 
-  // LLM config
-  llmProvider: LLMProviderType;
-  apiKeys: Record<LLMProviderType, string>;
-  setLlmProvider: (provider: LLMProviderType) => void;
-  setApiKey: (provider: LLMProviderType, apiKey: string) => void;
-
   // UI state
   activeSection: string;
   setActiveSection: (section: string) => void;
   setRubricScores: (scores: RubricScores) => void;
 
   // Reset everything tied to the current upload session.
-  // Leaves persisted LLM config (llmProvider, apiKeys) untouched.
   resetSession: () => void;
 }
 
@@ -114,113 +105,76 @@ function setNestedValue(
   return nextObject;
 }
 
-export const useDesignStore = create<DesignStore>()(
-  persist(
-    (set) => ({
+export const useDesignStore = create<DesignStore>()((set) => ({
+  parsedEntity: null,
+  setParsedEntity: (entity) => set({ parsedEntity: entity }),
+
+  variants: [],
+  setVariants: (variants) => set({ variants }),
+  addVariant: (variant) =>
+    set((state) => ({ variants: [...state.variants, variant] })),
+  updateVariant: (id, update) =>
+    set((state) => ({
+      variants: state.variants.map((v) =>
+        v.id === id ? { ...v, ...update } : v
+      ),
+    })),
+
+  activeDesign: null,
+  activeDesignId: null,
+  rubricScores: null,
+  rubricIssues: [],
+  setActiveDesign: (id, design, scores) =>
+    set({
+      activeDesignId: id,
+      activeDesign: design,
+      rubricScores: scores,
+      rubricIssues: [],
+    }),
+  setRubricIssues: (issues) => set({ rubricIssues: issues }),
+
+  updateField: (path, value) =>
+    set((state) => {
+      if (!state.activeDesign) return state;
+      return {
+        activeDesign: setNestedValue(
+          state.activeDesign,
+          path.split("."),
+          value
+        ) as GameDesign,
+      };
+    }),
+
+  generationJobId: null,
+  setGenerationJobId: (id) => set({ generationJobId: id }),
+
+  generationMode: "mapping-informed",
+  setGenerationMode: (mode) => set({ generationMode: mode }),
+
+  parentsWithOpposite: [],
+  setParentsWithOpposite: (ids) => set({ parentsWithOpposite: ids }),
+  addParentWithOpposite: (id) =>
+    set((state) =>
+      state.parentsWithOpposite.includes(id)
+        ? state
+        : { parentsWithOpposite: [...state.parentsWithOpposite, id] },
+    ),
+
+  activeSection: "basicInfo",
+  setActiveSection: (section) => set({ activeSection: section }),
+  setRubricScores: (scores) => set({ rubricScores: scores }),
+
+  resetSession: () =>
+    set({
       parsedEntity: null,
-      setParsedEntity: (entity) => set({ parsedEntity: entity }),
-
       variants: [],
-      setVariants: (variants) => set({ variants }),
-      addVariant: (variant) =>
-        set((state) => ({ variants: [...state.variants, variant] })),
-      updateVariant: (id, update) =>
-        set((state) => ({
-          variants: state.variants.map((v) =>
-            v.id === id ? { ...v, ...update } : v
-          ),
-        })),
-
       activeDesign: null,
       activeDesignId: null,
       rubricScores: null,
       rubricIssues: [],
-      setActiveDesign: (id, design, scores) =>
-        set({
-          activeDesignId: id,
-          activeDesign: design,
-          rubricScores: scores,
-          rubricIssues: [],
-        }),
-      setRubricIssues: (issues) => set({ rubricIssues: issues }),
-
-      updateField: (path, value) =>
-        set((state) => {
-          if (!state.activeDesign) return state;
-          return {
-            activeDesign: setNestedValue(
-              state.activeDesign,
-              path.split("."),
-              value
-            ) as GameDesign,
-          };
-        }),
-
       generationJobId: null,
-      setGenerationJobId: (id) => set({ generationJobId: id }),
-
       generationMode: "mapping-informed",
-      setGenerationMode: (mode) => set({ generationMode: mode }),
-
       parentsWithOpposite: [],
-      setParentsWithOpposite: (ids) => set({ parentsWithOpposite: ids }),
-      addParentWithOpposite: (id) =>
-        set((state) =>
-          state.parentsWithOpposite.includes(id)
-            ? state
-            : { parentsWithOpposite: [...state.parentsWithOpposite, id] },
-        ),
-
-      llmProvider: "anthropic",
-      apiKeys: { openai: "", anthropic: "", "openai-compatible": "" },
-      setLlmProvider: (provider) => set({ llmProvider: provider }),
-      setApiKey: (provider, apiKey) =>
-        set((state) => ({
-          apiKeys: { ...state.apiKeys, [provider]: apiKey },
-        })),
-
       activeSection: "basicInfo",
-      setActiveSection: (section) => set({ activeSection: section }),
-      setRubricScores: (scores) => set({ rubricScores: scores }),
-
-      resetSession: () =>
-        set({
-          parsedEntity: null,
-          variants: [],
-          activeDesign: null,
-          activeDesignId: null,
-          rubricScores: null,
-          rubricIssues: [],
-          generationJobId: null,
-          generationMode: "mapping-informed",
-          parentsWithOpposite: [],
-          activeSection: "basicInfo",
-        }),
     }),
-    {
-      name: "design-studio-store",
-      version: 3,
-      // Persist only the provider choice. API keys are session-only: a
-      // persisted key in localStorage would shadow the server env var on
-      // every request (see resolveApiKey) and survive server restarts /
-      // key rotations until the user manually cleared storage.
-      partialize: (state) => ({
-        llmProvider: state.llmProvider,
-      }),
-      migrate: (persistedState, fromVersion) => {
-        if (!isRecord(persistedState)) {
-          return { llmProvider: "anthropic" as LLMProviderType };
-        }
-        const provider =
-          (persistedState as { llmProvider?: LLMProviderType }).llmProvider ??
-          "anthropic";
-        // v1 stored a single `apiKey`; v2 stored per-provider `apiKeys`.
-        // From v3 on we drop both — keys live in memory only.
-        if (fromVersion < 3) {
-          return { llmProvider: provider };
-        }
-        return { llmProvider: provider };
-      },
-    }
-  )
-);
+}));

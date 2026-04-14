@@ -2,9 +2,14 @@
 
 import { ArrowLeftRight, Award, Drama, TrendingUp } from "lucide-react";
 import type { GameDesign, RubricScores } from "@/lib/design-schema";
-import { RUBRIC_DIMENSIONS } from "@/lib/design-schema";
+import {
+  RUBRIC_DIMENSIONS,
+  RUBRIC_DIMENSION_COUNT,
+  RUBRIC_DIMENSION_KEYS,
+} from "@/lib/design-schema";
 import { CategoryPill } from "@/components/common/CategoryPill";
 import { ModePill } from "@/components/common/ModePill";
+import { PillarPill } from "@/components/common/PillarPill";
 
 interface VariantCardProps {
   id: string;
@@ -96,7 +101,7 @@ export function VariantCard({
   const passCount = Object.values(rubricScores).filter(
     (score) => score === "pass",
   ).length;
-  const allPass = passCount === 9;
+  const allPass = passCount === RUBRIC_DIMENSION_COUNT;
 
   return (
     <div
@@ -111,6 +116,7 @@ export function VariantCard({
             {gameStyle}
           </span>
           {generationMode && <ModePill mode={generationMode} />}
+          <PillarPill pillar={design.basicInfo.experiencePillar} />
           {parentDesignId && (
             <span
               className="px-2 py-0.5 rounded text-xs font-medium bg-orange-900/50 text-orange-300"
@@ -125,7 +131,7 @@ export function VariantCard({
             allPass ? "text-green-400" : "text-yellow-400"
           }`}
         >
-          {passCount}/9 PASS
+          {passCount}/{RUBRIC_DIMENSION_COUNT} PASS
         </span>
       </div>
 
@@ -164,21 +170,19 @@ export function VariantCard({
 
       {/* Rubric score bar */}
       <div className="flex gap-1 mt-3 flex-wrap">
-        {(Object.keys(RUBRIC_DIMENSIONS) as (keyof typeof RUBRIC_DIMENSIONS)[]).map(
-          (dim) => (
-            <span
-              key={dim}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
-                rubricScores[dim] === "pass"
-                  ? "bg-green-900/50 text-green-400"
-                  : "bg-red-900/50 text-red-400"
-              }`}
-              title={RUBRIC_DIMENSIONS[dim]}
-            >
-              {dim}
-            </span>
-          ),
-        )}
+        {RUBRIC_DIMENSION_KEYS.map((dim) => (
+          <span
+            key={dim}
+            className={`px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
+              rubricScores[dim] === "pass"
+                ? "bg-green-900/50 text-green-400"
+                : "bg-red-900/50 text-red-400"
+            }`}
+            title={RUBRIC_DIMENSIONS[dim]}
+          >
+            {dim}
+          </span>
+        ))}
       </div>
 
       {/* Action row */}

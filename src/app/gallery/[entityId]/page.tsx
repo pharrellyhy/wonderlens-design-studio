@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, RefreshCcw } from "lucide-react";
 import { VariantCard } from "@/components/gallery/VariantCard";
@@ -19,7 +19,6 @@ import {
   subscribeGenerationError,
 } from "@/lib/generation-poller";
 import type { GenerationMode } from "@/lib/design-schema";
-import type { LLMProviderType } from "@/lib/llm/provider";
 
 export default function GalleryPage() {
   const router = useRouter();
@@ -27,10 +26,6 @@ export default function GalleryPage() {
   const variants = useDesignStore((s) => s.variants);
   const setVariants = useDesignStore((s) => s.setVariants);
   const setActiveDesign = useDesignStore((s) => s.setActiveDesign);
-  const llmProvider = useDesignStore((s) => s.llmProvider);
-  const apiKey = useDesignStore((s) => s.apiKeys[s.llmProvider]);
-  const setLlmProvider = useDesignStore((s) => s.setLlmProvider);
-  const setApiKey = useDesignStore((s) => s.setApiKey);
   const generationJobId = useDesignStore((s) => s.generationJobId);
   const setGenerationJobId = useDesignStore((s) => s.setGenerationJobId);
   const generationMode = useDesignStore((s) => s.generationMode);
@@ -156,8 +151,6 @@ export default function GalleryPage() {
     try {
       jobId = await startGeneration({
         entityYaml: parsedEntity.rawYaml,
-        llmProvider,
-        apiKey,
         generationMode,
       });
     } catch (err) {
@@ -170,14 +163,30 @@ export default function GalleryPage() {
     setGenerationJobId(jobId);
     startPolling(jobId);
   }, [
-    apiKey,
     generationMode,
-    llmProvider,
     parsedEntity,
     setGenerationJobId,
     setParentsWithOpposite,
     setVariants,
   ]);
+
+  // Auto-kick generation when the user lands on the gallery for the first
+  // time. Skips if variants already exist (back-from-editor) or a job is
+  // already in flight. The ref guard prevents StrictMode's double-mount in
+  // dev from firing two parallel generation jobs. The handleGenerate call
+  // is deferred via queueMicrotask so its setState calls run after the
+  // effect commits, satisfying react-hooks/set-state-in-effect.
+  const autoKickedRef = useRef(false);
+  useEffect(() => {
+    if (autoKickedRef.current) return;
+    if (!parsedEntity) return;
+    if (variants.length > 0) return;
+    if (generationJobId !== null) return;
+    autoKickedRef.current = true;
+    queueMicrotask(() => {
+      void handleGenerate();
+    });
+  }, [parsedEntity, variants.length, generationJobId, handleGenerate]);
 
   const handleGenerateOpposite = useCallback(
     async (designId: string) => {
@@ -192,8 +201,6 @@ export default function GalleryPage() {
       try {
         jobId = await generateOppositeVariant({
           sourceDesignId: designId,
-          llmProvider,
-          apiKey,
         });
       } catch (err) {
         setOppositeBusySet((prev) => {
@@ -214,7 +221,7 @@ export default function GalleryPage() {
       // useEffect above watches `variants` and prunes this designId from
       // `oppositeBusySet` when its child reaches complete/failed.
     },
-    [apiKey, llmProvider],
+    [],
   );
 
 
@@ -302,35 +309,9 @@ export default function GalleryPage() {
         </div>
       </header>
 
-      {/* LLM Settings Bar */}
+      {/* Generation settings bar */}
       <div className="border-b border-gray-800 px-6 py-3 bg-gray-900/50">
         <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-gray-400">
-            Provider
-            <select
-              value={llmProvider}
-              onChange={(e) =>
-                setLlmProvider(e.target.value as LLMProviderType)
-              }
-              className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="anthropic">Anthropic</option>
-              <option value="openai">OpenAI</option>
-              <option value="openai-compatible">OpenAI-Compatible</option>
-            </select>
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-gray-400 flex-1">
-            API Key
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(llmProvider, e.target.value)}
-              placeholder="Leave blank to use server env key"
-              className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1.5 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-600"
-            />
-          </label>
-
           <label className="flex items-center gap-2 text-sm text-gray-400">
             Mode
             <select
@@ -345,14 +326,9 @@ export default function GalleryPage() {
               <option value="freeform">Freeform</option>
             </select>
           </label>
-
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-1.5 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isGenerating ? "Generating..." : "Generate Variants"}
-          </button>
+          <span className="text-xs text-gray-600">
+            Change mode and click Regenerate All to re-run.
+          </span>
         </div>
       </div>
 

@@ -2,8 +2,10 @@ import fs from "fs";
 import path from "path";
 
 import type { GenerationMode } from "@/lib/design-schema";
+import type { ExperiencePillar } from "@/lib/design-schema";
 import type { LLMMessage } from "@/lib/llm/provider";
 import type { ParsedEntity } from "@/lib/yaml-parser";
+import { PILLAR_LABELS } from "@/lib/design-schema";
 
 // ---------------------------------------------------------------------------
 // Load data files once at module scope
@@ -11,17 +13,16 @@ import type { ParsedEntity } from "@/lib/yaml-parser";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 
-const programMd = fs.readFileSync(path.join(DATA_DIR, "program.md"), "utf-8");
+const playbookMd = fs.readFileSync(
+  path.join(process.cwd(), "docs", "game_design_playbook.md"),
+  "utf-8"
+);
 const templatesMd = fs.readFileSync(
   path.join(DATA_DIR, "templates.md"),
   "utf-8"
 );
 const entityGuidanceMd = fs.readFileSync(
   path.join(DATA_DIR, "entity_guidance.md"),
-  "utf-8"
-);
-const gameStylesMd = fs.readFileSync(
-  path.join(DATA_DIR, "game_styles.md"),
   "utf-8"
 );
 const conversationBridgeMd = fs.readFileSync(
@@ -49,7 +50,8 @@ The JSON must conform exactly to the following TypeScript interface (GameDesign)
     "coreKeyConcepts": string[],
     "relatedConcepts": string[],
     "atlSkills": string[],
-    "gameStyle": string,
+    "gameStyle": string,  // must be one of the 12 playbook styles (see §2 of the playbook); must be the cat1 entry for cat1 activities and the cat5 entry for cat5 activities
+    "experiencePillar": "mystery" | "creation" | "performance" | "discovery" | "adventure" | "nurture",
     "ibTheme": string,
     "generationMode": "freeform" | "mapping-informed"  // must match the mode given in the user-content block
   },
@@ -105,7 +107,7 @@ The JSON must conform exactly to the following TypeScript interface (GameDesign)
 
 Where DialogueBlock is:
 {
-  "aiSays": string,           // Actual AI dialogue with tone marker
+  "aiSays": string,           // Actual AI dialogue with tone marker in SQUARE BRACKETS, e.g., "[warm] Look at this!"
   "childResponses": {
     "ideal": string,           // Ideal child response
     "unexpected": string,      // Unexpected/off-topic response
@@ -132,6 +134,8 @@ Rules for the steps array:
 - Closing steps must include \`conceptReinforcement\` (naming one Key Concept) and \`tomorrowHook\` (one-line teaser for next session).
 - Cat 1 activities typically have 5 steps: bridge, rules, rounds, celebration, closing.
 - Cat 5 activities typically have 5-6 steps: bridge, rules, rounds, celebration (collection complete + synthesis), celebration (discovery), closing.
+- Tone/emotion markers on AI dialogue MUST use square brackets: [warm], [excited], [gentle pause]. NEVER use parentheses for tone markers.
+- basicInfo.experiencePillar MUST match the assigned game style per the playbook's pillar→style mapping in §2. This is enforced at parse time.
 
 Bridge step by generation mode:
 - Freeform mode: Produce a single generic opener in \`warmStart\`. You MAY omit \`coldStart\` entirely (leave it undefined). Bridges do not need to be grounded in a specific mapping dimension.
@@ -152,10 +156,9 @@ Output ONLY the JSON object. No wrapping, no explanation.
  */
 function buildSystemContent(generationMode: GenerationMode): string {
   const sections: string[] = [
-    programMd,
+    playbookMd,        // primary source — replaces programMd + gameStylesMd
     templatesMd,
     entityGuidanceMd,
-    gameStylesMd,
   ];
   if (generationMode === "mapping-informed") {
     sections.push(conversationBridgeMd);
@@ -194,7 +197,8 @@ export function buildGenerateMessages(
   entity: ParsedEntity,
   category: string,
   gameStyle: string,
-  generationMode: GenerationMode
+  pillar: ExperiencePillar,
+  generationMode: GenerationMode,
 ): LLMMessage[] {
   const systemContent = buildSystemContent(generationMode);
 
@@ -217,6 +221,7 @@ ${entity.rawYaml}
 - **Entity name**: ${entity.name}
 - **Category**: ${category}
 - **Game style**: ${gameStyle}
+- **Experience Pillar**: ${pillar} — ${PILLAR_LABELS[pillar]}
 - **Generation mode**: ${generationMode}
 - **IB Themes from mapping**: ${entity.themes.join(", ") || "none"}
 - **Key Concepts from mapping**: ${entity.keyConcepts.join(", ") || "none"}
@@ -234,8 +239,9 @@ ${modeGuidance}
 3. Generate a complete GameDesign JSON object following the exact schema described in the system prompt.
 4. Set \`basicInfo.generationMode\` to "${generationMode}" exactly — it must match the mode listed above.
 5. Follow the mode guidance block above exactly, especially the bridge-step rules.
-6. Ensure all 9 rubric dimensions pass (D1-D9). Self-evaluate and fix before outputting.
-7. Output ONLY the raw JSON object. No markdown fences, no explanation.`;
+6. Ensure all 10 rubric dimensions pass (D1–D10). Self-evaluate and fix before outputting.
+7. Set \`basicInfo.experiencePillar\` to "${pillar}" exactly — it must match the pillar associated with the assigned game style.
+8. Output ONLY the raw JSON object. No markdown fences, no explanation.`;
 
   return [
     { role: "system", content: systemContent },

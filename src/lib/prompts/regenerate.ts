@@ -33,7 +33,7 @@ Your output depends on the field type at the given path:
 1. Read the user's comment to understand WHAT they want changed and WHY.
 2. Look at the full design context to ensure your change is consistent with the rest of the design.
 3. Preserve the style, tone, and tier-appropriateness of the surrounding content.
-4. If changing dialogue, maintain tone markers in parentheses at the start of AI lines.
+4. If changing dialogue, maintain tone markers in square brackets at the start of AI lines (e.g., [warm], [excited]).
 5. If changing a DialogueBlock, include all fields: aiSays, childResponses (ideal, unexpected, silent), aiFollowUps (ideal, unexpected, silent), screenDescription.
 6. Ensure the change does not violate any rubric dimension (V1 technical constraints, hook rule, tier language, etc.).
 

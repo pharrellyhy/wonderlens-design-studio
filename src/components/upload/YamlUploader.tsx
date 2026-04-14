@@ -10,12 +10,36 @@ interface YamlUploaderProps {
   onEntityParsed: (entity: ParsedEntity) => void;
 }
 
-const MODE_TOOLTIPS: Record<GenerationMode, string> = {
-  "mapping-informed":
-    "Uses the entity's tier guidance and dimensions to generate dual warm/cold bridges grounded in specific topics.",
-  freeform:
-    "Uses tier guidance as a loose preference; bridges are single generic openers.",
+interface ModeDetail {
+  label: string;
+  tagline: string;
+  bullets: readonly string[];
+}
+
+const MODE_DETAILS: Record<GenerationMode, ModeDetail> = {
+  "mapping-informed": {
+    label: "Mapping-informed",
+    tagline: "For delivery — structured, anchored to the entity mapping",
+    bullets: [
+      "Entity has a curated mapping with themes + dimensions you trust",
+      "Design must connect to specific curriculum dimensions",
+      "You want reproducible, comparable outputs across a unit",
+      "Rich conversation anchor dimensions are worth bridging from",
+    ],
+  },
+  freeform: {
+    label: "Freeform",
+    tagline: "For ideation — creative latitude with the YAML as inspiration",
+    bullets: [
+      "YAML is sparse, new, or the mapping hasn't been curated yet",
+      "You're exploring creative directions and want the LLM to surprise you",
+      "First-draft or brainstorming pass, not production-ready",
+      "Tier guidance is approximate and language can adapt to the activity",
+    ],
+  },
 };
+
+const MODE_ORDER: readonly GenerationMode[] = ["mapping-informed", "freeform"];
 
 export function YamlUploader({ onEntityParsed }: YamlUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
@@ -119,14 +143,9 @@ export function YamlUploader({ onEntityParsed }: YamlUploaderProps) {
 
       {/* Generation mode toggle */}
       <div className="mt-6">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-gray-400 text-xs uppercase tracking-wider">
-            Generation mode
-          </label>
-          <span className="text-gray-600 text-xs">
-            {MODE_TOOLTIPS[generationMode]}
-          </span>
-        </div>
+        <label className="block text-gray-400 text-xs uppercase tracking-wider mb-2">
+          Generation mode
+        </label>
         <div
           role="radiogroup"
           aria-label="Generation mode"
@@ -137,7 +156,6 @@ export function YamlUploader({ onEntityParsed }: YamlUploaderProps) {
             role="radio"
             aria-checked={generationMode === "mapping-informed"}
             onClick={() => setGenerationMode("mapping-informed")}
-            title={MODE_TOOLTIPS["mapping-informed"]}
             className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
               generationMode === "mapping-informed"
                 ? "bg-indigo-600 text-white"
@@ -151,7 +169,6 @@ export function YamlUploader({ onEntityParsed }: YamlUploaderProps) {
             role="radio"
             aria-checked={generationMode === "freeform"}
             onClick={() => setGenerationMode("freeform")}
-            title={MODE_TOOLTIPS.freeform}
             className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
               generationMode === "freeform"
                 ? "bg-indigo-600 text-white"
@@ -160,6 +177,40 @@ export function YamlUploader({ onEntityParsed }: YamlUploaderProps) {
           >
             Freeform
           </button>
+        </div>
+
+        {/* When-to-use comparison */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {MODE_ORDER.map((mode) => {
+            const detail = MODE_DETAILS[mode];
+            const isActive = generationMode === mode;
+            return (
+              <div
+                key={mode}
+                className={`rounded-xl p-4 border transition-colors ${
+                  isActive
+                    ? "bg-gray-800 border-indigo-600/80"
+                    : "bg-gray-800/60 border-gray-700"
+                }`}
+              >
+                <h4
+                  className={`text-sm font-semibold ${
+                    isActive ? "text-indigo-300" : "text-gray-200"
+                  }`}
+                >
+                  {detail.label}
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5 mb-2">
+                  {detail.tagline}
+                </p>
+                <ul className="text-xs text-gray-400 space-y-1 list-disc list-inside marker:text-gray-600">
+                  {detail.bullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       </div>
 
