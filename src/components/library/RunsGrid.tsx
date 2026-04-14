@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { ArrowLeftRight } from "lucide-react";
 
 import type { RunRecord } from "@/lib/runs-repository";
+import { RUBRIC_DIMENSION_COUNT } from "@/lib/design-schema";
 import {
   flattenGroups,
   groupRunsWithOpposites,
@@ -44,7 +45,7 @@ export function RunsGrid({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {flatRows.map(({ run, isChild, isOrphan }) => {
-        const allPass = run.totalScore === 9;
+        const allPass = run.totalScore === RUBRIC_DIMENSION_COUNT;
         const isBusy = busyRunId === run.runId;
         return (
           <div
@@ -76,7 +77,7 @@ export function RunsGrid({
                   allPass ? "text-green-400" : "text-yellow-400"
                 }`}
               >
-                {run.totalScore}/9
+                {run.totalScore}/{RUBRIC_DIMENSION_COUNT}
               </span>
             </div>
 
@@ -86,7 +87,7 @@ export function RunsGrid({
             </h4>
             <p className="text-gray-500 text-xs mb-3">{run.gameStyle}</p>
 
-            {/* D1–D9 dot strip */}
+            {/* D1–D10 dot strip */}
             <RubricDots rubric={run.rubric} className="mb-4" />
 
             {/* Footer: actions */}

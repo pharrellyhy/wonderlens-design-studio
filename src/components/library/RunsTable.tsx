@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowLeftRight, ArrowUp, Download } from "lucide-react";
 
 import type { RunRecord } from "@/lib/runs-repository";
-import { RUBRIC_DIMENSIONS } from "@/lib/design-schema";
+import { RUBRIC_DIMENSIONS, RUBRIC_DIMENSION_COUNT } from "@/lib/design-schema";
 import {
   flattenGroups,
   groupRunsWithOpposites,
@@ -124,6 +124,7 @@ function rowsToCsv(rows: FlatRow[]): string {
     "d7",
     "d8",
     "d9",
+    "d10",
     "score",
     "timestamp",
     "run_id",
@@ -265,7 +266,7 @@ export function RunsTable({
                 Opp.
               </th>
               <th scope="col" className="px-4 py-3 text-left font-medium">
-                D1–D9
+                D1–D10
               </th>
               <th scope="col" className="px-4 py-3 text-right font-medium">
                 Actions
@@ -323,12 +324,12 @@ export function RunsTable({
                   <td className="px-4 py-3 align-top text-right">
                     <span
                       className={`font-mono text-xs font-semibold ${
-                        run.totalScore === 9
+                        run.totalScore === RUBRIC_DIMENSION_COUNT
                           ? "text-green-400"
                           : "text-yellow-400"
                       }`}
                     >
-                      {run.totalScore}/9
+                      {run.totalScore}/{RUBRIC_DIMENSION_COUNT}
                     </span>
                   </td>
 
@@ -354,7 +355,7 @@ export function RunsTable({
                     )}
                   </td>
 
-                  {/* D1–D9 dot strip */}
+                  {/* D1–D10 dot strip */}
                   <td className="px-4 py-3 align-top">
                     <RubricDots rubric={run.rubric} />
                   </td>

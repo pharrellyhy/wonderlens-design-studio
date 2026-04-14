@@ -297,6 +297,8 @@ export const RUBRIC_DIMENSION_DESCRIPTIONS: Record<
   d10: "A blind reader could identify the experience pillar (Mystery / Creation / Performance / Discovery / Adventure / Nurture) from this design alone; the emotional arc matches the pillar's promise.",
 };
 
+export const RUBRIC_DIMENSION_COUNT = Object.keys(RUBRIC_DIMENSIONS).length;
+
 // ── Category + tier labels ───────────────────────────────────────────────────
 
 export const CATEGORY_LABELS = {

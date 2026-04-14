@@ -10,6 +10,7 @@ import { ScorecardPanel } from "@/components/editor/ScorecardPanel";
 import { EditableField } from "@/components/editor/EditableField";
 import { DialogueBlockEditor } from "@/components/editor/DialogueBlock";
 import { ModePill } from "@/components/common/ModePill";
+import { PillarPill } from "@/components/common/PillarPill";
 import {
   CATEGORY_LABELS,
   TIER_LABELS,
@@ -164,6 +165,7 @@ export default function EditorPage() {
             {activeDesign.basicInfo.activityName}
           </h1>
           <ModePill mode={activeDesign.basicInfo.generationMode} />
+          <PillarPill pillar={activeDesign.basicInfo.experiencePillar} />
         </div>
         <div className="w-32" /> {/* Spacer for centering */}
       </header>
