@@ -45,14 +45,29 @@ const ENV_KEY_BY_PROVIDER: Record<LLMProviderType, string> = {
   "openai-compatible": "OPENAI_COMPATIBLE_API_KEY",
 };
 
+const DEFAULT_PROVIDER: LLMProviderType = "openai-compatible";
+
 /**
- * Resolve an API key for the given provider, preferring a non-empty
- * client-supplied key but falling back to the matching server env var.
+ * Build an LLMProvider instance from server environment variables.
+ *
+ * `LLM_PROVIDER` selects the backend; the matching `*_API_KEY` is read
+ * from the same environment. Throws with an actionable message if either
+ * is missing so the caller can surface a clean 500 error. Single source
+ * of truth for LLM credentials — client requests never carry keys.
  */
-export function resolveApiKey(
-  provider: LLMProviderType,
-  clientKey: string | undefined
-): string {
-  if (clientKey && clientKey.trim() !== "") return clientKey;
-  return process.env[ENV_KEY_BY_PROVIDER[provider]] ?? "";
+export function getServerLLMProvider(): LLMProvider {
+  const rawType = process.env.LLM_PROVIDER ?? DEFAULT_PROVIDER;
+  if (!(rawType in PROVIDER_CONSTRUCTORS)) {
+    throw new Error(
+      `Invalid LLM_PROVIDER "${rawType}" — expected one of: ${Object.keys(PROVIDER_CONSTRUCTORS).join(", ")}`,
+    );
+  }
+  const type = rawType as LLMProviderType;
+  const apiKey = process.env[ENV_KEY_BY_PROVIDER[type]];
+  if (!apiKey || apiKey.trim() === "") {
+    throw new Error(
+      `${ENV_KEY_BY_PROVIDER[type]} is not set — configure it in the server environment`,
+    );
+  }
+  return createLLMProvider(type, apiKey);
 }

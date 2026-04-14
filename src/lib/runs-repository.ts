@@ -29,7 +29,7 @@ export const runRecordSchema = z
     // design's id, not the run file's hash id. See plan Section 2.
     parentRunId: z.string().nullable(),
     rubric: rubricScoresSchema,
-    totalScore: z.number().int().min(0).max(9),
+    totalScore: z.number().int().min(0).max(10),
     designId: z.string().min(1),
     design: gameDesignSchema,
     durationMs: z.number().int().nonnegative(),

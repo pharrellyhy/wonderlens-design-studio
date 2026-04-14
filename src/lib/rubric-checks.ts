@@ -17,10 +17,10 @@ import type {
 // Next.js, no filesystem, no LLM provider.
 
 // ---------------------------------------------------------------------------
-// D5 — IB Alignment: closing step must name at least one coreKeyConcept
+// D4 — IB Completeness: closing step must name at least one coreKeyConcept
 // ---------------------------------------------------------------------------
 
-export interface D5CheckResult {
+export interface D4CheckResult {
   pass: boolean;
   reason?: string;
 }
@@ -55,13 +55,13 @@ function normalize(s: string): string {
  * not handled — only exact word-boundary matches count. Stemming is out of
  * scope for v1.
  */
-export function checkD5Deterministic(design: GameDesign): D5CheckResult {
+export function checkD4Deterministic(design: GameDesign): D4CheckResult {
   const closing = design.steps.find((step) => step.type === "closing");
 
   if (!closing) {
     return {
       pass: false,
-      reason: "D5 pre-check failed: design has no closing step.",
+      reason: "D4 pre-check failed: design has no closing step.",
     };
   }
 
@@ -70,7 +70,7 @@ export function checkD5Deterministic(design: GameDesign): D5CheckResult {
     return {
       pass: false,
       reason:
-        "D5 pre-check failed: closing step is missing conceptReinforcement (required to explicitly name at least one coreKeyConcept).",
+        "D4 pre-check failed: closing step is missing conceptReinforcement (required to explicitly name at least one coreKeyConcept).",
     };
   }
 
@@ -83,7 +83,7 @@ export function checkD5Deterministic(design: GameDesign): D5CheckResult {
     return {
       pass: false,
       reason:
-        "D5 pre-check failed: design has no coreKeyConcepts to reinforce in the closing step.",
+        "D4 pre-check failed: design has no coreKeyConcepts to reinforce in the closing step.",
     };
   }
 
@@ -97,7 +97,7 @@ export function checkD5Deterministic(design: GameDesign): D5CheckResult {
   if (!matched) {
     return {
       pass: false,
-      reason: `D5 pre-check failed: closing step's conceptReinforcement does not mention any coreKeyConcept (expected one of: ${concepts.join(", ")}).`,
+      reason: `D4 pre-check failed: closing step's conceptReinforcement does not mention any coreKeyConcept (expected one of: ${concepts.join(", ")}).`,
     };
   }
 
@@ -105,41 +105,41 @@ export function checkD5Deterministic(design: GameDesign): D5CheckResult {
 }
 
 // ---------------------------------------------------------------------------
-// Apply the D5 deterministic override to an LLM-produced evaluate result
+// Apply the D4 deterministic override to an LLM-produced evaluate result
 // ---------------------------------------------------------------------------
 
 /**
- * Given the scores/issues returned by the LLM evaluate pass, apply the D5
- * deterministic pre-check: if it fails, override `scores.d5` to `"fail"` and
+ * Given the scores/issues returned by the LLM evaluate pass, apply the D4
+ * deterministic pre-check: if it fails, override `scores.d4` to `"fail"` and
  * append (or replace) a matching issue describing the failure. If it passes,
  * the inputs are returned unchanged.
  *
  * Does NOT mutate its arguments — returns new objects so callers can swap
  * them in without worrying about shared references.
  */
-export function applyD5Override(
+export function applyD4Override(
   scores: RubricScores,
   issues: RubricIssue[],
   design: GameDesign,
 ): { scores: RubricScores; issues: RubricIssue[] } {
-  const check = checkD5Deterministic(design);
+  const check = checkD4Deterministic(design);
   if (check.pass) {
     return { scores, issues };
   }
 
-  const nextScores: RubricScores = { ...scores, d5: "fail" };
+  const nextScores: RubricScores = { ...scores, d4: "fail" };
 
-  // Drop any existing d5 issue from the LLM (it may have passed d5 and so
+  // Drop any existing d4 issue from the LLM (it may have passed d4 and so
   // added nothing, or it may have flagged something different) and inject our
   // deterministic reason so the fix pass targets the real problem.
   const filteredIssues = issues.filter(
-    (issue) => issue.dimension.toLowerCase() !== "d5",
+    (issue) => issue.dimension.toLowerCase() !== "d4",
   );
   const nextIssues: RubricIssue[] = [
     ...filteredIssues,
     {
-      dimension: "d5",
-      description: check.reason ?? "D5 pre-check failed.",
+      dimension: "d4",
+      description: check.reason ?? "D4 pre-check failed.",
     },
   ];
 

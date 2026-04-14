@@ -1,13 +1,16 @@
 import { z } from "zod";
 
 import {
-  GAME_STYLES,
+  ALL_PILLARS,
+  PILLAR_STYLES,
   gameDesignSchema,
   rubricIssueSchema,
   rubricScoresSchema,
+  styleToPillar,
 } from "@/lib/design-schema";
 import type {
   Category,
+  ExperiencePillar,
   GameDesign,
   GenerationJob,
   GenerationMode,
@@ -21,7 +24,7 @@ import { jobs } from "@/lib/job-store";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
 import { buildFixMessages } from "@/lib/prompts/fix";
 import { buildGenerateMessages } from "@/lib/prompts/generate";
-import { applyD5Override } from "@/lib/rubric-checks";
+import { applyD4Override } from "@/lib/rubric-checks";
 import {
   createRunId,
   saveRun,
@@ -45,21 +48,13 @@ const evaluateResponseSchema = z.object({
 const MAX_FIX_ITERATIONS = 3;
 
 /**
- * Canonical ordered tuple of the nine rubric dimension keys. Use this rather
+ * Canonical ordered tuple of the ten rubric dimension keys. Use this rather
  * than `Object.keys(scores)` / `Object.values(scores)` when computing totals
  * so a future stray property on the scores object can't silently inflate the
  * count.
  */
 const DIMENSION_KEYS = [
-  "d1",
-  "d2",
-  "d3",
-  "d4",
-  "d5",
-  "d6",
-  "d7",
-  "d8",
-  "d9",
+  "d1","d2","d3","d4","d5","d6","d7","d8","d9","d10",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -150,17 +145,9 @@ function getFailingIssues(issues: RubricIssue[]): RubricIssue[] {
 // All-fail rubric scores (used for failed variants)
 // ---------------------------------------------------------------------------
 
-const ALL_FAIL_SCORES: RubricScores = {
-  d1: "fail",
-  d2: "fail",
-  d3: "fail",
-  d4: "fail",
-  d5: "fail",
-  d6: "fail",
-  d7: "fail",
-  d8: "fail",
-  d9: "fail",
-};
+const ALL_FAIL_SCORES: RubricScores = Object.fromEntries(
+  DIMENSION_KEYS.map((k) => [k, "fail"] as const),
+) as RubricScores;
 
 // ---------------------------------------------------------------------------
 // generateVariant
@@ -185,11 +172,20 @@ export async function generateVariant(
   // carry end-to-end generation latency for later analysis.
   const startTime = Date.now();
 
+  // Resolve experience pillar from game style
+  const pillar = styleToPillar(gameStyle);
+  if (!pillar) {
+    throw new Error(
+      `generateVariant: unknown gameStyle "${gameStyle}" — no pillar mapping`,
+    );
+  }
+
   // Pass 1 — Generate
   const generateMessages = buildGenerateMessages(
     entity,
     category,
     gameStyle,
+    pillar,
     generationMode,
   );
   let design: GameDesign = await llmJsonCall(
@@ -199,7 +195,7 @@ export async function generateVariant(
     { temperature: 0.8 }
   );
 
-  // Pass 2 — Evaluate (with deterministic D5 pre-check override)
+  // Pass 2 — Evaluate (with deterministic D4 pre-check override)
   const evalMessages = buildEvaluateMessages(design);
   const llmEvaluation = await llmJsonCall(
     provider,
@@ -207,7 +203,7 @@ export async function generateVariant(
     evaluateResponseSchema,
     { temperature: 0.2 }
   );
-  let evaluation = applyD5Override(
+  let evaluation = applyD4Override(
     llmEvaluation.scores,
     llmEvaluation.issues,
     design,
@@ -230,7 +226,7 @@ export async function generateVariant(
       temperature: 0.5,
     });
 
-    // Pass 4 — Re-evaluate (same D5 override applied to the re-evaluation)
+    // Pass 4 — Re-evaluate (same D4 override applied to the re-evaluation)
     const reEvalMessages = buildEvaluateMessages(design);
     const reLlmEvaluation = await llmJsonCall(
       provider,
@@ -238,7 +234,7 @@ export async function generateVariant(
       evaluateResponseSchema,
       { temperature: 0.2 }
     );
-    evaluation = applyD5Override(
+    evaluation = applyD4Override(
       reLlmEvaluation.scores,
       reLlmEvaluation.issues,
       design,
@@ -301,50 +297,34 @@ export async function generateVariant(
 // ---------------------------------------------------------------------------
 
 /**
- * Auto-select variant configs for generation. Strategy:
- * - Pick one Cat 1 style and one Cat 5 style first (for variety)
- * - Fill remaining slots from unused styles
- * - Cap at maxVariants (default 4)
+ * Auto-select pillar-diverse variant configs. Picks up to `maxVariants`
+ * distinct experience pillars (capped at ALL_PILLARS.length), assigns each
+ * a category (balanced cat1/cat5 split), and resolves the concrete game
+ * style via PILLAR_STYLES.
  */
 export function selectVariantConfigs(
-  maxVariants: number = 4
+  maxVariants: number = 4,
 ): Array<{ category: Category; gameStyle: string }> {
-  const configs: Array<{ category: Category; gameStyle: string }> = [];
+  const pillarPool: ExperiencePillar[] = [...ALL_PILLARS];
+  shuffleArray(pillarPool);
 
-  const cat1Styles = [...GAME_STYLES.cat1];
-  const cat5Styles = [...GAME_STYLES.cat5];
+  const pickCount = Math.min(maxVariants, pillarPool.length);
+  const pickedPillars = pillarPool.slice(0, pickCount);
 
-  // Shuffle each pool for variety
-  shuffleArray(cat1Styles);
-  shuffleArray(cat5Styles);
-
-  // Pick one from each category first
-  if (cat1Styles.length > 0 && configs.length < maxVariants) {
-    configs.push({ category: "cat1", gameStyle: cat1Styles.shift()! });
-  }
-  if (cat5Styles.length > 0 && configs.length < maxVariants) {
-    configs.push({ category: "cat5", gameStyle: cat5Styles.shift()! });
-  }
-
-  // Fill remaining from unused styles, alternating categories
-  const remaining: Array<{ category: Category; gameStyle: string }> = [
-    ...cat1Styles.map((style) => ({
-      category: "cat1" as const,
-      gameStyle: style,
-    })),
-    ...cat5Styles.map((style) => ({
-      category: "cat5" as const,
-      gameStyle: style,
-    })),
+  // Balanced category split: ceil(N/2) cat1 + floor(N/2) cat5. On odd N
+  // the extra slot goes to cat1 (arbitrary choice — documenting it so
+  // single-variant callers know they always get cat1).
+  const cat1Count = Math.ceil(pickCount / 2);
+  const categories: Category[] = [
+    ...Array<Category>(cat1Count).fill("cat1"),
+    ...Array<Category>(pickCount - cat1Count).fill("cat5"),
   ];
-  shuffleArray(remaining);
+  shuffleArray(categories);
 
-  for (const config of remaining) {
-    if (configs.length >= maxVariants) break;
-    configs.push(config);
-  }
-
-  return configs;
+  return pickedPillars.map((pillar, i) => ({
+    category: categories[i],
+    gameStyle: PILLAR_STYLES[pillar][categories[i]],
+  }));
 }
 
 // ---------------------------------------------------------------------------
