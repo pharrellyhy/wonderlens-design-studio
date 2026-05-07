@@ -1,6 +1,44 @@
 # Session Handoff
 
-Last updated: 2026-04-14
+Last updated: 2026-04-27
+
+---
+
+## Existing Activity Import — Complete
+
+### Problem
+The app only supported starting from entity YAML and generating new variants. Existing WonderLens activities in spec markdown or structured JSON could not be opened for review, manual edits, targeted AI regeneration, rubric re-score, or export.
+
+### Solution
+Added a deterministic import path on the home screen. YAML upload still starts the generation/gallery flow. Existing WonderLens spec/prod markdown (`.md`) and structured `GameDesign` JSON (`.json`) now import directly into the existing Design Studio editor. Markdown imports normalize legacy game styles such as `prediction_game` into the current pillar/style schema and parse available D1-D10 scorecard rows, defaulting missing dimensions to fail so reviewers can re-run the rubric.
+
+### Edits
+- `src/lib/design-import.ts` — new pure importer for WonderLens markdown and `GameDesign` JSON.
+- `src/lib/design-import.test.ts` — focused Node test covering markdown import, legacy style normalization, round parsing, JSON import, and every `.md` fixture under `designs/cat1` and `designs/cat5`.
+- `src/components/upload/ExistingDesignImporter.tsx` — new client importer for `.md` and `.json` files.
+- `src/app/page.tsx` — added a second entry path: create from YAML or review an existing design.
+- `README.md` — updated user flow and project structure for the import path.
+
+### NOT Changed
+- No LLM-based conversion was added; import works without provider credentials.
+- Imported markdown is normalized into the existing structured `GameDesign` model; raw markdown is not kept as a parallel source of truth.
+- Imported designs are session-state editor entries, like gallery selections; they are not automatically persisted into `data/runs/`.
+- Existing YAML generation, gallery, library, rubric, regeneration, and export routes were not refactored.
+
+### Verification
+```bash
+npx tsx --test src/lib/design-import.test.ts
+npx eslint src/lib/design-import.ts src/lib/design-import.test.ts src/components/upload/ExistingDesignImporter.tsx src/app/page.tsx
+npx tsc --noEmit --pretty false
+npm run build
+```
+
+Notes:
+- Parser tests passed.
+- Parser tests include all current spec/prod markdown files under `designs/cat1` and `designs/cat5`.
+- Targeted ESLint passed.
+- TypeScript passed.
+- `npm run build` passed on retry after an earlier transient Google Fonts fetch failure.
 
 ---
 

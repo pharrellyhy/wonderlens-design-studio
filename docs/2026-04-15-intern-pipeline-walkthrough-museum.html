@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The WonderLens Pipeline — A Catalogue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:        #ece2c5;
+    --paper-warm:   #f1e8cc;
+    --paper-panel:  #e5d9b4;
+    --paper-deep:   #d8ca9e;
+    --ink:          #2a1d10;
+    --ink-2:        #4f3c24;
+    --ink-3:        #7a6642;
+    --ink-faint:    #a3906a;
+    --rule:         #a08955;
+    --rule-soft:    #bda783;
+    --gold:         #8f711c;
+    --gold-soft:    #b3902f;
+    --garnet:       #6e2820;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+    font-size: 18px;
+    line-height: 1.62;
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "onum";
+    overflow-x: hidden;
+  }
+
+  ::selection { background: rgba(143, 113, 28, 0.25); }
+
+  /* ══════════════════════════════════════════════════ PAGE */
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 96px 56px 140px;
+    position: relative;
+  }
+  @media (max-width: 720px) { .page { padding: 72px 28px 96px; } }
+
+  /* wide sections break the narrow page width */
+  .wide {
+    margin-left: calc(50% - 50vw + 56px);
+    margin-right: calc(50% - 50vw + 56px);
+    max-width: 1200px;
+  }
+  @media (max-width: 720px) {
+    .wide { margin-left: -4px; margin-right: -4px; }
+  }
+
+  /* ══════════════════════════════════════════════════ HERO */
+  .hero { margin-bottom: 120px; }
+
+  .eyebrow {
+    font-family: 'EB Garamond', serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 56px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+  }
+  .eyebrow span:nth-child(2) { color: var(--ink-3); }
+
+  h1.title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: clamp(52px, 8vw, 96px);
+    line-height: 0.98;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    margin: 0;
+    text-align: center;
+  }
+  h1.title em {
+    font-style: italic;
+    font-weight: 400;
+  }
+  h1.title .orn {
+    display: block;
+    margin: 28px auto 24px;
+    width: 64px;
+    height: 14px;
+    opacity: 0.75;
+  }
+
+  .hero .subtitle {
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(19px, 2vw, 23px);
+    color: var(--ink-2);
+    margin: 8px auto 48px;
+    max-width: 50ch;
+    line-height: 1.45;
+  }
+
+  .hero .lede {
+    margin: 56px 0 0;
+    max-width: 58ch;
+    font-size: 19px;
+    line-height: 1.68;
+    color: var(--ink-2);
+  }
+  .hero .lede p + p { margin-top: 18px; }
+  .hero .lede .drop::first-letter {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    initial-letter: 3;
+    -webkit-initial-letter: 3;
+    color: var(--gold);
+    padding-right: 8px;
+    line-height: 1;
+  }
+  .hero .lede b { color: var(--ink); font-weight: 500; }
+
+  /* ══════════════════════════════════════════════════ SECTION HEADS */
+  .plate {
+    margin-top: 120px;
+    margin-bottom: 64px;
+    text-align: center;
+  }
+  .plate .pnum {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 14px;
+  }
+  .plate h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: clamp(32px, 4vw, 44px);
+    line-height: 1.1;
+    margin: 0;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .plate h2 em { font-style: italic; font-weight: 400; color: var(--ink-2); }
+  .plate .rule-orn {
+    display: block;
+    margin: 22px auto 0;
+    width: 92px;
+    height: 10px;
+    opacity: 0.7;
+  }
+
+  /* ══════════════════════════════════════════════════ FRONTISPIECE SCHEMATIC */
+  .schematic {
+    background: var(--paper-warm);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 64px 48px 56px;
+    margin-top: 48px;
+  }
+  @media (max-width: 720px) { .schematic { padding: 40px 20px 36px; } }
+
+  .schematic .cap {
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 48px;
+  }
+
+  .band {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 40px;
+    padding: 28px 0;
+    border-bottom: 1px dashed var(--rule-soft);
+    align-items: start;
+  }
+  .band:last-of-type { border-bottom: none; }
+  @media (max-width: 720px) {
+    .band { grid-template-columns: 1fr; gap: 12px; padding: 22px 0; }
+  }
+
+  .band-tag {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .band-tag .rn {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-style: normal;
+    margin-bottom: 4px;
+  }
+  .band-tag .name {
+    display: block;
+    font-size: 22px;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .band-tag .note {
+    display: block;
+    font-size: 13px;
+    color: var(--ink-3);
+    margin-top: 6px;
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .band-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+  }
+  .spec {
+    background: var(--paper);
+    border: 1px solid var(--rule-soft);
+    padding: 16px 18px 18px;
+    text-align: left;
+    position: relative;
+  }
+  .spec .spec-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: 0.08em;
+    margin-bottom: 3px;
+  }
+  .spec .spec-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 19px;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .spec .spec-sub {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-3);
+    line-height: 1.4;
+    word-break: break-word;
+  }
+  .spec.wide-spec {
+    grid-column: 1 / -1;
+    border-color: var(--gold);
+    background: var(--paper-warm);
+  }
+  .spec.wide-spec .spec-name { font-size: 22px; }
+  .spec.playbook {
+    border-style: dashed;
+    border-color: var(--garnet);
+    background: transparent;
+  }
+  .spec.playbook .spec-num,
+  .spec.playbook .spec-name { color: var(--garnet); }
+  .spec.playbook .spec-sub { color: var(--ink-2); }
+
+  .challenge-note {
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--garnet);
+    padding: 18px 0 10px;
+    letter-spacing: 0.01em;
+  }
+  .challenge-note .mark {
+    display: inline-block;
+    padding: 2px 10px;
+    margin-right: 10px;
+    border: 1px solid var(--garnet);
+    font-family: 'EB Garamond', serif;
+    font-style: normal;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+
+  /* ══════════════════════════════════════════════════ CATALOGUE ENTRIES */
+  .catalogue { margin-top: 72px; }
+
+  .entry {
+    padding: 42px 0 48px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .entry:last-child { border-bottom: none; }
+
+  .entry .meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: 'EB Garamond', serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px dotted var(--rule-soft);
+  }
+  .entry .meta .band-name { color: var(--ink-3); font-style: italic; text-transform: none; letter-spacing: 0.04em; font-size: 13px; }
+
+  .entry h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: clamp(32px, 3.4vw, 44px);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    margin: 0 0 6px;
+  }
+  .entry h3 em { font-style: italic; font-weight: 400; }
+
+  .entry .quick {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink-2);
+    margin-bottom: 22px;
+  }
+
+  .entry dl {
+    margin: 0;
+    max-width: 64ch;
+  }
+  .entry dt {
+    font-family: 'EB Garamond', serif;
+    font-variant: small-caps;
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+    margin-top: 18px;
+  }
+  .entry dt:first-child { margin-top: 0; }
+  .entry dd {
+    margin: 4px 0 0;
+    font-size: 17px;
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+  .entry dd code,
+  code {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--garnet);
+    background: none;
+    padding: 0;
+  }
+  .entry dd code::before { content: '“'; color: var(--ink-faint); }
+  .entry dd code::after  { content: '”'; color: var(--ink-faint); }
+
+  /* plain code (no quotes) for inline fields inside tables */
+  table code, .rref code { color: var(--garnet); }
+  table code::before, table code::after,
+  .rref code::before, .rref code::after { content: none; }
+
+  .entry .flag {
+    margin-top: 22px;
+    padding-left: 22px;
+    border-left: 2px solid var(--garnet);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink-2);
+    max-width: 58ch;
+  }
+  .entry .flag b {
+    display: block;
+    font-family: 'EB Garamond', serif;
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--garnet);
+    margin-bottom: 4px;
+  }
+
+  /* ══════════════════════════════════════════════════ CHALLENGES */
+  .challenges {
+    margin-top: 96px;
+    padding: 56px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .ch {
+    max-width: 62ch;
+    padding: 32px 0;
+    border-bottom: 1px dotted var(--rule-soft);
+  }
+  .ch:last-child { border-bottom: none; }
+  .ch .ctag {
+    font-family: 'EB Garamond', serif;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--garnet);
+    margin-bottom: 10px;
+  }
+  .ch h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 32px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    color: var(--ink);
+  }
+  .ch h3 em { font-style: italic; font-weight: 400; }
+  .ch .loc {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-3);
+    margin-bottom: 18px;
+  }
+  .ch p {
+    font-size: 17px;
+    color: var(--ink-2);
+    margin: 0 0 12px;
+    line-height: 1.6;
+  }
+  .ch ul {
+    margin: 18px 0 0;
+    padding-left: 22px;
+    list-style: none;
+  }
+  .ch li {
+    position: relative;
+    padding: 5px 0;
+    font-size: 16px;
+    color: var(--ink-2);
+  }
+  .ch li::before {
+    content: '§';
+    position: absolute;
+    left: -22px;
+    color: var(--gold);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+  }
+
+  /* ══════════════════════════════════════════════════ LABS */
+  .labs { margin-top: 96px; }
+
+  .lab-intro {
+    max-width: 58ch;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 21px;
+    line-height: 1.45;
+    color: var(--ink-2);
+    margin-bottom: 56px;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .lab {
+    padding: 40px 0 44px;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+  .lab:last-child { border-bottom: none; }
+  @media (max-width: 720px) {
+    .lab { grid-template-columns: 1fr; gap: 14px; padding: 32px 0 36px; }
+  }
+
+  .lab .rn {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 64px;
+    line-height: 0.9;
+    color: var(--gold);
+    text-align: right;
+  }
+  @media (max-width: 720px) { .lab .rn { text-align: left; font-size: 48px; } }
+
+  .lab h4 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 30px;
+    line-height: 1.1;
+    margin: 0 0 6px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .lab h4 em { font-style: italic; font-weight: 400; }
+
+  .lab .quick {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ink-3);
+    margin-bottom: 20px;
+  }
+
+  .lab dl { max-width: 58ch; }
+  .lab dt {
+    font-family: 'EB Garamond', serif;
+    font-variant: small-caps;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+    margin-top: 14px;
+    font-weight: 500;
+  }
+  .lab dt:first-child { margin-top: 0; }
+  .lab dd {
+    margin: 3px 0 0;
+    font-size: 16px;
+    color: var(--ink-2);
+    line-height: 1.58;
+  }
+
+  .lab .capstone {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 3px 10px;
+    font-family: 'EB Garamond', serif;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--garnet);
+    border: 1px solid var(--garnet);
+  }
+
+  /* ══════════════════════════════════════════════════ RECIPE REFERENCE */
+  .rref {
+    margin-top: 96px;
+  }
+  .rref .cap {
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    margin-bottom: 32px;
+  }
+  .rref table {
+    width: 100%;
+    border-collapse: collapse;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .rref th {
+    font-family: 'EB Garamond', serif;
+    font-variant: small-caps;
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+    text-align: left;
+    padding: 16px 16px 14px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .rref td {
+    padding: 14px 16px;
+    border-bottom: 1px dotted var(--rule-soft);
+    vertical-align: top;
+    color: var(--ink-2);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .rref tbody tr:last-child td { border-bottom: none; }
+  .rref .field {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+  .rref .req {
+    font-family: 'EB Garamond', serif;
+    font-size: 10px;
+    font-variant: small-caps;
+    letter-spacing: 0.16em;
+    color: var(--gold);
+    font-weight: 500;
+  }
+  .rref .req-cat5 { color: var(--garnet); }
+  .rref .req-opt  { color: var(--ink-faint); }
+
+  @media (max-width: 720px) {
+    .rref th:nth-child(2), .rref td:nth-child(2),
+    .rref th:nth-child(3), .rref td:nth-child(3) { padding-left: 8px; padding-right: 8px; }
+    .rref { font-size: 14px; }
+    .rref td { padding: 12px 8px; }
+  }
+
+  /* ══════════════════════════════════════════════════ COLOPHON */
+  .colophon {
+    margin-top: 120px;
+    padding-top: 36px;
+    border-top: 1px solid var(--rule);
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-3);
+    line-height: 1.7;
+    max-width: 52ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .colophon .orn {
+    display: block;
+    margin: 0 auto 22px;
+    width: 64px;
+    height: 10px;
+    opacity: 0.6;
+  }
+  .colophon a {
+    color: var(--ink-2);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+  }
+  .colophon a:hover { color: var(--garnet); border-color: var(--garnet); }
+  .colophon .links {
+    margin-top: 18px;
+    font-style: normal;
+    font-family: 'EB Garamond', serif;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .colophon .links a { border-bottom-style: dotted; margin: 0 12px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute;">
+  <defs>
+    <symbol id="orn" viewBox="0 0 120 20">
+      <line x1="0" y1="10" x2="44" y2="10" stroke="currentColor" stroke-width="0.8"/>
+      <line x1="76" y1="10" x2="120" y2="10" stroke="currentColor" stroke-width="0.8"/>
+      <circle cx="60" cy="10" r="2.2" fill="currentColor"/>
+      <circle cx="50" cy="10" r="1.1" fill="currentColor"/>
+      <circle cx="70" cy="10" r="1.1" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
+
+<main class="page">
+
+  <!-- ══════════════════════════════════════════════════ HERO -->
+  <header class="hero">
+    <div class="eyebrow">
+      <span>Catalogue N° I</span>
+      <span>MMXXVI · April</span>
+    </div>
+
+    <h1 class="title">
+      The WonderLens Pipeline,
+      <svg class="orn" style="color:#8f711c;"><use href="#orn"/></svg>
+      <em>&amp; its seven stations.</em>
+    </h1>
+    <p class="subtitle">A reference catalogue — prepared for the intern rotation — of the upstream inputs, the authoring layer, and the runtime that together transform a single entity into a playable game.</p>
+
+    <div class="lede">
+      <p class="drop"><b>The pipeline is three things pretending to be one.</b> Upstream, a small set of scripts produces structured data — a list of entities, their IB assignments, age-tier scaffolding. In the middle, an authoring layer turns that data, together with the game design playbook, into a design. Downstream, a runtime takes the resulting recipe and plays it as a game with sound, animation, and photo capture.</p>
+      <p>The middle is where interns do their work. The design studio in this repository is <em>one</em> reference implementation of that middle; you may use it, fork it, or write your own from scratch. Whatever you build must read the upstream YAMLs and emit recipes the runtime loader accepts. Everything else — language, framework, interface — is your choice. The playbook, not the code, is the final arbiter.</p>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════ PLATE I · SCHEMATIC -->
+  <div class="plate">
+    <span class="pnum">Plate I</span>
+    <h2>A <em>schematic</em> of the collection</h2>
+    <svg class="rule-orn" style="color:#8f711c;"><use href="#orn"/></svg>
+  </div>
+
+  <section class="schematic wide">
+    <div class="cap">Three bands · seven stations · two challenges between them</div>
+
+    <div class="band">
+      <div class="band-tag">
+        <span class="rn">Band I</span>
+        <span class="name">Upstream data</span>
+        <span class="note">Deterministic &amp; structured. Produced by Python scripts.</span>
+      </div>
+      <div class="band-items">
+        <div class="spec">
+          <div class="spec-num">N° I</div>
+          <div class="spec-name">Entity List</div>
+          <div class="spec-sub">scripts/entity_list_generator.py</div>
+        </div>
+        <div class="spec">
+          <div class="spec-num">N° II</div>
+          <div class="spec-name">IB Theme Batch</div>
+          <div class="spec-sub">scripts/ib_theme_batch_generator.py</div>
+        </div>
+        <div class="spec">
+          <div class="spec-num">N° III</div>
+          <div class="spec-name">Tier Guidance</div>
+          <div class="spec-sub">scripts/exploration_tier_generator.py</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="challenge-note">
+      <span class="mark">Challenge &nbsp;A</span>
+      <em>the authoring layer must read the YAMLs, not re-guess them inside a prompt</em>
+    </div>
+
+    <div class="band">
+      <div class="band-tag">
+        <span class="rn">Band II</span>
+        <span class="name">Authoring layer</span>
+        <span class="note">Playbook-driven. One station, many valid implementations.</span>
+      </div>
+      <div class="band-items">
+        <div class="spec wide-spec">
+          <div class="spec-num">N° IV</div>
+          <div class="spec-name">Authoring Layer</div>
+          <div class="spec-sub">reference: src/lib/pipeline.ts · or an implementation of your own</div>
+        </div>
+        <div class="spec playbook">
+          <div class="spec-num">Source of truth</div>
+          <div class="spec-name">The Playbook</div>
+          <div class="spec-sub">docs/game_design_playbook.md</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="challenge-note">
+      <span class="mark">Challenge &nbsp;B</span>
+      <em>the authoring layer must emit recipes the runtime loader accepts, first try</em>
+    </div>
+
+    <div class="band">
+      <div class="band-tag">
+        <span class="rn">Band III</span>
+        <span class="name">Runtime</span>
+        <span class="note">FastAPI + React. Reference: wonderlens-activity-fullstack-demo.</span>
+      </div>
+      <div class="band-items">
+        <div class="spec">
+          <div class="spec-num">N° V</div>
+          <div class="spec-name">Recipe Loader</div>
+          <div class="spec-sub">refs/backend/recipe_loader.py</div>
+        </div>
+        <div class="spec">
+          <div class="spec-num">N° VI</div>
+          <div class="spec-name">FastAPI Server</div>
+          <div class="spec-sub">refs/backend/server.py</div>
+        </div>
+        <div class="spec">
+          <div class="spec-num">N° VII</div>
+          <div class="spec-name">Frontend Runtime</div>
+          <div class="spec-sub">refs/frontend/</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ PLATE II · CATALOGUE -->
+  <div class="plate">
+    <span class="pnum">Plate II</span>
+    <h2>The <em>catalogue</em></h2>
+    <svg class="rule-orn" style="color:#8f711c;"><use href="#orn"/></svg>
+  </div>
+
+  <section class="catalogue">
+
+    <article class="entry">
+      <div class="meta"><span>N° I</span><span class="band-name">Band I · Upstream</span></div>
+      <h3>Entity <em>List</em></h3>
+      <p class="quick">The seed of the pipeline. Every downstream artifact begins here.</p>
+      <dl>
+        <dt>File</dt>
+        <dd><code>scripts/entity_list_generator.py</code></dd>
+        <dt>Input</dt>
+        <dd>Seed prompts and domain categories — animals, objects, places, foods.</dd>
+        <dt>Output</dt>
+        <dd>A CSV of entities, one row each, with name, domain, and keywords.</dd>
+        <dt>Verify</dt>
+        <dd>Pick three rows across different domains. The keywords should feel evocative and age-appropriate for the target tier.</dd>
+      </dl>
+    </article>
+
+    <article class="entry">
+      <div class="meta"><span>N° II</span><span class="band-name">Band I · Upstream</span></div>
+      <h3>IB Theme <em>Batch</em></h3>
+      <p class="quick">The authoritative IB assignment for each entity.</p>
+      <dl>
+        <dt>File</dt>
+        <dd><code>scripts/ib_theme_batch_generator.py</code></dd>
+        <dt>Input</dt>
+        <dd>The entity CSV together with the PYP transdisciplinary theme catalogue.</dd>
+        <dt>Output</dt>
+        <dd>A YAML mapping each entity to an IB theme and one or more key concepts.</dd>
+        <dt>Verify</dt>
+        <dd>Take the same three entities from N° I. The theme assigned should be a credible choice — the one a seasoned PYP teacher would pick.</dd>
+        <dt>Note</dt>
+        <dd>This file is meant to be read structurally by the authoring layer, not paraphrased in a prompt.</dd>
+      </dl>
+    </article>
+
+    <article class="entry">
+      <div class="meta"><span>N° III</span><span class="band-name">Band I · Upstream</span></div>
+      <h3>Tier <em>Guidance</em></h3>
+      <p class="quick">Age-appropriate scaffolding for each tier: T0, T1, T2.</p>
+      <dl>
+        <dt>File</dt>
+        <dd><code>scripts/exploration_tier_generator.py</code></dd>
+        <dt>Output</dt>
+        <dd>A YAML with per-entity, per-tier scaffolding: vocabulary, sentence complexity, cognitive-load cues.</dd>
+        <dt>Verify</dt>
+        <dd>Compare T0 and T2 for a single entity. T0 should be shorter, simpler, more concrete.</dd>
+        <dt>Note</dt>
+        <dd>This is how age-appropriateness becomes deterministic. Feed it to the authoring layer as structure, not prose.</dd>
+      </dl>
+    </article>
+
+    <article class="entry">
+      <div class="meta"><span>N° IV</span><span class="band-name">Band II · Authoring</span></div>
+      <h3>Authoring <em>Layer</em></h3>
+      <p class="quick">Playbook-driven. One station, many valid implementations.</p>
+      <dl>
+        <dt>Source of truth</dt>
+        <dd><code>docs/game_design_playbook.md</code> — read this first, build to it.</dd>
+        <dt>Reference implementation</dt>
+        <dd><code>src/lib/pipeline.ts</code>, <code>prompts/generate.ts</code>, <code>design-schema.ts</code>. One way to do it; not the only way.</dd>
+        <dt>Must consume</dt>
+        <dd>The YAMLs from N° II and N° III as structured input. This is Challenge A.</dd>
+        <dt>Must emit</dt>
+        <dd>A recipe the Band III loader accepts without error — YAML frontmatter, voice script with tone markers, structured screen frames, asset identifiers. This is Challenge B.</dd>
+        <dt>Free to choose</dt>
+        <dd>Language, framework, storage, interface. A web app, a CLI, a Notion plugin, a Jupyter notebook, a bash pipeline — all valid, so long as the two challenges are met.</dd>
+      </dl>
+      <div class="flag">
+        <b>Both challenges meet here</b>
+        Your implementation stands or falls on how cleanly it crosses the two boundaries on either side of this station.
+      </div>
+    </article>
+
+    <article class="entry">
+      <div class="meta"><span>N° V</span><span class="band-name">Band III · Runtime</span></div>
+      <h3>Recipe <em>Loader</em></h3>
+      <p class="quick">The strict gatekeeper between authoring and runtime.</p>
+      <dl>
+        <dt>Files</dt>
+        <dd><code>refs/backend/recipe_loader.py</code>, <code>refs/backend/schemas/recipe.py</code>, <code>refs/backend/schemas/visual_composition.py</code></dd>
+        <dt>Input</dt>
+        <dd>A game markdown file with YAML frontmatter.</dd>
+        <dt>Output</dt>
+        <dd>A validated <em>ActivityRecipe</em> — voice script, screen frames, metadata, optional celebration frame.</dd>
+        <dt>Note</dt>
+        <dd>Validation is strict. Unknown fields become clean errors — preferable to silent defaults.</dd>
+      </dl>
+    </article>
+
+    <article class="entry">
+      <div class="meta"><span>N° VI</span><span class="band-name">Band III · Runtime</span></div>
+      <h3>FastAPI <em>Server</em></h3>
+      <p class="quick">The quiet translator between Pydantic and the frontend.</p>
+      <dl>
+        <dt>File</dt>
+        <dd><code>refs/backend/server.py</code></dd>
+        <dt>Output</dt>
+        <dd>JSON responses at <em>/game/&#123;activity_type&#125;</em>.</dd>
+        <dt>Smoke test</dt>
+        <dd>If your authored recipe appears at this endpoint without errors, your authoring layer is working.</dd>
+      </dl>
+    </article>
+
+    <article class="entry">
+      <div class="meta"><span>N° VII</span><span class="band-name">Band III · Runtime</span></div>
+      <h3>Frontend <em>Runtime</em></h3>
+      <p class="quick">Where string identifiers become sound, colour, and movement.</p>
+      <dl>
+        <dt>Directory</dt>
+        <dd><code>refs/frontend/</code></dd>
+        <dt>Input</dt>
+        <dd>Recipe JSON from the server.</dd>
+        <dt>Output</dt>
+        <dd>The running game — dialogue audio, animated widgets, collection interface, photo capture, celebration frame.</dd>
+        <dt>Note</dt>
+        <dd>Every asset on the screen traces back to a named identifier in the recipe. If it is not named, it does not exist.</dd>
+      </dl>
+    </article>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ PLATE III · CHALLENGES -->
+  <div class="plate">
+    <span class="pnum">Plate III</span>
+    <h2>The two <em>challenges</em></h2>
+    <svg class="rule-orn" style="color:#8f711c;"><use href="#orn"/></svg>
+  </div>
+
+  <section class="challenges">
+
+    <article class="ch">
+      <div class="ctag">Challenge A · Between Bands I &amp; II</div>
+      <h3>Consume the <em>YAMLs</em>. Do not re-invent them.</h3>
+      <div class="loc">band i's output → your authoring layer</div>
+      <p>The upstream scripts exist so that IB themes and tier scaffolding are deterministic. Any authoring layer that re-guesses them inside an LLM prompt throws that determinism away. Read the files as structured input, cite the exact theme and key concept assigned, and let the rubric verify the output matches its source.</p>
+      <ul>
+        <li>The assigned <code>ib_theme</code> and <code>ib_key_concept</code> should be deterministic, not sampled.</li>
+        <li>Tier scaffolding should not drift run-to-run for a single entity.</li>
+        <li>The list of <code>concepts_earned</code> should be pre-computed, not invented at export time.</li>
+        <li>If your layer cannot cite a source YAML for a given design, the game was already lost upstream.</li>
+      </ul>
+    </article>
+
+    <article class="ch">
+      <div class="ctag">Challenge B · Between Bands II &amp; III</div>
+      <h3>Emit a valid <em>recipe</em> — first try.</h3>
+      <div class="loc">your authoring layer → refs/backend/recipe_loader.py</div>
+      <p>The runtime has a strict Pydantic schema. Any authoring layer that emits prose and hopes a second model will turn it into widgets, SFX cues, and tone markers is building on sand. Produce a recipe that the loader accepts the moment it is written — with every asset identifier already resolved — and no bridge step will be needed.</p>
+      <ul>
+        <li>YAML frontmatter with <code>activity_type</code>, <code>metadata</code>, <code>ib_theme</code>, <code>concepts_earned</code>.</li>
+        <li>Structured <code>screen_frames</code> with <code>widget</code>, <code>widget_params</code>, <code>animation</code>, <code>trigger</code>, <code>sfx_cue</code>.</li>
+        <li>Tone markers — <code>[warm]</code>, <code>[excited]</code> — on every voice line.</li>
+        <li>A <code>celebration_frame</code> where the playbook calls for one.</li>
+        <li>For Category 5: <code>collection_catalog</code>, <code>collection_count</code>, <code>photo_features</code>.</li>
+      </ul>
+    </article>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ PLATE IV · LABS -->
+  <div class="plate">
+    <span class="pnum">Plate IV</span>
+    <h2>Five <em>exercises</em></h2>
+    <svg class="rule-orn" style="color:#8f711c;"><use href="#orn"/></svg>
+  </div>
+
+  <section class="labs">
+    <p class="lab-intro">Five hands-on exercises, done in order. Each consumes the previous one's output. By the end of Exercise V the intern will have built a complete game from scratch, validated it against the runtime, and know exactly where to extend it next.</p>
+
+    <article class="lab">
+      <div class="rn">I</div>
+      <div>
+        <h4>Generate the <em>inputs</em></h4>
+        <div class="quick">Upstream data is deterministic. Start there.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>scripts/entity_list_generator.py</code>, <code>ib_theme_batch_generator.py</code>, <code>exploration_tier_generator.py</code></dd>
+          <dt>Run</dt>
+          <dd>All three in sequence.</dd>
+          <dt>Inspect</dt>
+          <dd>Pick three entities from the CSV. Trace each through both output YAMLs. Do the IB theme and tier scaffolding make sense?</dd>
+          <dt>Ask yourself</dt>
+          <dd>If your authoring layer could read these files directly, what would it stop guessing?</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="lab">
+      <div class="rn">II</div>
+      <div>
+        <h4>Read the <em>playbook</em></h4>
+        <div class="quick">The source of truth. Read it once, end to end.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>docs/game_design_playbook.md</code></dd>
+          <dt>Focus</dt>
+          <dd>The ten-dimension rubric, the six experience pillars, the twelve game styles, the phase structure, the bracket tone markers.</dd>
+          <dt>Ask yourself</dt>
+          <dd>If you were scoring a design without looking at the code, which rubric dimensions would be hardest to grade?</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="lab">
+      <div class="rn">III</div>
+      <div>
+        <h4>Read the runtime <em>schema</em></h4>
+        <div class="quick">The target format. Strict, unambiguous, unforgiving.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>refs/backend/schemas/recipe.py</code>, <code>refs/backend/schemas/visual_composition.py</code></dd>
+          <dt>Exercise</dt>
+          <dd>Walk every class. List every required field. Note the cat 1 / cat 5 split. Find every field that references an asset identifier.</dd>
+          <dt>Ask yourself</dt>
+          <dd>Which fields can be authored directly by an LLM, and which need deterministic sources from Band I?</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="lab">
+      <div class="rn">IV</div>
+      <div>
+        <h4>Inspect a reference <em>game</em></h4>
+        <div class="quick">See what 'good' looks like on both ends.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>refs/backend/games/polka_dot_patrol.md</code>, or any reference game.</dd>
+          <dt>Exercise</dt>
+          <dd>Read the frontmatter slowly. Map each field back to the playbook and forward to the runtime schema. Note which fields are deterministic and which are authored.</dd>
+          <dt>Ask yourself</dt>
+          <dd>How much of the frontmatter could be filled in mechanically from Band I alone? How much requires real authoring judgement?</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="lab">
+      <div class="rn">V</div>
+      <div>
+        <span class="capstone">Capstone</span>
+        <h4>Build a complete <em>game</em></h4>
+        <div class="quick">From a fresh entity to a loadable recipe. The whole arc.</div>
+        <dl>
+          <dt>Pick</dt>
+          <dd>A new entity not yet in the CSV. Something specific and visual.</dd>
+          <dt>Prepare</dt>
+          <dd>Run the Band I scripts on it (or do the equivalent by hand). Produce its IB assignment and tier scaffolding.</dd>
+          <dt>Author</dt>
+          <dd>Build the design. Use the reference implementation in this repository, or write your own from scratch. Follow the playbook. Pick one pillar, one game style, one tier.</dd>
+          <dt>Emit</dt>
+          <dd>A recipe the loader accepts the first time. No post-processing. No bridge script.</dd>
+          <dt>Validate</dt>
+          <dd>Load it, start the server, confirm the recipe appears at the endpoint without error.</dd>
+          <dt>Extend</dt>
+          <dd>Once it loads cleanly, add a round, swap an SFX cue, change the celebration frame. Confirm each change still loads.</dd>
+        </dl>
+      </div>
+    </article>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ PLATE V · RECIPE REF -->
+  <div class="plate">
+    <span class="pnum">Plate V</span>
+    <h2>Recipe <em>reference</em></h2>
+    <svg class="rule-orn" style="color:#8f711c;"><use href="#orn"/></svg>
+  </div>
+
+  <section class="rref">
+    <div class="cap">A checklist for Challenge B, verified against the runtime schema.</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:38%;">Field</th>
+          <th style="width:14%;">Required</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="field">activity_type</td>
+          <td><span class="req">must</span></td>
+          <td>The runtime's lookup key. Derived from entity and game style.</td>
+        </tr>
+        <tr>
+          <td class="field">metadata.ib_theme</td>
+          <td><span class="req">must</span></td>
+          <td>Read from the IB theme YAML. Do not re-invent in a prompt.</td>
+        </tr>
+        <tr>
+          <td class="field">metadata.ib_key_concept</td>
+          <td><span class="req">must</span></td>
+          <td>From the same source. A single concept, not a menu.</td>
+        </tr>
+        <tr>
+          <td class="field">metadata.concepts_earned</td>
+          <td><span class="req">must</span></td>
+          <td>Pre-computed from the rubric and playbook at authoring time.</td>
+        </tr>
+        <tr>
+          <td class="field">metadata.tier</td>
+          <td><span class="req">must</span></td>
+          <td>T0, T1, or T2, paired with the tier guidance YAML.</td>
+        </tr>
+        <tr>
+          <td class="field">metadata.round_count</td>
+          <td><span class="req">must</span></td>
+          <td>Must match the rounds authored in the voice script.</td>
+        </tr>
+        <tr>
+          <td class="field">voice_script.hook_line</td>
+          <td><span class="req">must</span></td>
+          <td>The opening line, carrying a hook tone marker.</td>
+        </tr>
+        <tr>
+          <td class="field">voice_script.rounds[].tone_marker</td>
+          <td><span class="req">must</span></td>
+          <td>Square-bracket tone per round — <code>[warm]</code>, <code>[curious]</code>, <code>[excited]</code>.</td>
+        </tr>
+        <tr>
+          <td class="field">voice_script.synthesis_speech</td>
+          <td><span class="req req-cat5">cat 5</span></td>
+          <td>Required for collection-based styles.</td>
+        </tr>
+        <tr>
+          <td class="field">voice_script.closing_line</td>
+          <td><span class="req">must</span></td>
+          <td>With its closing tone marker.</td>
+        </tr>
+        <tr>
+          <td class="field">screen_frames[].widget</td>
+          <td><span class="req">must</span></td>
+          <td>A named widget identifier — photo_display, counter, badge — known to the frontend.</td>
+        </tr>
+        <tr>
+          <td class="field">screen_frames[].widget_params</td>
+          <td><span class="req">must</span></td>
+          <td>Parameters specific to the chosen widget. Type-checked at load.</td>
+        </tr>
+        <tr>
+          <td class="field">screen_frames[].animation</td>
+          <td><span class="req">must</span></td>
+          <td>A named animation — sparkle_highlight, fade_in — known to the runtime.</td>
+        </tr>
+        <tr>
+          <td class="field">screen_frames[].sfx_cue</td>
+          <td><span class="req">must</span></td>
+          <td>A named SFX identifier, resolved at runtime to an audio file.</td>
+        </tr>
+        <tr>
+          <td class="field">screen_frames[].trigger</td>
+          <td><span class="req">must</span></td>
+          <td>When the frame fires — round start, correct answer, closing, and so on.</td>
+        </tr>
+        <tr>
+          <td class="field">celebration_frame</td>
+          <td><span class="req req-opt">optional</span></td>
+          <td>A final screen on completion. Most playbook designs should have one.</td>
+        </tr>
+        <tr>
+          <td class="field">collection_catalog</td>
+          <td><span class="req req-cat5">cat 5</span></td>
+          <td>Correct items and distractors, with identifiers and match hints.</td>
+        </tr>
+        <tr>
+          <td class="field">collection_count</td>
+          <td><span class="req req-cat5">cat 5</span></td>
+          <td>How many items must be collected before synthesis.</td>
+        </tr>
+        <tr>
+          <td class="field">photo_features</td>
+          <td><span class="req req-cat5">cat 5</span></td>
+          <td>Hints for vision-based validation of captured photos.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ COLOPHON -->
+  <footer class="colophon">
+    <svg class="orn" style="color:#8f711c;"><use href="#orn"/></svg>
+    Set in Cormorant Garamond and EB Garamond. Prepared for the WonderLens intern rotation, April 2026. The map is an intentional simplification; the playbook is the final arbiter. When this catalogue and the code disagree, trust the code and update the catalogue.
+    <div class="links">
+      <a href="./2026-04-14-intern-pipeline-walkthrough.html">Rev A — Field Notebook</a>
+      <a href="./2026-04-15-intern-pipeline-walkthrough-blueprint.html">Rev B — Blueprint</a>
+      <a href="./game_design_playbook.md">The Playbook</a>
+    </div>
+  </footer>
+
+</main>
+
+</body>
+</html>

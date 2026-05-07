@@ -1,11 +1,11 @@
 # WonderLens Design Studio
 
-A web application where educators upload entity YAML files, receive AI-generated game design variants across six experience pillars, and refine them through a structured visual editor with per-field AI assistance and a 10-dimension quality rubric.
+A web application where educators generate new game designs from entity YAML files or import existing WonderLens activities for review, then refine them through a structured visual editor with per-field AI assistance and a 10-dimension quality rubric.
 
 ## User Flow
 
-1. **Upload** -- Drag & drop a YAML entity mapping file; pick a generation mode (mapping-informed for delivery, freeform for ideation); preview the parsed entity summary
-2. **Variant Gallery** -- Auto-generates 4 pillar-diverse design variants on arrival, each with rubric scores, mode + pillar pills, and a button to generate the opposite-category counterpart
+1. **Create or Review** -- Upload an entity YAML mapping to generate new variants, or import an existing WonderLens spec/prod markdown file or structured GameDesign JSON to open it directly in the editor
+2. **Variant Gallery** -- YAML flows auto-generate 4 pillar-diverse design variants on arrival, each with rubric scores, mode + pillar pills, and a button to generate the opposite-category counterpart
 3. **Design Studio** -- Three-panel editor (navigation tree, inline-editable fields with "Ask AI", D1-D10 scorecard with re-run + AI-comment regeneration)
 4. **Library** -- Browse persisted runs as a sortable table or grid, with CSV export and parent/opposite grouping
 5. **Export** -- Download as spec.md, prod.md, or both
@@ -70,7 +70,7 @@ npm run lint      # Run ESLint
 ```
 src/
   app/
-    page.tsx                          # Upload screen + generation mode toggle
+    page.tsx                          # YAML generation entry + existing design import
     gallery/[entityId]/page.tsx       # Variant gallery (auto-generates on mount)
     editor/[designId]/page.tsx        # Design studio editor
     library/page.tsx                  # Persisted runs browser (table + grid)
@@ -83,7 +83,7 @@ src/
       runs/                           # Run grouping helpers
       upload/                         # YAML upload + parse
   components/
-    upload/                           # YAML uploader + mode comparison cards
+    upload/                           # YAML uploader, mode comparison cards, design importer
     gallery/                          # Variant cards
     editor/                           # Editor panels, dialogue blocks, scorecard
     library/                          # Runs table, runs grid, CSV export
@@ -95,6 +95,7 @@ src/
     pipeline.ts                       # Multi-pass generation + selectVariantConfigs
     runs-repository.ts                # File-based run persistence
     rubric-checks.ts                  # Deterministic D4 (concept reinforcement) check
+    design-import.ts                  # Existing WonderLens markdown / GameDesign JSON import
     yaml-parser.ts                    # Entity YAML parsing
   store/
     design-store.ts                   # Zustand session state (no LLM config)

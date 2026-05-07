@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WonderLens Pipeline — Reference Drawing 01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@300;400;500;700;900&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:       #0a2340;
+    --paper-deep:  #06182d;
+    --paper-2:     #102e51;
+    --paper-3:     #173860;
+    --grid:        rgba(120, 188, 255, 0.07);
+    --grid-major:  rgba(120, 188, 255, 0.14);
+    --ink:         #f1e9c6;
+    --ink-2:       #c9d6ec;
+    --ink-3:       #7b97bd;
+    --ink-faint:   #4a6688;
+    --cyan:        #5fc5ff;
+    --cyan-soft:   #8bd4ff;
+    --warn:        #ff6e3c;
+    --warn-soft:   #ff8a5f;
+    --rule:        #2e5683;
+    --rule-soft:   #1c3d63;
+    --ok:          #7fe1d1;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      linear-gradient(var(--grid-major) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+      radial-gradient(ellipse at 20% -10%, rgba(95, 197, 255, 0.08), transparent 55%),
+      radial-gradient(ellipse at 90% 10%, rgba(255, 110, 60, 0.05), transparent 50%);
+    background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px, 100% 100%, 100% 100%;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  /* subtle vignette + grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1000;
+    background:
+      radial-gradient(ellipse at center, transparent 50%, rgba(6, 24, 45, 0.55) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.6 0 0 0 0 0.78 0 0 0 0 1 0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode: screen;
+    opacity: 0.7;
+  }
+
+  /* ════════════════════════════════════════════════════════ SHEET */
+  .sheet {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 56px 56px 120px;
+    position: relative;
+    min-height: 100vh;
+  }
+  @media (max-width: 900px) { .sheet { padding: 32px 22px 80px; } }
+
+  /* drafting frame border */
+  .sheet::before {
+    content: '';
+    position: absolute;
+    top: 36px;
+    left: 36px;
+    right: 36px;
+    bottom: 40px;
+    border: 1px solid var(--rule);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .sheet::after {
+    content: '';
+    position: absolute;
+    top: 42px;
+    left: 42px;
+    right: 42px;
+    bottom: 46px;
+    border: 1px solid var(--rule-soft);
+    pointer-events: none;
+    z-index: 0;
+  }
+  @media (max-width: 900px) { .sheet::before, .sheet::after { display: none; } }
+
+  .sheet > * { position: relative; z-index: 1; }
+
+  /* ════════════════════════════════════════════════════════ TITLE BLOCK */
+  .titleblock {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    border: 1px solid var(--cyan);
+    border-left: 4px solid var(--cyan);
+    background: rgba(6, 24, 45, 0.35);
+    margin-bottom: 72px;
+  }
+  @media (max-width: 900px) { .titleblock { grid-template-columns: 1fr; } }
+
+  .titleblock .lhs {
+    padding: 36px 40px 36px 36px;
+    border-right: 1px solid var(--rule);
+  }
+  @media (max-width: 900px) { .titleblock .lhs { border-right: none; border-bottom: 1px solid var(--rule); } }
+
+  .titleblock .marker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .titleblock .marker .dot {
+    width: 7px;
+    height: 7px;
+    background: var(--warn);
+    display: inline-block;
+    box-shadow: 0 0 0 3px rgba(255, 110, 60, 0.2);
+  }
+  .titleblock .marker .bar { flex: 1; height: 1px; background: var(--rule); }
+  .titleblock .marker .sheet-no { color: var(--ink-3); }
+
+  h1.title {
+    font-family: 'Big Shoulders Display', 'Archivo', sans-serif;
+    font-weight: 700;
+    font-size: clamp(56px, 9vw, 148px);
+    line-height: 0.86;
+    letter-spacing: 0.005em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0;
+  }
+  h1.title .line1 { display: block; }
+  h1.title .line2 { display: block; color: var(--cyan); font-weight: 900; letter-spacing: -0.005em; }
+  h1.title .slash { color: var(--warn); display: inline-block; margin: 0 0.15em; font-weight: 400; }
+
+  .titleblock .lede {
+    margin-top: 26px;
+    max-width: 56ch;
+    font-size: 16px;
+    color: var(--ink-2);
+    line-height: 1.62;
+  }
+
+  .titleblock .rhs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .titleblock .rhs > div {
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .titleblock .rhs > div:nth-child(odd) {
+    border-right: 1px solid var(--rule);
+  }
+  .titleblock .rhs > div.span2 {
+    grid-column: 1 / -1;
+    border-right: none;
+  }
+  .titleblock .rhs > div:nth-last-child(-n+2) { border-bottom: none; }
+  .titleblock .rhs .k {
+    color: var(--ink-3);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .titleblock .rhs .v {
+    color: var(--ink);
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .titleblock .rhs .v.accent { color: var(--cyan); }
+  .titleblock .rhs .v.warn { color: var(--warn); }
+
+  /* ════════════════════════════════════════════════════════ GENERAL NOTES */
+  .notes {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 48px;
+    margin-bottom: 96px;
+    padding: 32px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  @media (max-width: 760px) { .notes { grid-template-columns: 1fr; gap: 16px; } }
+  .notes .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    padding-top: 4px;
+  }
+  .notes ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: note;
+    columns: 2;
+    column-gap: 48px;
+  }
+  @media (max-width: 760px) { .notes ol { columns: 1; } }
+  .notes li {
+    counter-increment: note;
+    position: relative;
+    padding-left: 38px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: var(--ink-2);
+    line-height: 1.55;
+    break-inside: avoid;
+  }
+  .notes li::before {
+    content: 'N.' counter(note, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--warn);
+    letter-spacing: 0.06em;
+  }
+  .notes li b { color: var(--ink); font-weight: 600; }
+
+  /* ════════════════════════════════════════════════════════ SECTION HEADS */
+  section { margin-bottom: 120px; }
+  .shead {
+    display: flex;
+    align-items: baseline;
+    gap: 24px;
+    padding-bottom: 20px;
+    margin-bottom: 48px;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .shead::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 48px;
+    height: 1px;
+    background: var(--warn);
+  }
+  .shead .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--cyan);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .shead h2 {
+    flex: 1;
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 700;
+    font-size: clamp(38px, 5vw, 72px);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0;
+  }
+  .shead h2 em {
+    font-style: normal;
+    color: var(--cyan);
+    font-weight: 900;
+  }
+  .shead .right {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: right;
+  }
+
+  /* ════════════════════════════════════════════════════════ DRAWING SHEET */
+  .drawing {
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      var(--paper-deep);
+    background-size: 24px 24px, 24px 24px, 100% 100%;
+    border: 1px solid var(--cyan);
+    padding: 32px 28px 24px;
+    position: relative;
+  }
+  .drawing .dcap {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .drawing .dcap .hint { color: var(--ink-3); font-style: italic; text-transform: none; letter-spacing: 0.04em; }
+
+  .map-svg { width: 100%; height: auto; display: block; }
+
+  .station { cursor: pointer; outline: none; }
+  .station rect {
+    fill: rgba(23, 56, 96, 0.7);
+    stroke: var(--cyan);
+    stroke-width: 1.3;
+    transition: fill 160ms ease, stroke-width 160ms ease;
+  }
+  .station:hover rect,
+  .station:focus-visible rect {
+    fill: rgba(95, 197, 255, 0.12);
+    stroke-width: 2.2;
+  }
+  .station.active rect {
+    fill: var(--cyan);
+    stroke: var(--cyan);
+  }
+  .station.active .st-num { fill: var(--paper-deep); }
+  .station.active .st-title { fill: var(--paper-deep); }
+  .station.active .st-sub { fill: var(--paper-2); }
+  .station.active .st-tag { fill: var(--warn); }
+
+  .st-num {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 700;
+    font-size: 42px;
+    fill: var(--warn);
+    letter-spacing: 0.02em;
+  }
+  .st-title {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+    fill: var(--ink);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .st-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    fill: var(--ink-3);
+    letter-spacing: 0.06em;
+  }
+  .st-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    fill: var(--cyan);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .station-ref rect {
+    fill: rgba(255, 110, 60, 0.1);
+    stroke: var(--warn);
+    stroke-width: 1.3;
+    stroke-dasharray: 4 3;
+    cursor: default;
+  }
+  .station-ref .st-num { fill: var(--warn); }
+  .station-ref .st-title { fill: var(--warn-soft); }
+  .station-ref .st-sub { fill: var(--ink-3); }
+
+  .band-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    fill: var(--ink-3);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .band-label .sep { fill: var(--warn); }
+  .band-line { stroke: var(--rule); stroke-width: 1; stroke-dasharray: 2 4; }
+
+  .flow { fill: none; stroke: var(--cyan); stroke-width: 1.6; }
+  .flow-dim { fill: none; stroke: var(--cyan); stroke-width: 1; stroke-dasharray: 1 2; opacity: 0.55; }
+
+  .challenge-path {
+    fill: none;
+    stroke: var(--warn);
+    stroke-width: 2;
+    stroke-dasharray: 7 5;
+    animation: dash 1.6s linear infinite;
+  }
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+
+  .challenge-badge rect { fill: var(--warn); stroke: none; }
+  .challenge-badge text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    fill: var(--paper-deep);
+    letter-spacing: 0.14em;
+  }
+  .challenge-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    fill: var(--warn-soft);
+    letter-spacing: 0.04em;
+  }
+
+  .corner-mark {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    fill: var(--ink-faint);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .legend {
+    display: flex;
+    gap: 28px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    flex-wrap: wrap;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .swatch { width: 24px; height: 2px; }
+  .swatch.cyan { background: var(--cyan); }
+  .swatch.warn { background: repeating-linear-gradient(90deg, var(--warn) 0 6px, transparent 6px 11px); }
+  .swatch.ref { background: rgba(255, 110, 60, 0.3); border: 1px dashed var(--warn); height: 10px; }
+
+  /* ════════════════════════════════════════════════════════ DETAIL PANEL */
+  .detail {
+    margin-top: 24px;
+    background: rgba(6, 24, 45, 0.5);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--cyan);
+    min-height: 260px;
+    position: relative;
+  }
+  .detail .placeholder {
+    padding: 56px 44px;
+    max-width: 54ch;
+  }
+  .detail .placeholder .ph-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 14px;
+  }
+  .detail .placeholder .ph-text {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 500;
+    font-size: 28px;
+    line-height: 1.1;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .detail .placeholder .ph-text b { color: var(--cyan); font-weight: 700; }
+  .detail .placeholder p {
+    margin-top: 16px;
+    font-family: 'Archivo', sans-serif;
+    font-size: 14px;
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+
+  .detail-card { display: none; padding: 36px 44px; animation: fadein 260ms ease; }
+  .detail-card.active { display: block; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .detail-card .card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    padding-bottom: 22px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .detail-card .cnum {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 900;
+    font-size: 90px;
+    line-height: 0.78;
+    color: var(--warn);
+    letter-spacing: 0.01em;
+  }
+  .detail-card h3 {
+    margin: 6px 0 8px;
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 700;
+    font-size: 36px;
+    line-height: 1;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .detail-card .cband {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cyan);
+  }
+  .detail-card .cspine { flex: 1; }
+
+  .detail-card dl { margin: 0; }
+  .detail-card .row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 24px;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--rule-soft);
+  }
+  .detail-card .row:last-child { border-bottom: none; }
+  .detail-card .row dt {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-top: 3px;
+  }
+  .detail-card .row dd { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: rgba(95, 197, 255, 0.1);
+    border: 1px solid rgba(95, 197, 255, 0.2);
+    padding: 1px 7px;
+    border-radius: 0;
+    color: var(--cyan-soft);
+  }
+
+  .flag {
+    display: block;
+    margin-top: 20px;
+    padding: 14px 18px;
+    background: rgba(255, 110, 60, 0.08);
+    border: 1px solid rgba(255, 110, 60, 0.35);
+    border-left: 4px solid var(--warn);
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  .flag b {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin-bottom: 6px;
+  }
+
+  /* ════════════════════════════════════════════════════════ CHALLENGES */
+  .ch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+  @media (max-width: 960px) { .ch-grid { grid-template-columns: 1fr; } }
+
+  .ch-card {
+    background: rgba(6, 24, 45, 0.45);
+    border: 1px solid var(--rule);
+    border-top: 4px solid var(--warn);
+    padding: 32px 30px 28px;
+    position: relative;
+  }
+  .ch-card::after {
+    content: attr(data-mark);
+    position: absolute;
+    top: 18px;
+    right: 26px;
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 900;
+    font-size: 92px;
+    line-height: 0.8;
+    color: rgba(255, 110, 60, 0.12);
+    letter-spacing: 0.02em;
+    pointer-events: none;
+  }
+  .ch-card .ctag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin-bottom: 14px;
+  }
+  .ch-card h3 {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 700;
+    font-size: 34px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0 0 10px;
+    max-width: 14ch;
+    position: relative;
+    z-index: 1;
+  }
+  .ch-card h3 em { font-style: normal; color: var(--cyan); }
+  .ch-card .path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-bottom: 22px;
+  }
+  .ch-card p {
+    color: var(--ink-2);
+    font-size: 14px;
+    margin-bottom: 14px;
+    position: relative;
+    z-index: 1;
+  }
+  .ch-card ul {
+    list-style: none;
+    margin: 20px 0 0;
+    padding: 20px 0 0;
+    border-top: 1px dashed var(--rule);
+    position: relative;
+    z-index: 1;
+  }
+  .ch-card li {
+    padding: 9px 0 9px 26px;
+    position: relative;
+    font-size: 13px;
+    color: var(--ink-2);
+    border-bottom: 1px dashed var(--rule-soft);
+  }
+  .ch-card li:last-child { border-bottom: none; }
+  .ch-card li::before {
+    content: '▸';
+    position: absolute;
+    left: 4px;
+    top: 9px;
+    color: var(--warn);
+    font-size: 11px;
+  }
+  .ch-card li code { font-size: 11px; }
+
+  /* ════════════════════════════════════════════════════════ LABS */
+  .lab-intro {
+    font-family: 'Archivo', sans-serif;
+    font-size: 16px;
+    color: var(--ink-2);
+    max-width: 60ch;
+    line-height: 1.65;
+    margin-bottom: 48px;
+  }
+  .lab-intro b { color: var(--ink); font-weight: 600; }
+
+  .lab-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 0;
+    border-top: 2px solid var(--cyan);
+    border-left: 1px solid var(--rule);
+  }
+  .lab {
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 32px 26px 36px;
+    background: rgba(6, 24, 45, 0.3);
+    position: relative;
+    transition: background 200ms ease;
+  }
+  .lab:hover { background: rgba(95, 197, 255, 0.06); }
+  .lab::before {
+    content: attr(data-num);
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 900;
+    font-size: 92px;
+    line-height: 0.8;
+    color: rgba(95, 197, 255, 0.09);
+    letter-spacing: 0.02em;
+    pointer-events: none;
+  }
+  .lab .stamp {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    color: var(--warn);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .lab h4 {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 700;
+    font-size: 28px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0 0 8px;
+    max-width: 14ch;
+    position: relative;
+    z-index: 1;
+    color: var(--ink);
+  }
+  .lab .takeaway {
+    font-family: 'Archivo', sans-serif;
+    font-size: 13px;
+    color: var(--cyan);
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 1;
+  }
+  .lab dl { margin: 0; position: relative; z-index: 1; }
+  .lab dt {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-top: 14px;
+    margin-bottom: 4px;
+  }
+  .lab dd { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+  .lab dd code { font-size: 11px; }
+
+  /* ════════════════════════════════════════════════════════ RECIPE REF */
+  .rref {
+    background: rgba(6, 24, 45, 0.5);
+    border: 1px solid var(--cyan);
+    padding: 0;
+  }
+  .rref .cap {
+    padding: 22px 28px 16px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .rref .cap .tname {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--cyan);
+  }
+  .rref .cap .sub {
+    font-family: 'Archivo', sans-serif;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  table.rref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.rref-table thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 18px 22px 14px;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--rule);
+    background: rgba(95, 197, 255, 0.04);
+  }
+  table.rref-table tbody td {
+    padding: 16px 22px;
+    border-bottom: 1px dashed var(--rule-soft);
+    vertical-align: top;
+    color: var(--ink-2);
+  }
+  table.rref-table tbody tr:last-child td { border-bottom: none; }
+  table.rref-table tbody tr:hover { background: rgba(95, 197, 255, 0.04); }
+  table.rref-table .field {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--cyan-soft);
+  }
+  table.rref-table .req {
+    display: inline-block;
+    padding: 3px 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .req-must { background: rgba(255, 110, 60, 0.14); color: var(--warn); border: 1px solid rgba(255, 110, 60, 0.3); }
+  .req-cat5 { background: rgba(95, 197, 255, 0.12); color: var(--cyan); border: 1px solid rgba(95, 197, 255, 0.28); }
+  .req-opt { background: rgba(200, 214, 236, 0.06); color: var(--ink-3); border: 1px solid var(--rule); }
+
+  /* ════════════════════════════════════════════════════════ REVISION BLOCK */
+  .rev {
+    margin-top: 96px;
+    padding: 24px 28px;
+    background: rgba(6, 24, 45, 0.4);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--cyan);
+  }
+  .rev .rev-head {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--rule);
+    display: flex;
+    justify-content: space-between;
+  }
+  .rev table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .rev th { text-align: left; padding: 6px 10px; color: var(--ink-3); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; font-size: 9px; border-bottom: 1px solid var(--rule); }
+  .rev td { padding: 9px 10px; color: var(--ink-2); border-bottom: 1px dashed var(--rule-soft); }
+  .rev tr:last-child td { border-bottom: none; }
+  .rev td.r { color: var(--warn); font-weight: 700; }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 28px;
+    border-top: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  @media (max-width: 720px) { footer { grid-template-columns: 1fr; } }
+  footer a { color: var(--cyan); text-decoration: none; border-bottom: 1px dashed var(--rule); padding-bottom: 2px; }
+  footer a:hover { color: var(--warn); border-color: var(--warn); }
+  footer ul { list-style: none; padding: 0; margin: 0; }
+  footer li { padding: 4px 0; }
+
+  /* accessibility */
+  .station:focus-visible { outline: 2px dashed var(--cyan); outline-offset: 5px; }
+</style>
+</head>
+<body>
+
+<main class="sheet">
+
+  <!-- ═══════════════════════════════════════════════════════ TITLE BLOCK -->
+  <header class="titleblock">
+    <div class="lhs">
+      <div class="marker">
+        <span class="dot"></span>
+        <span>Reference Drawing &nbsp;·&nbsp; Do Not Scale</span>
+        <span class="bar"></span>
+        <span class="sheet-no">Sheet 01 / 01</span>
+      </div>
+      <h1 class="title">
+        <span class="line1">The WonderLens</span>
+        <span class="line2">Pipeline<span class="slash">/</span>Ref.</span>
+      </h1>
+      <p class="lede">A reference drawing for interns. The source of truth is <code>docs/game_design_playbook.md</code>. Any authoring layer — this repo, a CLI, a Notion plugin, a pile of scripts — is a valid implementation as long as it consumes the upstream YAMLs and emits recipes the runtime loader accepts. Build to the playbook, not to the reference.</p>
+    </div>
+    <div class="rhs">
+      <div>
+        <div class="k">Drawing</div>
+        <div class="v accent">WL-PIPE-01</div>
+      </div>
+      <div>
+        <div class="k">Revision</div>
+        <div class="v">B</div>
+      </div>
+      <div>
+        <div class="k">Scale</div>
+        <div class="v">N.T.S.</div>
+      </div>
+      <div>
+        <div class="k">Issued</div>
+        <div class="v">2026.04.15</div>
+      </div>
+      <div class="span2">
+        <div class="k">Source of truth</div>
+        <div class="v warn">game_design_playbook.md</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════ GENERAL NOTES -->
+  <aside class="notes">
+    <div class="label">General<br>Notes</div>
+    <ol>
+      <li>The pipeline has <b>three bands</b>: upstream data, authoring, and runtime. Data flows downstream only.</li>
+      <li>The <b>design studio in this repo is one reference implementation</b> of the authoring band. You may use it, fork it, replace it, or write your own from scratch.</li>
+      <li>Whatever you build, it must <b>read the upstream YAMLs</b> — do not re-invent IB themes or tier scaffolding inside an LLM prompt.</li>
+      <li>Whatever you build, it must <b>emit recipes the runtime loader accepts</b> — YAML frontmatter, structured screen frames, tone markers, asset IDs.</li>
+      <li>The <b>playbook is authoritative</b>. If code and playbook disagree, update the code.</li>
+      <li>Ship small. A working recipe that runs in the frontend is worth more than a perfect design that doesn't load.</li>
+    </ol>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════ MAP -->
+  <section id="map">
+    <div class="shead">
+      <span class="num">§ 01</span>
+      <h2>The <em>drawing</em></h2>
+      <div class="right">Fig. 01<br>Pipeline overview</div>
+    </div>
+
+    <div class="drawing">
+      <div class="dcap">
+        <span>DWG · WL-PIPE-01 · REF. FIG. 01</span>
+        <span class="hint">tap any station for detail</span>
+      </div>
+
+      <svg class="map-svg" viewBox="0 0 1320 820" xmlns="http://www.w3.org/2000/svg" aria-label="Pipeline reference drawing">
+        <defs>
+          <marker id="ah-cyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#5fc5ff"/>
+          </marker>
+          <marker id="ah-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff6e3c"/>
+          </marker>
+          <pattern id="dotgrid" width="18" height="18" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.6" fill="#5fc5ff" opacity="0.18"/>
+          </pattern>
+        </defs>
+
+        <!-- BAND 1 -->
+        <g>
+          <text x="40" y="54" class="band-label">Band I <tspan class="sep">//</tspan> Upstream Data <tspan class="sep">//</tspan> Deterministic · Structured · YAML out</text>
+          <line x1="40" y1="68" x2="1280" y2="68" class="band-line"/>
+        </g>
+
+        <!-- Dim line for band I -->
+        <g class="flow-dim">
+          <line x1="60" y1="248" x2="60" y2="258"/>
+          <line x1="1060" y1="248" x2="1060" y2="258"/>
+          <line x1="60" y1="253" x2="1060" y2="253"/>
+        </g>
+        <text x="560" y="270" class="corner-mark" text-anchor="middle">3 STATIONS</text>
+
+        <!-- Station 1 -->
+        <g class="station" data-station="1" tabindex="0" role="button" aria-label="Station 1: Entity List">
+          <rect x="60" y="110" width="320" height="130"/>
+          <text x="82" y="172" class="st-num">01</text>
+          <text x="164" y="158" class="st-title">ENTITY LIST</text>
+          <text x="164" y="180" class="st-sub">python scripts/entity_list_generator.py</text>
+          <text x="82" y="216" class="st-tag">→ entities.csv · name · domain · keywords</text>
+        </g>
+
+        <path d="M 380 175 L 420 175" class="flow" marker-end="url(#ah-cyan)"/>
+
+        <!-- Station 2 -->
+        <g class="station" data-station="2" tabindex="0" role="button" aria-label="Station 2: IB Theme Batch">
+          <rect x="420" y="110" width="320" height="130"/>
+          <text x="442" y="172" class="st-num">02</text>
+          <text x="524" y="158" class="st-title">IB THEME BATCH</text>
+          <text x="524" y="180" class="st-sub">python scripts/ib_theme_batch_generator.py</text>
+          <text x="442" y="216" class="st-tag">→ entity_ib_map.yaml · theme · concept</text>
+        </g>
+
+        <path d="M 740 175 L 780 175" class="flow" marker-end="url(#ah-cyan)"/>
+
+        <!-- Station 3 -->
+        <g class="station" data-station="3" tabindex="0" role="button" aria-label="Station 3: Tier Guidance">
+          <rect x="780" y="110" width="280" height="130"/>
+          <text x="802" y="172" class="st-num">03</text>
+          <text x="884" y="158" class="st-title">TIER GUIDANCE</text>
+          <text x="884" y="180" class="st-sub">python scripts/exploration_tier_generator.py</text>
+          <text x="802" y="216" class="st-tag">→ tier_guidance.yaml · T0 / T1 / T2</text>
+        </g>
+
+        <!-- Playbook reference node (not a station, a reference drawing in the margin) -->
+        <g>
+          <line x1="1080" y1="175" x2="1130" y2="175" class="flow-dim"/>
+          <rect x="1100" y="110" width="200" height="130" fill="rgba(255, 110, 60, 0.06)" stroke="#ff6e3c" stroke-width="1.3" stroke-dasharray="4 3"/>
+          <text x="1115" y="140" class="st-tag" fill="#ff6e3c">PLAYBOOK</text>
+          <text x="1115" y="162" class="st-title" fill="#ff8a5f" style="font-size:16px;">SOURCE OF</text>
+          <text x="1115" y="180" class="st-title" fill="#ff8a5f" style="font-size:16px;">TRUTH</text>
+          <text x="1115" y="208" class="st-sub">docs/game_design_</text>
+          <text x="1115" y="220" class="st-sub">playbook.md</text>
+        </g>
+
+        <!-- Challenge A: From Band I to Authoring -->
+        <path d="M 560 240 C 560 300, 580 330, 580 360" class="challenge-path" marker-end="url(#ah-warn)"/>
+        <g class="challenge-badge">
+          <rect x="420" y="288" width="128" height="24"/>
+          <text x="434" y="304">CHALLENGE · A</text>
+        </g>
+        <text x="580" y="305" class="challenge-note">consume the YAMLs — do not re-guess them in an LLM prompt</text>
+
+        <!-- Reference dashed line from playbook into authoring -->
+        <path d="M 1200 240 C 1200 320, 880 320, 760 400" stroke="#ff6e3c" stroke-width="1.2" stroke-dasharray="3 4" fill="none" opacity="0.5"/>
+        <text x="1015" y="310" class="corner-mark" fill="#ff8a5f">playbook reference</text>
+
+        <!-- BAND 2 -->
+        <g>
+          <text x="40" y="356" class="band-label">Band II <tspan class="sep">//</tspan> Authoring Layer <tspan class="sep">//</tspan> Playbook-driven · One reference impl. · Many possible</text>
+          <line x1="40" y1="370" x2="1280" y2="370" class="band-line"/>
+        </g>
+
+        <!-- Big authoring block -->
+        <g class="station" data-station="4" tabindex="0" role="button" aria-label="Station 4: Authoring Layer">
+          <rect x="280" y="400" width="760" height="130"/>
+          <text x="302" y="462" class="st-num">04</text>
+          <text x="384" y="448" class="st-title">AUTHORING LAYER</text>
+          <text x="384" y="470" class="st-sub">reference: src/lib/pipeline.ts · or your own implementation</text>
+          <text x="302" y="506" class="st-tag">→ recipe ready for Band III · YAML frontmatter · widgets · tone markers · SFX cues</text>
+        </g>
+
+        <!-- Dim line Band II -->
+        <g class="flow-dim">
+          <line x1="280" y1="548" x2="280" y2="558"/>
+          <line x1="1040" y1="548" x2="1040" y2="558"/>
+          <line x1="280" y1="553" x2="1040" y2="553"/>
+        </g>
+        <text x="660" y="570" class="corner-mark" text-anchor="middle">1 STATION · MANY VALID IMPLEMENTATIONS</text>
+
+        <!-- Challenge B -->
+        <path d="M 660 530 C 660 590, 280 600, 220 660" class="challenge-path" marker-end="url(#ah-warn)"/>
+        <g class="challenge-badge">
+          <rect x="738" y="578" width="128" height="24"/>
+          <text x="752" y="594">CHALLENGE · B</text>
+        </g>
+        <text x="874" y="594" class="challenge-note">emit recipes the loader accepts — no second LLM pass</text>
+
+        <!-- BAND 3 -->
+        <g>
+          <text x="40" y="620" class="band-label">Band III <tspan class="sep">//</tspan> Runtime <tspan class="sep">//</tspan> FastAPI + React · reference: wonderlens-activity-fullstack-demo</text>
+          <line x1="40" y1="634" x2="1280" y2="634" class="band-line"/>
+        </g>
+
+        <g class="station" data-station="5" tabindex="0" role="button" aria-label="Station 5: Recipe Loader">
+          <rect x="60" y="670" width="380" height="120"/>
+          <text x="82" y="730" class="st-num">05</text>
+          <text x="164" y="716" class="st-title">RECIPE LOADER</text>
+          <text x="164" y="738" class="st-sub">refs/backend/recipe_loader.py</text>
+          <text x="82" y="768" class="st-tag">→ ActivityRecipe (Pydantic)</text>
+        </g>
+
+        <path d="M 440 730 L 480 730" class="flow" marker-end="url(#ah-cyan)"/>
+
+        <g class="station" data-station="6" tabindex="0" role="button" aria-label="Station 6: FastAPI Server">
+          <rect x="480" y="670" width="380" height="120"/>
+          <text x="502" y="730" class="st-num">06</text>
+          <text x="584" y="716" class="st-title">FASTAPI SERVER</text>
+          <text x="584" y="738" class="st-sub">refs/backend/server.py</text>
+          <text x="502" y="768" class="st-tag">→ GET /game/{activity_type}</text>
+        </g>
+
+        <path d="M 860 730 L 900 730" class="flow" marker-end="url(#ah-cyan)"/>
+
+        <g class="station" data-station="7" tabindex="0" role="button" aria-label="Station 7: Frontend Runtime">
+          <rect x="900" y="670" width="360" height="120"/>
+          <text x="922" y="730" class="st-num">07</text>
+          <text x="1004" y="716" class="st-title">FRONTEND RUNTIME</text>
+          <text x="1004" y="738" class="st-sub">refs/frontend/</text>
+          <text x="922" y="768" class="st-tag">→ audio · animation · widgets · capture</text>
+        </g>
+
+        <!-- Drawing frame inner marks -->
+        <text x="40" y="800" class="corner-mark">DWG WL-PIPE-01 · REV B · 2026.04.15</text>
+        <text x="1280" y="800" class="corner-mark" text-anchor="end">ISO-A · SHEET 01/01</text>
+      </svg>
+
+      <div class="legend">
+        <span><span class="swatch cyan"></span> Data flow</span>
+        <span><span class="swatch warn"></span> Challenge (implementation constraint)</span>
+        <span><span class="swatch ref"></span> Reference / source of truth</span>
+        <span style="margin-left:auto;">Click any station for detail</span>
+      </div>
+    </div>
+
+    <!-- STATION DETAIL PANEL -->
+    <div class="detail" id="detail" aria-live="polite">
+      <div class="placeholder">
+        <div class="ph-mono">Detail Pane · A</div>
+        <div class="ph-text">Pick any <b>station</b> on the drawing.</div>
+        <p>Each node opens its full reference sheet — files, I/O, and what to verify. The authoring station (04) is deliberately broad: build what you want, as long as it follows the playbook and speaks the runtime's language.</p>
+      </div>
+
+      <article class="detail-card" data-card="1">
+        <div class="card-head">
+          <div class="cnum">01</div>
+          <div class="cspine">
+            <div class="cband">Band I · Upstream Data</div>
+            <h3>Entity List</h3>
+          </div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>scripts/entity_list_generator.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd>Seed prompts and domain categories (animals, objects, places, foods).</dd></div>
+          <div class="row"><dt>Output</dt><dd><code>entities.csv</code> — one row per entity with <code>name</code>, <code>domain</code>, <code>keywords</code>.</dd></div>
+          <div class="row"><dt>Verify</dt><dd>Pick three rows across different domains. Are the keywords evocative and age-appropriate for the target tier?</dd></div>
+          <div class="row"><dt>Note</dt><dd>This is the seed of the whole pipeline. Every artifact downstream traces back to one row here.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="2">
+        <div class="card-head">
+          <div class="cnum">02</div>
+          <div class="cspine">
+            <div class="cband">Band I · Upstream Data</div>
+            <h3>IB Theme Batch</h3>
+          </div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>scripts/ib_theme_batch_generator.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>entities.csv</code> + the IB PYP transdisciplinary theme catalog.</dd></div>
+          <div class="row"><dt>Output</dt><dd><code>entity_ib_map.yaml</code> — per entity: <code>ib_theme</code>, one or more <code>key_concepts</code>.</dd></div>
+          <div class="row"><dt>Verify</dt><dd>Same three entities. Does each assigned theme credibly match what a PYP teacher would pick?</dd></div>
+          <div class="row"><dt>Note</dt><dd>This YAML is the authoritative IB assignment. Your authoring layer should read it — not re-invent it.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="3">
+        <div class="card-head">
+          <div class="cnum">03</div>
+          <div class="cspine">
+            <div class="cband">Band I · Upstream Data</div>
+            <h3>Tier Guidance</h3>
+          </div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>scripts/exploration_tier_generator.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>entities.csv</code> + tier rules for T0 / T1 / T2.</dd></div>
+          <div class="row"><dt>Output</dt><dd><code>tier_guidance.yaml</code> — scaffolding per entity per tier.</dd></div>
+          <div class="row"><dt>Verify</dt><dd>Compare T0 and T2 scaffolding for one entity. T0 should be simpler, more concrete, shorter sentences.</dd></div>
+          <div class="row"><dt>Note</dt><dd>Like station 02, this is the source of truth for age-appropriateness. Feed it into your prompt structurally, not as prose context.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="4">
+        <div class="card-head">
+          <div class="cnum">04</div>
+          <div class="cspine">
+            <div class="cband">Band II · Authoring Layer</div>
+            <h3>Authoring Layer</h3>
+          </div>
+        </div>
+        <dl>
+          <div class="row"><dt>Source of truth</dt><dd><code>docs/game_design_playbook.md</code> — read this first, build to it.</dd></div>
+          <div class="row"><dt>Reference impl.</dt><dd><code>src/lib/pipeline.ts</code>, <code>src/lib/prompts/generate.ts</code>, <code>src/lib/design-schema.ts</code> — one way to do it; not the only way.</dd></div>
+          <div class="row"><dt>Must read</dt><dd><code>entity_ib_map.yaml</code>, <code>tier_guidance.yaml</code> from Band I. This is Challenge A.</dd></div>
+          <div class="row"><dt>Must emit</dt><dd>A recipe the Band III loader accepts — YAML frontmatter, <code>activity_type</code>, <code>voice_script</code>, <code>screen_frames</code>, tone markers, SFX cues. This is Challenge B.</dd></div>
+          <div class="row"><dt>Free to choose</dt><dd>Language, framework, storage, UI. CLI, web app, Notion plugin, Jupyter notebook, bash pipeline — pick whatever fits your team.</dd></div>
+        </dl>
+        <div class="flag"><b>Both challenges live here</b> Your implementation stands or falls on how cleanly it crosses the two boundaries on either side of this station.</div>
+      </article>
+
+      <article class="detail-card" data-card="5">
+        <div class="card-head">
+          <div class="cnum">05</div>
+          <div class="cspine">
+            <div class="cband">Band III · Runtime</div>
+            <h3>Recipe Loader</h3>
+          </div>
+        </div>
+        <dl>
+          <div class="row"><dt>Files</dt><dd><code>refs/backend/recipe_loader.py</code>, <code>refs/backend/schemas/recipe.py</code>, <code>refs/backend/schemas/visual_composition.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd>Game markdown with YAML frontmatter.</dd></div>
+          <div class="row"><dt>Output</dt><dd><code>ActivityRecipe</code> (Pydantic) — <code>voice_script</code>, <code>screen_frames</code>, <code>celebration_frame</code>, <code>metadata</code>.</dd></div>
+          <div class="row"><dt>Read</dt><dd><code>recipe.py</code> is the authoritative schema for Band III. Your authoring layer must emit something this file will accept without errors.</dd></div>
+          <div class="row"><dt>Note</dt><dd>Validation is strict. An unknown field is a clean error — better than a silent default.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="6">
+        <div class="card-head">
+          <div class="cnum">06</div>
+          <div class="cspine">
+            <div class="cband">Band III · Runtime</div>
+            <h3>FastAPI Server</h3>
+          </div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>refs/backend/server.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>ActivityRecipe</code> objects from the loader.</dd></div>
+          <div class="row"><dt>Output</dt><dd>JSON at <code>/game/{activity_type}</code>.</dd></div>
+          <div class="row"><dt>Smoke test</dt><dd>If your recipe shows up at this endpoint without errors, your authoring layer is working.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="7">
+        <div class="card-head">
+          <div class="cnum">07</div>
+          <div class="cspine">
+            <div class="cband">Band III · Runtime</div>
+            <h3>Frontend Runtime</h3>
+          </div>
+        </div>
+        <dl>
+          <div class="row"><dt>Dir</dt><dd><code>refs/frontend/</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>ActivityRecipe</code> JSON from the API.</dd></div>
+          <div class="row"><dt>Output</dt><dd>The running game — dialogue audio, animated widgets, photo capture, collection UI, celebration frame.</dd></div>
+          <div class="row"><dt>Note</dt><dd>The runtime is strict about assets. Every SFX cue, every animation, every widget has a named ID. If it's not in the recipe, it doesn't exist.</dd></div>
+        </dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ CHALLENGES -->
+  <section id="challenges">
+    <div class="shead">
+      <span class="num">§ 02</span>
+      <h2>Two <em>challenges</em></h2>
+      <div class="right">Fig. 02<br>Implementation constraints</div>
+    </div>
+
+    <div class="ch-grid">
+
+      <article class="ch-card" data-mark="A">
+        <div class="ctag">Challenge A · Between Band I &amp; Band II</div>
+        <h3>Consume the <em>YAMLs</em>. Do not re-invent.</h3>
+        <div class="path">Band I YAML output → your authoring layer</div>
+        <p>The upstream scripts exist so IB themes and tier scaffolding are deterministic. Any authoring layer that re-guesses them inside an LLM prompt throws that determinism away.</p>
+        <p>Your implementation must read <code>entity_ib_map.yaml</code> and <code>tier_guidance.yaml</code> as structured inputs, cite the exact theme and key concept assigned, and let the rubric verify the output matches.</p>
+        <ul>
+          <li>Assigned <code>ib_theme</code> and <code>ib_key_concept</code> should be deterministic, not sampled</li>
+          <li>Tier scaffolding should not drift run-to-run for the same entity</li>
+          <li><code>concepts_earned</code> should be pre-computed, not LLM-guessed</li>
+          <li>If your layer can't cite the source YAML for a given design, you've lost the game upstream</li>
+        </ul>
+      </article>
+
+      <article class="ch-card" data-mark="B">
+        <div class="ctag">Challenge B · Between Band II &amp; Band III</div>
+        <h3>Emit a valid <em>recipe</em>. First try.</h3>
+        <div class="path">your authoring layer → refs/backend/recipe_loader.py</div>
+        <p>The runtime has a strict Pydantic schema. Any authoring layer that emits prose dialogue and relies on a second LLM pass to turn it into widgets, SFX cues, and tone markers is building on sand.</p>
+        <p>Your implementation should produce a recipe that <code>recipe_loader.py</code> accepts on the first try, with all asset IDs already resolved. No bridge script. No Gemini call. No prayer.</p>
+        <ul>
+          <li>YAML frontmatter with <code>activity_type</code>, <code>metadata</code>, <code>ib_theme</code>, <code>concepts_earned</code></li>
+          <li>Structured <code>screen_frames</code> with <code>widget</code>, <code>widget_params</code>, <code>animation</code>, <code>trigger</code>, <code>sfx_cue</code></li>
+          <li>Tone markers — <code>[warm]</code>, <code>[excited]</code> — on every voice line</li>
+          <li><code>celebration_frame</code> where the playbook says one belongs</li>
+          <li>Category 5: <code>collection_catalog</code> (correct + distractors), <code>collection_count</code>, <code>photo_features</code></li>
+        </ul>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ LABS -->
+  <section id="labs">
+    <div class="shead">
+      <span class="num">§ 03</span>
+      <h2>Five <em>labs</em></h2>
+      <div class="right">Fig. 03<br>~Half a day</div>
+    </div>
+
+    <p class="lab-intro">Five hands-on stations. Do them in order — each consumes the previous one's output. <b>By the end of Lab V you will have built a complete game from scratch</b> against the playbook, validated it against the runtime loader, and know exactly where to extend it next.</p>
+
+    <div class="lab-grid">
+
+      <article class="lab" data-num="I">
+        <div class="stamp">LAB · 01</div>
+        <h4>Generate inputs</h4>
+        <div class="takeaway">Upstream data is deterministic. Start there.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>scripts/entity_list_generator.py</code>, <code>ib_theme_batch_generator.py</code>, <code>exploration_tier_generator.py</code></dd>
+          <dt>Run</dt>
+          <dd>All three in sequence.</dd>
+          <dt>Inspect</dt>
+          <dd>Pick three entities from <code>entities.csv</code>. Trace them through both output YAMLs. Do the IB theme and tier scaffolding make sense?</dd>
+          <dt>Ask yourself</dt>
+          <dd>If your authoring layer could read these files directly, what would it stop guessing?</dd>
+        </dl>
+      </article>
+
+      <article class="lab" data-num="II">
+        <div class="stamp">LAB · 02</div>
+        <h4>Read the playbook</h4>
+        <div class="takeaway">The source of truth. Read it once, end to end.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>docs/game_design_playbook.md</code></dd>
+          <dt>Focus</dt>
+          <dd>The 10D rubric, the 6 experience pillars, the 12 game styles, the phase structure (hook → transition → rounds → synthesis → closing), tone markers in square brackets.</dd>
+          <dt>Inspect</dt>
+          <dd>The gold-standard examples (if present). What makes them good? Where does the rubric catch weak designs?</dd>
+          <dt>Ask yourself</dt>
+          <dd>If you were scoring a design without looking at the code, which rubric dimensions would be hardest to grade?</dd>
+        </dl>
+      </article>
+
+      <article class="lab" data-num="III">
+        <div class="stamp">LAB · 03</div>
+        <h4>Read the runtime schema</h4>
+        <div class="takeaway">The target format. Strict, unambiguous, unforgiving.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>refs/backend/schemas/recipe.py</code>, <code>refs/backend/schemas/visual_composition.py</code></dd>
+          <dt>Exercise</dt>
+          <dd>Walk every class. List every required field. Note the cat1 / cat5 split. Find every field that references an asset ID (SFX, animation, widget).</dd>
+          <dt>Ask yourself</dt>
+          <dd>Which fields can be generated directly by an LLM, and which need deterministic sources from Band I?</dd>
+        </dl>
+      </article>
+
+      <article class="lab" data-num="IV">
+        <div class="stamp">LAB · 04</div>
+        <h4>Inspect a reference game</h4>
+        <div class="takeaway">See what "good" looks like on both ends.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>refs/backend/games/polka_dot_patrol.md</code> (or any reference game)</dd>
+          <dt>Exercise</dt>
+          <dd>Read the frontmatter slowly. Map each field back to the playbook (what informs it) and to the runtime schema (what consumes it). Note which fields are deterministic and which are authored.</dd>
+          <dt>Ask yourself</dt>
+          <dd>Of everything in this frontmatter, how much could be filled in mechanically from Band I data alone? How much requires real authoring judgment?</dd>
+        </dl>
+      </article>
+
+      <article class="lab" data-num="V">
+        <div class="stamp">LAB · 05 · CAPSTONE</div>
+        <h4>Build a complete game</h4>
+        <div class="takeaway">From new entity to loadable recipe. The whole arc.</div>
+        <dl>
+          <dt>Pick</dt>
+          <dd>A new entity that isn't yet in <code>entities.csv</code>. Something specific and visual.</dd>
+          <dt>Prepare</dt>
+          <dd>Run the Band I scripts on it (or do the equivalent by hand). Produce its IB assignment and tier scaffolding.</dd>
+          <dt>Author</dt>
+          <dd>Build the design. Use the reference implementation in this repo, or write your own from scratch. Follow the playbook. Pick one pillar, one game style, one tier.</dd>
+          <dt>Emit</dt>
+          <dd>A recipe that <code>refs/backend/recipe_loader.py</code> accepts on the first try. No post-processing, no bridge script.</dd>
+          <dt>Validate</dt>
+          <dd>Load it, start the FastAPI server, confirm the recipe appears at <code>/game/{activity_type}</code>.</dd>
+          <dt>Extend</dt>
+          <dd>Once it loads cleanly, add one round, swap one SFX cue, change the celebration frame. Confirm each change still loads.</dd>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ RECIPE REFERENCE -->
+  <section id="recipe-ref">
+    <div class="shead">
+      <span class="num">§ 04</span>
+      <h2>Recipe <em>reference</em></h2>
+      <div class="right">Table 01<br>What a valid recipe contains</div>
+    </div>
+
+    <div class="rref">
+      <div class="cap">
+        <span class="tname">Table 01 · verified against refs/backend/schemas/recipe.py &amp; visual_composition.py</span>
+        <span class="sub">Use as a checklist for Challenge B.</span>
+      </div>
+      <table class="rref-table">
+        <thead>
+          <tr>
+            <th style="width:36%;">Field</th>
+            <th style="width:14%;">Required</th>
+            <th>What it is · where it comes from</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="field">activity_type</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Stable identifier the runtime uses as a lookup key. Derived from entity + game style.</td>
+          </tr>
+          <tr>
+            <td class="field">metadata.ib_theme</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Read deterministically from <code>entity_ib_map.yaml</code>. Do not re-invent in the prompt.</td>
+          </tr>
+          <tr>
+            <td class="field">metadata.ib_key_concept</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Same source. Specific, not a list of candidates.</td>
+          </tr>
+          <tr>
+            <td class="field">metadata.concepts_earned</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Pre-computed from the rubric + playbook, not guessed at export time.</td>
+          </tr>
+          <tr>
+            <td class="field">metadata.tier</td>
+            <td><span class="req req-must">must</span></td>
+            <td>T0 / T1 / T2. Paired with <code>tier_guidance.yaml</code> on the way in.</td>
+          </tr>
+          <tr>
+            <td class="field">metadata.round_count</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Integer. Must match the <code>voice_script</code> rounds actually authored.</td>
+          </tr>
+          <tr>
+            <td class="field">voice_script.hook_line</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Opening line. Carries a <code>hook_tone</code> marker.</td>
+          </tr>
+          <tr>
+            <td class="field">voice_script.rounds[].tone_marker</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Square-bracket tone per round — <code>[warm]</code>, <code>[excited]</code>, <code>[curious]</code>.</td>
+          </tr>
+          <tr>
+            <td class="field">voice_script.synthesis_speech</td>
+            <td><span class="req req-cat5">cat 5</span></td>
+            <td>Required for collection-based styles (comparison chart, naming story).</td>
+          </tr>
+          <tr>
+            <td class="field">voice_script.closing_line</td>
+            <td><span class="req req-must">must</span></td>
+            <td>With <code>closing_tone</code>.</td>
+          </tr>
+          <tr>
+            <td class="field">screen_frames[].widget</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Named widget ID — <code>photo_display</code>, <code>counter</code>, <code>badge</code>, etc. Must exist in the frontend widget registry.</td>
+          </tr>
+          <tr>
+            <td class="field">screen_frames[].widget_params</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Params specific to that widget. Type-checked at load.</td>
+          </tr>
+          <tr>
+            <td class="field">screen_frames[].animation</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Named animation ID — <code>sparkle_highlight</code>, <code>fade_in</code>, etc.</td>
+          </tr>
+          <tr>
+            <td class="field">screen_frames[].sfx_cue</td>
+            <td><span class="req req-must">must</span></td>
+            <td>Named SFX ID — <code>wonder_chime</code>, etc. Resolved at runtime to an audio file.</td>
+          </tr>
+          <tr>
+            <td class="field">screen_frames[].trigger</td>
+            <td><span class="req req-must">must</span></td>
+            <td>When the frame fires — on round start, on correct answer, on closing, etc.</td>
+          </tr>
+          <tr>
+            <td class="field">celebration_frame</td>
+            <td><span class="req req-opt">optional</span></td>
+            <td>A final screen frame on completion. Playbook says most designs should have one.</td>
+          </tr>
+          <tr>
+            <td class="field">collection_catalog</td>
+            <td><span class="req req-cat5">cat 5</span></td>
+            <td>Correct items + distractors, with IDs and match hints.</td>
+          </tr>
+          <tr>
+            <td class="field">collection_count</td>
+            <td><span class="req req-cat5">cat 5</span></td>
+            <td>How many items before synthesis fires.</td>
+          </tr>
+          <tr>
+            <td class="field">photo_features</td>
+            <td><span class="req req-cat5">cat 5</span></td>
+            <td>Hints for vision-based validation of captured photos.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ REVISION -->
+  <div class="rev">
+    <div class="rev-head">
+      <span>Revision history</span>
+      <span>Drawing WL-PIPE-01</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px;">Rev</th>
+          <th style="width:120px;">Date</th>
+          <th>Change</th>
+          <th style="width:120px;">By</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="r">A</td><td>2026-04-14</td><td>Initial issue — field-notebook edition, 6 labs, studio-centric narrative.</td><td>wonderlens</td></tr>
+        <tr><td class="r">B</td><td>2026-04-15</td><td>Reframed around the playbook as source of truth. Studio is now cited as one reference implementation. Collapsed Band II to a single authoring station. Reduced to five labs; capstone is build-from-scratch.</td><td>wonderlens</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    <div>
+      DWG WL-PIPE-01 · REV B · Issued 2026.04.15 · Reference drawing for the WonderLens intern rotation. Trust the code, then update this sheet.
+    </div>
+    <ul>
+      <li>→ <a href="./2026-04-14-intern-pipeline-walkthrough.md">Narrative plan</a></li>
+      <li>→ <a href="./2026-04-14-intern-pipeline-walkthrough.html">Rev A (field notebook)</a></li>
+      <li>→ <a href="../game_design_playbook.md">Playbook</a></li>
+      <li>→ <a href="../../refs/backend/schemas/recipe.py">Recipe schema</a></li>
+    </ul>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  const stations = document.querySelectorAll('.station');
+  const cards = document.querySelectorAll('.detail-card');
+  const placeholder = document.querySelector('.detail .placeholder');
+
+  function activate(id) {
+    stations.forEach(s => s.classList.toggle('active', s.dataset.station === id));
+    cards.forEach(c => c.classList.toggle('active', c.dataset.card === id));
+    if (placeholder) placeholder.style.display = 'none';
+  }
+
+  stations.forEach(s => {
+    s.addEventListener('click', () => activate(s.dataset.station));
+    s.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activate(s.dataset.station);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

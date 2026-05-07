@@ -1,16 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ExistingDesignImporter } from "@/components/upload/ExistingDesignImporter";
 import { YamlUploader } from "@/components/upload/YamlUploader";
 import { useDesignStore } from "@/store/design-store";
 import type { ParsedEntity } from "@/lib/yaml-parser";
+import type { ImportedDesignResult } from "@/lib/design-import";
 
 export default function Home() {
   const router = useRouter();
   const setParsedEntity = useDesignStore((s) => s.setParsedEntity);
+  const setActiveDesign = useDesignStore((s) => s.setActiveDesign);
+  const resetSession = useDesignStore((s) => s.resetSession);
 
   const handleEntityParsed = (entity: ParsedEntity) => {
     setParsedEntity(entity);
+  };
+
+  const handleDesignImported = (result: ImportedDesignResult) => {
+    const designId = `imported-${crypto.randomUUID()}`;
+    resetSession();
+    setActiveDesign(designId, result.design, result.rubricScores);
+    router.push(`/editor/${designId}`);
   };
 
   const parsedEntity = useDesignStore((s) => s.parsedEntity);
@@ -25,11 +36,11 @@ export default function Home() {
       <main className="max-w-4xl mx-auto px-6 py-12">
         <div className="text-center mb-10">
           <h2 className="text-3xl font-bold text-white mb-3">
-            Create a Game Design
+            Create or Review a Game Design
           </h2>
           <p className="text-gray-400 text-lg">
-            Upload an entity YAML mapping file to generate interactive game
-            designs
+            Generate new variants from an entity mapping, or open an existing
+            activity for review and editing
           </p>
         </div>
 
@@ -50,6 +61,14 @@ export default function Home() {
             </p>
           </div>
         )}
+
+        <div className="my-10 flex items-center gap-4 text-gray-600">
+          <div className="h-px flex-1 bg-gray-800" />
+          <span className="text-xs uppercase tracking-wider">or</span>
+          <div className="h-px flex-1 bg-gray-800" />
+        </div>
+
+        <ExistingDesignImporter onDesignImported={handleDesignImported} />
       </main>
     </div>
   );

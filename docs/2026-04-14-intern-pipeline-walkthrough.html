@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The WonderLens Pipeline — An Intern's Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:         #f2ead9;
+    --bg-deep:    #ebe0c6;
+    --bg-panel:   #ede3c9;
+    --paper:      #f7f0dd;
+    --ink:        #14202e;
+    --ink-2:      #384657;
+    --ink-3:      #6b7788;
+    --ink-faint:  #9a9680;
+    --rule:       #c8bda0;
+    --rule-soft:  #d9cfb3;
+    --good:       #4f7146;
+    --good-soft:  #7c9a6b;
+    --seam:       #b94f2d;
+    --seam-soft:  #d77758;
+    --ochre:      #c89335;
+    --shadow:     0 1px 0 rgba(20,32,46,0.04), 0 24px 48px -24px rgba(20,32,46,0.18);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--ink);
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 10% -5%, rgba(200,147,53,0.12), transparent 55%),
+      radial-gradient(ellipse at 105% 0%, rgba(185,79,45,0.08), transparent 50%),
+      radial-gradient(ellipse at 50% 110%, rgba(79,113,70,0.07), transparent 55%);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+    z-index: 1000;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.12 0 0 0 0 0.18 0 0 0 0.09 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* ————————————————————————————— LAYOUT */
+  .page {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 72px 56px 140px;
+    position: relative;
+  }
+  @media (max-width: 860px) { .page { padding: 48px 24px 96px; } }
+
+  /* decorative corner marks */
+  .page::before, .page::after {
+    content: '';
+    position: absolute;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--rule);
+    pointer-events: none;
+  }
+  .page::before { top: 40px; left: 24px; border-right: none; border-bottom: none; }
+  .page::after  { top: 40px; right: 24px; border-left: none; border-bottom: none; }
+
+  /* ————————————————————————————— HERO */
+  .hero { margin-bottom: 96px; position: relative; }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin-bottom: 28px;
+  }
+  .eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--seam);
+    box-shadow: 0 0 0 3px rgba(185,79,45,0.18);
+  }
+  .eyebrow .bar { flex: 1; height: 1px; background: var(--rule); }
+  .eyebrow .ref { color: var(--ink-3); }
+
+  h1.title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'opsz' 144, 'SOFT' 30, 'WONK' 1;
+    font-weight: 400;
+    font-size: clamp(48px, 7vw, 104px);
+    line-height: 0.92;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+  h1.title em {
+    font-style: italic;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
+    color: var(--seam);
+  }
+  .hero .sub {
+    font-family: 'Fraunces', Georgia, serif;
+    font-variation-settings: 'opsz' 36, 'SOFT' 50';
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(18px, 1.9vw, 24px);
+    color: var(--ink-2);
+    margin: 18px 0 36px;
+    max-width: 56ch;
+  }
+
+  .hero-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    max-width: 820px;
+  }
+  .hero-meta > div {
+    padding: 18px 20px 18px 0;
+    border-right: 1px dashed var(--rule);
+  }
+  .hero-meta > div:last-child { border-right: none; padding-right: 0; }
+  .hero-meta .k {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+    margin-bottom: 6px;
+  }
+  .hero-meta .v {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 24;
+    font-size: 17px;
+    color: var(--ink);
+  }
+
+  .hero-lede {
+    margin-top: 56px;
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 64px;
+    align-items: start;
+  }
+  @media (max-width: 960px) { .hero-lede { grid-template-columns: 1fr; gap: 36px; } }
+  .hero-lede aside {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    line-height: 2;
+    color: var(--ink-3);
+    padding-top: 8px;
+    border-top: 2px solid var(--ink);
+  }
+  .hero-lede aside b { color: var(--ink); font-weight: 600; }
+  .hero-lede p {
+    font-size: 18px;
+    line-height: 1.62;
+    color: var(--ink-2);
+  }
+  .hero-lede p + p { margin-top: 16px; }
+
+  /* ————————————————————————————— SECTION HEADINGS */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 24px;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-head .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    color: var(--seam);
+    text-transform: uppercase;
+  }
+  .section-head h2 {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 72, 'SOFT' 20;
+    font-weight: 500;
+    font-size: clamp(32px, 4vw, 52px);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin: 0;
+    flex: 1;
+  }
+  .section-head h2 em {
+    font-style: italic;
+    font-variation-settings: 'opsz' 72, 'SOFT' 100, 'WONK' 1;
+    color: var(--ink-2);
+  }
+  .section-head .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  section { margin-bottom: 120px; }
+
+  /* ————————————————————————————— MAP */
+  .map-wrap {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 40px 32px 24px;
+    position: relative;
+    box-shadow: var(--shadow);
+  }
+  .map-wrap::before {
+    content: 'FIG. 01 — THE PIPELINE';
+    position: absolute;
+    top: 16px;
+    left: 32px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--ink-3);
+  }
+  .map-wrap::after {
+    content: 'tap any station';
+    position: absolute;
+    top: 16px;
+    right: 32px;
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 14';
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+
+  .map-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin-top: 28px;
+  }
+
+  .station { cursor: pointer; outline: none; }
+  .station rect {
+    fill: var(--paper);
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    transition: fill 160ms ease, stroke-width 160ms ease, transform 200ms ease;
+  }
+  .station:hover rect,
+  .station:focus-visible rect {
+    fill: #fff8e3;
+    stroke-width: 2.25;
+  }
+  .station.active rect {
+    fill: var(--ink);
+    stroke: var(--ink);
+  }
+  .station.active .st-num,
+  .station.active .st-title,
+  .station.active .st-sub { fill: var(--paper); }
+  .station.active .st-tag  { fill: var(--ochre); }
+
+  .st-num {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 72, 'SOFT' 80, 'WONK' 1;
+    font-style: italic;
+    font-size: 40px;
+    fill: var(--seam);
+  }
+  .st-title {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 24';
+    font-size: 17px;
+    font-weight: 500;
+    fill: var(--ink);
+  }
+  .st-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    fill: var(--ink-3);
+    text-transform: uppercase;
+  }
+  .st-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    fill: var(--good);
+    text-transform: uppercase;
+  }
+
+  .band-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    fill: var(--ink-3);
+    text-transform: uppercase;
+  }
+  .band-line { stroke: var(--rule); stroke-width: 1; stroke-dasharray: 2 4; }
+
+  .flow { fill: none; stroke: var(--good); stroke-width: 2; }
+  .flow-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    fill: var(--good);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .seam-path {
+    fill: none;
+    stroke: var(--seam);
+    stroke-width: 2.2;
+    stroke-dasharray: 6 5;
+    animation: dash 1.4s linear infinite;
+  }
+  @keyframes dash {
+    to { stroke-dashoffset: -22; }
+  }
+  .seam-badge rect {
+    fill: var(--seam);
+    stroke: none;
+  }
+  .seam-badge text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    fill: var(--paper);
+    letter-spacing: 0.12em;
+  }
+  .seam-note {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 14';
+    font-style: italic;
+    font-size: 12px;
+    fill: var(--seam);
+  }
+
+  .map-legend {
+    display: flex;
+    gap: 28px;
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--rule);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    flex-wrap: wrap;
+  }
+  .map-legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .swatch { width: 22px; height: 2px; display: inline-block; }
+  .swatch.good { background: var(--good); }
+  .swatch.seam {
+    background: repeating-linear-gradient(90deg, var(--seam) 0 5px, transparent 5px 9px);
+    height: 2px;
+  }
+
+  /* ————————————————————————————— DETAIL PANEL */
+  .detail {
+    margin-top: 28px;
+    background: var(--bg-panel);
+    border: 1px solid var(--rule);
+    padding: 0;
+    min-height: 260px;
+    position: relative;
+    overflow: hidden;
+  }
+  .detail .placeholder {
+    padding: 56px 40px;
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 36, 'SOFT' 80;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--ink-3);
+    max-width: 42ch;
+  }
+  .detail .placeholder b { color: var(--ink-2); font-style: normal; font-weight: 500; }
+  .detail-card { display: none; padding: 36px 40px; animation: fadein 280ms ease; }
+  .detail-card.active { display: block; }
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .detail-card .card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .detail-card .card-num {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
+    font-style: italic;
+    font-size: 72px;
+    line-height: 0.8;
+    color: var(--seam);
+  }
+  .detail-card h3 {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 36;
+    font-weight: 500;
+    font-size: 28px;
+    line-height: 1.1;
+    margin: 0;
+    flex: 1;
+    letter-spacing: -0.01em;
+  }
+  .detail-card .card-band {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .detail-card .row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 24px;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--rule-soft);
+  }
+  .detail-card .row:last-child { border-bottom: none; }
+  .detail-card .row dt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-top: 3px;
+  }
+  .detail-card .row dd { margin: 0; font-size: 15px; color: var(--ink-2); }
+  .detail-card code,
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    background: rgba(20,32,46,0.06);
+    padding: 2px 7px;
+    border-radius: 2px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .detail-card .flag {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: rgba(185,79,45,0.10);
+    border-left: 2px solid var(--seam);
+    color: var(--ink-2);
+    font-size: 14px;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 18;
+  }
+  .detail-card .flag b {
+    font-family: 'IBM Plex Mono', monospace;
+    font-style: normal;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--seam);
+    margin-right: 8px;
+  }
+
+  /* ————————————————————————————— SEAMS */
+  .seam-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  @media (max-width: 960px) { .seam-grid { grid-template-columns: 1fr; } }
+  .seam-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 36px 32px 32px;
+    position: relative;
+    box-shadow: var(--shadow);
+  }
+  .seam-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: repeating-linear-gradient(90deg, var(--seam) 0 8px, transparent 8px 14px);
+  }
+  .seam-card .marker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--seam);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .seam-card h3 {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 48, 'SOFT' 40;
+    font-size: 30px;
+    font-weight: 500;
+    line-height: 1.1;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .seam-card h3 em {
+    font-style: italic;
+    font-variation-settings: 'opsz' 48, 'SOFT' 100, 'WONK' 1;
+    color: var(--seam);
+  }
+  .seam-card .where {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-bottom: 22px;
+  }
+  .seam-card p {
+    color: var(--ink-2);
+    font-size: 15px;
+    margin-bottom: 18px;
+  }
+  .seam-card .gap-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0 0;
+    border-top: 1px solid var(--rule);
+  }
+  .seam-card .gap-list li {
+    padding: 11px 0 11px 28px;
+    border-bottom: 1px dashed var(--rule-soft);
+    font-size: 14px;
+    color: var(--ink-2);
+    position: relative;
+  }
+  .seam-card .gap-list li::before {
+    content: '×';
+    position: absolute;
+    left: 6px;
+    top: 9px;
+    color: var(--seam);
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .seam-card .gap-list li code { font-size: 11px; }
+
+  /* ————————————————————————————— WALKTHROUGH */
+  .walk-intro {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 36, 'SOFT' 60;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin-bottom: 48px;
+  }
+  .walk-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 0;
+    border-top: 2px solid var(--ink);
+    border-left: 1px solid var(--rule);
+  }
+  .walk {
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 32px 28px 36px;
+    background: var(--paper);
+    position: relative;
+    transition: background 200ms ease;
+  }
+  .walk:hover { background: #fbf5e0; }
+  .walk::before {
+    content: attr(data-num);
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'WONK' 1;
+    font-style: italic;
+    font-size: 86px;
+    line-height: 0.8;
+    color: var(--bg-deep);
+    pointer-events: none;
+  }
+  .walk .stamp {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--seam);
+    margin-bottom: 14px;
+  }
+  .walk h4 {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 36, 'SOFT' 30;
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.15;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+    position: relative;
+    z-index: 1;
+    max-width: 18ch;
+  }
+  .walk .takeaway {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 18;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-3);
+    margin-bottom: 20px;
+  }
+  .walk dl { margin: 0; position: relative; z-index: 1; }
+  .walk dt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-top: 14px;
+    margin-bottom: 4px;
+  }
+  .walk dd {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .walk dd code { font-size: 11px; }
+
+  /* ————————————————————————————— GAP TABLE */
+  .gaps-wrap {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: var(--shadow);
+    padding: 36px 0 0;
+  }
+  .gaps-wrap .tname {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 0 36px 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+  table.gaps {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  table.gaps thead th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 20px 24px 18px;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--rule);
+  }
+  table.gaps tbody td {
+    padding: 18px 24px;
+    border-bottom: 1px dashed var(--rule-soft);
+    vertical-align: top;
+    color: var(--ink-2);
+  }
+  table.gaps tbody tr:last-child td { border-bottom: none; }
+  table.gaps tbody tr:hover { background: #fbf5e0; }
+  table.gaps .field {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  table.gaps .gap-pill {
+    display: inline-block;
+    padding: 3px 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+  }
+  .pill-miss { background: rgba(185,79,45,0.15); color: var(--seam); }
+  .pill-partial { background: rgba(200,147,53,0.18); color: #8a6517; }
+  .pill-ok { background: rgba(79,113,70,0.16); color: var(--good); }
+
+  /* ————————————————————————————— FOOTER */
+  footer {
+    margin-top: 96px;
+    padding-top: 36px;
+    border-top: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 48px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.04em;
+  }
+  @media (max-width: 760px) { footer { grid-template-columns: 1fr; } }
+  footer .colophon {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: 'opsz' 14';
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.7;
+  }
+  footer ul { list-style: none; padding: 0; margin: 0; }
+  footer li { padding: 4px 0; }
+  footer a { color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rule); }
+  footer a:hover { color: var(--seam); text-decoration-color: var(--seam); }
+
+  /* ————————————————————————————— UTIL */
+  .only-desktop { display: inline; }
+  @media (max-width: 760px) { .only-desktop { display: none; } }
+
+  /* accessibility */
+  .station:focus-visible { outline: 2px dashed var(--seam); outline-offset: 4px; }
+
+</style>
+</head>
+<body>
+
+<main class="page">
+
+  <!-- ═══════════════════════════════════════════════════════ HERO -->
+  <header class="hero">
+    <div class="eyebrow">
+      <span class="dot"></span>
+      <span>Field Guide &nbsp;·&nbsp; 2026-04-14</span>
+      <span class="bar"></span>
+      <span class="ref">docs/plans/2026-04-14-intern-pipeline-walkthrough</span>
+    </div>
+
+    <h1 class="title">The WonderLens<br><em>Pipeline.</em></h1>
+    <p class="sub">From a single entity name to a running game with sound, animation, and live photo capture — an intern's guided tour through eight stations and two hand-carried seams.</p>
+
+    <div class="hero-meta">
+      <div>
+        <div class="k">Stations</div>
+        <div class="v">Eight, in three bands</div>
+      </div>
+      <div>
+        <div class="k">Seams</div>
+        <div class="v">Two, hand-carried</div>
+      </div>
+      <div>
+        <div class="k">Walkthrough</div>
+        <div class="v">~Half a day</div>
+      </div>
+      <div>
+        <div class="k">Audience</div>
+        <div class="v">New interns</div>
+      </div>
+    </div>
+
+    <div class="hero-lede">
+      <aside>
+        <b>How to read this page</b><br>
+        01. Skim the map<br>
+        02. Click stations<br>
+        03. Study the seams<br>
+        04. Run the six labs<br>
+        05. Check the gap table<br>
+        <br>
+        <b>Reading time</b><br>
+        ~18 minutes<br>
+        <br>
+        <b>Doing time</b><br>
+        ~4 hours
+      </aside>
+      <div>
+        <p>WonderLens is three things pretending to be one. <b>Upstream</b>, a small set of Python scripts produces structured data — a list of entities, their IB theme assignments, age-tier scaffolding. <b>In the middle</b>, the design studio runs an LLM pipeline that turns that data into dialogue designs scored against a ten-dimension rubric. <b>Downstream</b>, a FastAPI backend and a React frontend take recipes and actually play them as games, with audio cues, animated widgets, and a photo-capture loop.</p>
+        <p>Today the three bands work. But the connections between them are not yet machined. Between upstream data and the studio, one hand-written context file stands in for what should be a structured read of the generated YAMLs. Between the studio's prose export and the runtime's recipe format, a one-shot LLM call does the conversion work — unreliable, opaque, and the single biggest candidate for future automation. Those two connections are what this field guide calls <b>seams</b>, and they are the most important thing for a new intern to understand.</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════ MAP -->
+  <section id="map">
+    <div class="section-head">
+      <span class="num">§ 01</span>
+      <h2>The <em>map</em></h2>
+      <span class="tag">Fig. 01 — interactive</span>
+    </div>
+
+    <div class="map-wrap">
+      <svg class="map-svg" viewBox="0 0 1280 860" xmlns="http://www.w3.org/2000/svg" aria-label="Pipeline diagram">
+        <defs>
+          <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#4f7146"/>
+          </marker>
+          <marker id="arrowhead-seam" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#b94f2d"/>
+          </marker>
+        </defs>
+
+        <!-- BAND 1 -->
+        <g>
+          <text x="40" y="60" class="band-label">Band I — Upstream Data · Python scripts</text>
+          <line x1="40" y1="74" x2="1240" y2="74" class="band-line"/>
+        </g>
+
+        <!-- Station 1 -->
+        <g class="station" data-station="1" tabindex="0" role="button" aria-label="Station 1: Entity List">
+          <rect x="60" y="110" width="280" height="110" rx="2"/>
+          <text x="86" y="162" class="st-num">01</text>
+          <text x="160" y="150" class="st-title">Entity List</text>
+          <text x="160" y="170" class="st-sub">scripts/entity_list_generator.py</text>
+          <text x="160" y="200" class="st-tag">→ entities.csv</text>
+        </g>
+
+        <!-- arrow 1→2 -->
+        <path d="M 340 165 L 400 165" class="flow" marker-end="url(#arrowhead)"/>
+
+        <!-- Station 2 -->
+        <g class="station" data-station="2" tabindex="0" role="button" aria-label="Station 2: IB Theme Mapping">
+          <rect x="400" y="110" width="280" height="110" rx="2"/>
+          <text x="426" y="162" class="st-num">02</text>
+          <text x="500" y="150" class="st-title">IB Theme Batch</text>
+          <text x="500" y="170" class="st-sub">scripts/ib_theme_batch_generator.py</text>
+          <text x="500" y="200" class="st-tag">→ entity_ib_map.yaml</text>
+        </g>
+
+        <!-- arrow 2→3 -->
+        <path d="M 680 165 L 740 165" class="flow" marker-end="url(#arrowhead)"/>
+
+        <!-- Station 3 -->
+        <g class="station" data-station="3" tabindex="0" role="button" aria-label="Station 3: Tier Guidance">
+          <rect x="740" y="110" width="280" height="110" rx="2"/>
+          <text x="766" y="162" class="st-num">03</text>
+          <text x="840" y="150" class="st-title">Tier Guidance</text>
+          <text x="840" y="170" class="st-sub">scripts/exploration_tier_generator.py</text>
+          <text x="840" y="200" class="st-tag">→ tier_guidance.yaml</text>
+        </g>
+
+        <!-- Seam A: from Station 3 down to Station 4 -->
+        <path d="M 880 220 C 880 280, 540 290, 540 360" class="seam-path" marker-end="url(#arrowhead-seam)"/>
+        <g class="seam-badge">
+          <rect x="688" y="270" width="104" height="22"/>
+          <text x="700" y="285">SEAM A</text>
+        </g>
+        <text x="800" y="286" class="seam-note">scripts outputs not read by generate.ts</text>
+
+        <!-- BAND 2 -->
+        <g>
+          <text x="40" y="340" class="band-label">Band II — Design Studio · Next.js + LLM</text>
+          <line x1="40" y1="354" x2="1240" y2="354" class="band-line"/>
+        </g>
+
+        <!-- Station 4 -->
+        <g class="station" data-station="4" tabindex="0" role="button" aria-label="Station 4: Studio Generation">
+          <rect x="400" y="390" width="280" height="110" rx="2"/>
+          <text x="426" y="442" class="st-num">04</text>
+          <text x="500" y="430" class="st-title">Generate Design</text>
+          <text x="500" y="450" class="st-sub">src/lib/pipeline.ts · prompts/generate.ts</text>
+          <text x="500" y="480" class="st-tag">→ GameDesign JSON</text>
+        </g>
+
+        <!-- arrow 4→4b -->
+        <path d="M 680 445 L 740 445" class="flow" marker-end="url(#arrowhead)"/>
+
+        <!-- Station 4b -->
+        <g class="station" data-station="4b" tabindex="0" role="button" aria-label="Station 4b: Markdown Export">
+          <rect x="740" y="390" width="280" height="110" rx="2"/>
+          <text x="766" y="442" class="st-num">04<tspan font-size="24" baseline-shift="super">b</tspan></text>
+          <text x="840" y="430" class="st-title">Export Spec / Prod</text>
+          <text x="840" y="450" class="st-sub">src/lib/markdown-export.ts</text>
+          <text x="840" y="480" class="st-tag">→ spec.md / prod.md</text>
+        </g>
+
+        <!-- Seam B: from 4b down to 5 -->
+        <path d="M 880 500 C 880 580, 240 580, 200 640" class="seam-path" marker-end="url(#arrowhead-seam)"/>
+        <g class="seam-badge">
+          <rect x="540" y="558" width="104" height="22"/>
+          <text x="552" y="573">SEAM B</text>
+        </g>
+        <text x="652" y="574" class="seam-note">prose dialogue needs Gemini to become runtime YAML</text>
+
+        <!-- BAND 3 -->
+        <g>
+          <text x="40" y="620" class="band-label">Band III — Runtime · FastAPI + React (refs/)</text>
+          <line x1="40" y1="634" x2="1240" y2="634" class="band-line"/>
+        </g>
+
+        <!-- Station 5 -->
+        <g class="station" data-station="5" tabindex="0" role="button" aria-label="Station 5: Convert Game">
+          <rect x="60" y="680" width="260" height="110" rx="2"/>
+          <text x="86" y="732" class="st-num">05</text>
+          <text x="156" y="720" class="st-title">Convert Game</text>
+          <text x="156" y="740" class="st-sub">refs/scripts/convert_game.py</text>
+          <text x="156" y="770" class="st-tag">→ games/*.md + frontmatter</text>
+        </g>
+
+        <path d="M 320 735 L 370 735" class="flow" marker-end="url(#arrowhead)"/>
+
+        <!-- Station 6 -->
+        <g class="station" data-station="6" tabindex="0" role="button" aria-label="Station 6: Recipe Loader">
+          <rect x="370" y="680" width="260" height="110" rx="2"/>
+          <text x="396" y="732" class="st-num">06</text>
+          <text x="466" y="720" class="st-title">Recipe Loader</text>
+          <text x="466" y="740" class="st-sub">refs/backend/recipe_loader.py</text>
+          <text x="466" y="770" class="st-tag">→ ActivityRecipe</text>
+        </g>
+
+        <path d="M 630 735 L 680 735" class="flow" marker-end="url(#arrowhead)"/>
+
+        <!-- Station 7 -->
+        <g class="station" data-station="7" tabindex="0" role="button" aria-label="Station 7: FastAPI Server">
+          <rect x="680" y="680" width="260" height="110" rx="2"/>
+          <text x="706" y="732" class="st-num">07</text>
+          <text x="776" y="720" class="st-title">FastAPI Server</text>
+          <text x="776" y="740" class="st-sub">refs/backend/server.py</text>
+          <text x="776" y="770" class="st-tag">→ /game/{activity_type}</text>
+        </g>
+
+        <path d="M 940 735 L 990 735" class="flow" marker-end="url(#arrowhead)"/>
+
+        <!-- Station 8 -->
+        <g class="station" data-station="8" tabindex="0" role="button" aria-label="Station 8: Frontend Runtime">
+          <rect x="990" y="680" width="250" height="110" rx="2"/>
+          <text x="1016" y="732" class="st-num">08</text>
+          <text x="1084" y="720" class="st-title">Frontend Runtime</text>
+          <text x="1084" y="740" class="st-sub">refs/frontend/</text>
+          <text x="1084" y="770" class="st-tag">→ audio · anim · widgets</text>
+        </g>
+
+        <!-- ambient marks -->
+        <text x="40" y="830" class="band-label" fill="#9a9680">DWG · 01/01 · PIPELINE OVERVIEW · REV B · 2026-04-14</text>
+        <text x="1240" y="830" text-anchor="end" class="band-label" fill="#9a9680">SCALE · NTS</text>
+      </svg>
+
+      <div class="map-legend">
+        <span><span class="swatch good"></span> Structured connection</span>
+        <span><span class="swatch seam"></span> Hand-carried seam</span>
+        <span style="margin-left:auto;">Click any station for detail &nbsp;<span class="only-desktop">· tab to focus, enter to open</span></span>
+      </div>
+    </div>
+
+    <!-- STATION DETAIL PANEL -->
+    <div class="detail" id="detail" aria-live="polite">
+      <div class="placeholder">
+        <b>Pick a station.</b> Click any node above to see what files live there, what it produces, and what to look for when you inspect it.
+      </div>
+
+      <article class="detail-card" data-card="1">
+        <div class="card-head">
+          <div class="card-num">01</div>
+          <h3>Entity List</h3>
+          <div class="card-band">Band I · Upstream</div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>scripts/entity_list_generator.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd>Seed prompts and domain categories (animals, objects, places, foods).</dd></div>
+          <div class="row"><dt>Produces</dt><dd><code>entities.csv</code> — one row per entity with <code>name</code>, <code>domain</code>, <code>keywords</code>.</dd></div>
+          <div class="row"><dt>Inspect</dt><dd>Pick three rows across different domains. Are the keywords evocative and age-appropriate for the target tier?</dd></div>
+          <div class="row"><dt>Takeaway</dt><dd>This is the seed of the whole pipeline — every downstream artifact ultimately traces back to one row in this CSV.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="2">
+        <div class="card-head">
+          <div class="card-num">02</div>
+          <h3>IB Theme Batch</h3>
+          <div class="card-band">Band I · Upstream</div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>scripts/ib_theme_batch_generator.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>entities.csv</code> plus the IB PYP transdisciplinary theme catalog.</dd></div>
+          <div class="row"><dt>Produces</dt><dd><code>entity_ib_map.yaml</code> — each entity mapped to an IB theme plus one or more key concepts.</dd></div>
+          <div class="row"><dt>Inspect</dt><dd>Same three entities from Station 1. Does the assigned theme make sense? Are the key concepts the ones a PYP teacher would actually pick?</dd></div>
+          <div class="row"><dt>Takeaway</dt><dd>This file should be the source of truth for IB assignments — but the design studio doesn't read it yet. See Seam A.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="3">
+        <div class="card-head">
+          <div class="card-num">03</div>
+          <h3>Tier Guidance</h3>
+          <div class="card-band">Band I · Upstream</div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>scripts/exploration_tier_generator.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>entities.csv</code> plus tier rules for T0 / T1 / T2.</dd></div>
+          <div class="row"><dt>Produces</dt><dd><code>tier_guidance.yaml</code> — per-entity scaffolding (vocabulary, sentence complexity, cognitive load cues).</dd></div>
+          <div class="row"><dt>Inspect</dt><dd>Compare the T0 and T2 scaffolding for one entity. The T0 version should be shorter, simpler, and more concrete.</dd></div>
+          <div class="row"><dt>Takeaway</dt><dd>This is how we keep designs age-appropriate without hoping the LLM guesses right. Like Station 2, it's not yet wired into the studio.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="4">
+        <div class="card-head">
+          <div class="card-num">04</div>
+          <h3>Generate Design</h3>
+          <div class="card-band">Band II · Design Studio</div>
+        </div>
+        <dl>
+          <div class="row"><dt>Files</dt><dd><code>src/lib/pipeline.ts</code>, <code>src/lib/prompts/generate.ts</code>, <code>src/lib/design-schema.ts</code></dd></div>
+          <div class="row"><dt>Reads</dt><dd><code>docs/game_design_playbook.md</code>, <code>data/templates.md</code>, <code>data/entity_guidance.md</code> (hand-written)</dd></div>
+          <div class="row"><dt>Does NOT read</dt><dd><code>entity_ib_map.yaml</code>, <code>tier_guidance.yaml</code> from the scripts. This is Seam A.</dd></div>
+          <div class="row"><dt>Produces</dt><dd><code>GameDesign</code> JSON saved under <code>data/runs/*.json</code>, with basic info, creative variables, dialogue steps, and a 10D rubric score.</dd></div>
+          <div class="row"><dt>Takeaway</dt><dd>The LLM re-invents IB themes and tier scaffolding every run instead of consuming the structured data that already exists.</dd></div>
+        </dl>
+        <div class="flag"><b>Seam A lives here</b> The generation prompt loads hand-written context files instead of the scripts' structured YAML outputs.</div>
+      </article>
+
+      <article class="detail-card" data-card="4b">
+        <div class="card-head">
+          <div class="card-num">04<span style="font-size:34px;">b</span></div>
+          <h3>Export Spec · Prod</h3>
+          <div class="card-band">Band II · Design Studio</div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>src/lib/markdown-export.ts</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>GameDesign</code> JSON from Station 4.</dd></div>
+          <div class="row"><dt>Produces</dt><dd><code>spec.md</code> (full detail, all rounds, entity mapping) and <code>prod.md</code> (condensed, round 1 expanded, rest as summaries).</dd></div>
+          <div class="row"><dt>Contains</dt><dd>Dialogue, creative variables, rubric scores, KUD (Know / Understand / Do).</dd></div>
+          <div class="row"><dt>Does NOT contain</dt><dd>YAML frontmatter, <code>activity_type</code>, <code>screen_frames</code>, <code>sfx_cue</code>, <code>animation</code>, tone markers, <code>collection_catalog</code>.</dd></div>
+        </dl>
+        <div class="flag"><b>Seam B starts here</b> The export is prose, but the runtime needs structured widget specs and asset IDs.</div>
+      </article>
+
+      <article class="detail-card" data-card="5">
+        <div class="card-head">
+          <div class="card-num">05</div>
+          <h3>Convert Game</h3>
+          <div class="card-band">Band III · Runtime</div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>refs/scripts/convert_game.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>spec.md</code> from the studio.</dd></div>
+          <div class="row"><dt>Process</dt><dd>Calls Gemini with a structured-output schema to extract <code>widget</code>, <code>animation</code>, <code>sfx_cue</code>, tone markers, and the rest of the recipe fields from prose.</dd></div>
+          <div class="row"><dt>Produces</dt><dd><code>refs/backend/games/*.md</code> — markdown with YAML frontmatter plus a narrative body.</dd></div>
+          <div class="row"><dt>Takeaway</dt><dd>This is the most fragile step in the whole pipeline. It's an LLM call, not a deterministic transform. A good convert step would have no LLM in it at all.</dd></div>
+        </dl>
+        <div class="flag"><b>Seam B lives here</b> Replace this step and the two bands snap together.</div>
+      </article>
+
+      <article class="detail-card" data-card="6">
+        <div class="card-head">
+          <div class="card-num">06</div>
+          <h3>Recipe Loader</h3>
+          <div class="card-band">Band III · Runtime</div>
+        </div>
+        <dl>
+          <div class="row"><dt>Files</dt><dd><code>refs/backend/recipe_loader.py</code>, <code>refs/backend/schemas/recipe.py</code>, <code>refs/backend/schemas/visual_composition.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd>Game markdown with YAML frontmatter.</dd></div>
+          <div class="row"><dt>Produces</dt><dd><code>ActivityRecipe</code> (Pydantic) with <code>voice_script</code>, <code>screen_frames</code>, <code>celebration_frame</code>, <code>metadata</code>.</dd></div>
+          <div class="row"><dt>Inspect</dt><dd>Open <code>recipe.py</code> and walk the class hierarchy. Notice every field that the studio does not produce — that's your Seam B checklist.</dd></div>
+          <div class="row"><dt>Takeaway</dt><dd>This is the authoritative runtime schema. Anything that doesn't fit here isn't playable.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="7">
+        <div class="card-head">
+          <div class="card-num">07</div>
+          <h3>FastAPI Server</h3>
+          <div class="card-band">Band III · Runtime</div>
+        </div>
+        <dl>
+          <div class="row"><dt>File</dt><dd><code>refs/backend/server.py</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>ActivityRecipe</code> objects from the loader.</dd></div>
+          <div class="row"><dt>Produces</dt><dd>JSON responses at <code>/game/{activity_type}</code> that the frontend can consume directly.</dd></div>
+          <div class="row"><dt>Inspect</dt><dd>Curl the endpoint and pipe through <code>jq</code>. Watch the full recipe come out the other end.</dd></div>
+          <div class="row"><dt>Takeaway</dt><dd>Stateless translator from Pydantic → JSON. The hard work happened upstream.</dd></div>
+        </dl>
+      </article>
+
+      <article class="detail-card" data-card="8">
+        <div class="card-head">
+          <div class="card-num">08</div>
+          <h3>Frontend Runtime</h3>
+          <div class="card-band">Band III · Runtime</div>
+        </div>
+        <dl>
+          <div class="row"><dt>Dir</dt><dd><code>refs/frontend/</code></dd></div>
+          <div class="row"><dt>Input</dt><dd><code>ActivityRecipe</code> JSON from the API.</dd></div>
+          <div class="row"><dt>Produces</dt><dd>The running game — dialogue audio, animated widgets, photo capture, collection UI, celebration frame.</dd></div>
+          <div class="row"><dt>Inspect</dt><dd>Pick one SFX cue on screen and trace it back: audio file → <code>sfx_cue</code> ID in JSON → frontmatter → recipe schema. Every asset has a single chain of custody.</dd></div>
+          <div class="row"><dt>Takeaway</dt><dd>The runtime is strict. If the studio can learn to speak this language directly, Seam B disappears.</dd></div>
+        </dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ SEAMS -->
+  <section id="seams">
+    <div class="section-head">
+      <span class="num">§ 02</span>
+      <h2>The two <em>seams</em></h2>
+      <span class="tag">Where data is hand-carried</span>
+    </div>
+
+    <div class="seam-grid">
+
+      <article class="seam-card">
+        <div class="marker">Seam A · Between Band I &amp; Band II</div>
+        <h3>Scripts produce YAML. <em>The studio ignores it.</em></h3>
+        <div class="where">scripts/*.yaml → src/lib/prompts/generate.ts</div>
+        <p>Stations 2 and 3 produce structured <code>entity_ib_map.yaml</code> and <code>tier_guidance.yaml</code>. But <code>generate.ts</code> loads <code>data/entity_guidance.md</code> — a hand-written markdown file — as context instead. So every generation run asks the LLM to re-invent the IB theme and tier scaffolding from scratch.</p>
+        <p>The fix is small in code but large in consequence: pass the YAML contents into the prompt as structured context, cite the IB theme deterministically, and let the rubric check that the output matches.</p>
+        <ul class="gap-list">
+          <li>Studio cannot cite a deterministic <code>ib_theme</code> or <code>ib_key_concept</code></li>
+          <li>Tier scaffolding drifts run-to-run — same entity, different tier treatment</li>
+          <li><code>concepts_earned</code> can't be pre-computed; runtime synthesis relies on LLM guesswork</li>
+          <li>Two evaluation scripts (<code>llm_age_tier_adherence_eval.py</code>, <code>llm_conversation_benchmark.py</code>) exist but aren't part of the rubric pipeline</li>
+        </ul>
+      </article>
+
+      <article class="seam-card">
+        <div class="marker">Seam B · Between Band II &amp; Band III</div>
+        <h3>Studio exports prose. <em>Runtime needs widgets.</em></h3>
+        <div class="where">src/lib/markdown-export.ts → refs/scripts/convert_game.py</div>
+        <p>The studio emits a beautifully human-readable <code>spec.md</code> with prose screen descriptions like "golden glow, sparkles, dotted line." The runtime's <code>ScreenFrame</code> schema requires structured fields — <code>widget</code>, <code>widget_params</code>, <code>animation</code>, <code>trigger</code>, <code>sfx_cue</code>, <code>sfx_label</code>. A Gemini call bridges the two.</p>
+        <p>This is the biggest single candidate for automation. Extend the <code>GameDesign</code> schema to carry runtime fields, export YAML frontmatter directly, and <code>convert_game.py</code> disappears.</p>
+        <ul class="gap-list">
+          <li>No YAML frontmatter on export — <code>activity_type</code>, <code>metadata</code> missing</li>
+          <li>No tone markers — <code>[warm]</code>, <code>[excited]</code> can't survive the round trip</li>
+          <li>No structured screen frames — prose only, so widgets must be guessed</li>
+          <li>No SFX / BGM / animation IDs anywhere in the schema</li>
+          <li>No cat5 <code>collection_catalog</code>, <code>collection_count</code>, <code>photo_features</code></li>
+          <li>No <code>celebration_frame</code></li>
+        </ul>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ WALKTHROUGH -->
+  <section id="walkthrough">
+    <div class="section-head">
+      <span class="num">§ 03</span>
+      <h2>The <em>walkthrough</em></h2>
+      <span class="tag">Six stations · ~half day</span>
+    </div>
+
+    <p class="walk-intro">Do these in order. Each exercise consumes the previous one's output. By the end of Station VI you will have followed a single SFX cue from a string ID in a YAML file all the way to the sound playing in a running game.</p>
+
+    <div class="walk-grid">
+
+      <article class="walk" data-num="I">
+        <div class="stamp">Lab · 01</div>
+        <h4>Entities, themes, tiers</h4>
+        <div class="takeaway">Upstream data is deterministic and structured.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>scripts/entity_list_generator.py</code>, <code>scripts/ib_theme_batch_generator.py</code>, <code>scripts/exploration_tier_generator.py</code></dd>
+          <dt>Run</dt>
+          <dd>The three scripts in sequence.</dd>
+          <dt>Inspect</dt>
+          <dd>Pick three entities from <code>entities.csv</code>. Find them in both generated YAMLs. Do the theme and tier assignments make sense?</dd>
+          <dt>Ask yourself</dt>
+          <dd>If the studio could read these files, which fields would it stop guessing?</dd>
+        </dl>
+      </article>
+
+      <article class="walk" data-num="II">
+        <div class="stamp">Lab · 02</div>
+        <h4>Generate a design</h4>
+        <div class="takeaway">Studio produces dialogue — not assets.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>src/lib/design-schema.ts</code>, <code>src/lib/prompts/generate.ts</code></dd>
+          <dt>Run</dt>
+          <dd><code>npm run dev</code>, upload an entity YAML, click Generate.</dd>
+          <dt>Inspect</dt>
+          <dd>Open the resulting JSON under <code>data/runs/</code>. Export the spec. Count the fields that have nothing to do with audio, animation, or widgets.</dd>
+          <dt>Ask yourself</dt>
+          <dd>If you handed this spec to the frontend, what would be missing?</dd>
+        </dl>
+      </article>
+
+      <article class="walk" data-num="III">
+        <div class="stamp">Lab · 03</div>
+        <h4>Read the runtime schema</h4>
+        <div class="takeaway">The runtime is strict. Match or die.</div>
+        <dl>
+          <dt>Open side by side</dt>
+          <dd><code>refs/backend/schemas/recipe.py</code>, <code>refs/backend/schemas/visual_composition.py</code>, <code>src/lib/design-schema.ts</code></dd>
+          <dt>Exercise</dt>
+          <dd>List every field the runtime requires that the studio doesn't produce. Cross-reference with the gap table in §04.</dd>
+          <dt>Ask yourself</dt>
+          <dd>Which of these could be generated by the LLM if you added them to the prompt schema? Which need a separate deterministic step?</dd>
+        </dl>
+      </article>
+
+      <article class="walk" data-num="IV">
+        <div class="stamp">Lab · 04</div>
+        <h4>Inspect a finished game</h4>
+        <div class="takeaway">This is the target format.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>refs/backend/games/polka_dot_patrol.md</code></dd>
+          <dt>Exercise</dt>
+          <dd>Diff the frontmatter against the <code>spec.md</code> from Lab 02. Highlight every field that the studio would need to learn to emit.</dd>
+          <dt>Ask yourself</dt>
+          <dd>How much of the frontmatter could be filled in mechanically from Band I data?</dd>
+        </dl>
+      </article>
+
+      <article class="walk" data-num="V">
+        <div class="stamp">Lab · 05</div>
+        <h4>Run the manual bridge</h4>
+        <div class="takeaway">Seam B up close.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>refs/scripts/convert_game.py</code></dd>
+          <dt>Exercise</dt>
+          <dd>Read the Gemini prompt the script uses. Find the parts where it guesses widget types, animations, and SFX cues from prose. Which are brittle?</dd>
+          <dt>Ask yourself</dt>
+          <dd>If the studio emitted these IDs directly, what part of this script survives?</dd>
+        </dl>
+      </article>
+
+      <article class="walk" data-num="VI">
+        <div class="stamp">Lab · 06</div>
+        <h4>Play it</h4>
+        <div class="takeaway">Follow one sound to its source.</div>
+        <dl>
+          <dt>Open</dt>
+          <dd><code>refs/backend/server.py</code>, <code>refs/frontend/</code></dd>
+          <dt>Run</dt>
+          <dd>Start the backend, start the frontend, load <code>polka_dot_patrol</code>.</dd>
+          <dt>Exercise</dt>
+          <dd>Pick one SFX cue you hear. Trace it from the running game → recipe JSON on the wire → <code>sfx_cue</code> ID in the game MD frontmatter → audio file on disk.</dd>
+          <dt>Ask yourself</dt>
+          <dd>You just walked the full chain of custody. Where does it break down today?</dd>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ GAP TABLE -->
+  <section id="gaps">
+    <div class="section-head">
+      <span class="num">§ 04</span>
+      <h2>Field <em>gaps</em></h2>
+      <span class="tag">Runtime schema vs. studio schema</span>
+    </div>
+
+    <div class="gaps-wrap">
+      <div class="tname">Table 01 · verified against refs/backend/schemas/recipe.py &amp; visual_composition.py</div>
+      <table class="gaps">
+        <thead>
+          <tr>
+            <th style="width:36%;">Runtime field</th>
+            <th style="width:36%;">Studio equivalent</th>
+            <th style="width:14%;">Status</th>
+            <th>Consequence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="field">activity_type</td>
+            <td>—</td>
+            <td><span class="gap-pill pill-miss">missing</span></td>
+            <td>No frontmatter on export. Runtime can't auto-load.</td>
+          </tr>
+          <tr>
+            <td class="field">metadata.ib_theme / ib_key_concept / concepts_earned / round_count</td>
+            <td class="field">basicInfo.ibTheme <span style="color:var(--ink-3);">(one string)</span></td>
+            <td><span class="gap-pill pill-partial">partial</span></td>
+            <td>Theme is a single blob; key concept and earned concepts not decomposed.</td>
+          </tr>
+          <tr>
+            <td class="field">voice_script.hook_tone / closing_tone / tone_marker</td>
+            <td>—</td>
+            <td><span class="gap-pill pill-miss">missing</span></td>
+            <td>Tone markers like <code>[warm]</code> can't survive the round trip.</td>
+          </tr>
+          <tr>
+            <td class="field">screen_frames[].widget / widget_params / animation / trigger / sfx_cue / sfx_label</td>
+            <td class="field">Step.screenDescription <span style="color:var(--ink-3);">(prose)</span></td>
+            <td><span class="gap-pill pill-miss">missing</span></td>
+            <td>Prose, not structured. Gemini has to guess. Seam B's core.</td>
+          </tr>
+          <tr>
+            <td class="field">celebration_frame</td>
+            <td>—</td>
+            <td><span class="gap-pill pill-miss">missing</span></td>
+            <td>No celebration frame can be emitted.</td>
+          </tr>
+          <tr>
+            <td class="field">collection_catalog (correct + distractors)</td>
+            <td class="field">creativeVariables.collectionCriterion</td>
+            <td><span class="gap-pill pill-partial">partial</span></td>
+            <td>Criterion name exists; catalog of valid and invalid items does not. Cat5 blocker.</td>
+          </tr>
+          <tr>
+            <td class="field">photo_features</td>
+            <td>—</td>
+            <td><span class="gap-pill pill-miss">missing</span></td>
+            <td>Vision validation of photos has no hints to match against.</td>
+          </tr>
+          <tr>
+            <td class="field">voice_script body (hook, rounds, synthesis, closing)</td>
+            <td class="field">Step dialogue blocks</td>
+            <td><span class="gap-pill pill-ok">structurally ok</span></td>
+            <td>Phase names differ but content maps cleanly. Renaming is cheap.</td>
+          </tr>
+          <tr>
+            <td class="field">rubric / quality score</td>
+            <td class="field">10D rubric on GameDesign</td>
+            <td><span class="gap-pill pill-ok">studio side only</span></td>
+            <td>Runtime doesn't consume this, but it's useful upstream for variant selection.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ FOOTER -->
+  <footer>
+    <div class="colophon">
+      Prepared for the WonderLens intern rotation, April 2026.<br>
+      The map is an intentional simplification; the seams are intentionally drawn bold. If anything on this page contradicts the code, trust the code and then update this page.
+    </div>
+    <ul>
+      <li>→ <a href="./2026-04-14-intern-pipeline-walkthrough.md">Narrative plan (md)</a></li>
+      <li>→ <a href="./2026-04-14-playbook-alignment.md">Playbook alignment plan</a></li>
+      <li>→ <a href="./2026-04-14-autodesign-parity-changes.md">Autodesign parity changes</a></li>
+      <li>→ <a href="../../refs/backend/schemas/recipe.py">Runtime recipe schema</a></li>
+      <li>→ <a href="../../src/lib/design-schema.ts">Studio design schema</a></li>
+    </ul>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  const stations = document.querySelectorAll('.station');
+  const cards = document.querySelectorAll('.detail-card');
+  const placeholder = document.querySelector('.detail .placeholder');
+
+  function activate(id) {
+    stations.forEach(s => s.classList.toggle('active', s.dataset.station === id));
+    cards.forEach(c => c.classList.toggle('active', c.dataset.card === id));
+    if (placeholder) placeholder.style.display = 'none';
+  }
+
+  stations.forEach(s => {
+    s.addEventListener('click', () => activate(s.dataset.station));
+    s.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activate(s.dataset.station);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

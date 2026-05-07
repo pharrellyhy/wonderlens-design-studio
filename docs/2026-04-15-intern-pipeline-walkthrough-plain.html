@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The WonderLens Pipeline — Intern Walkthrough</title>
+<style>
+  :root {
+    --bg:    #fdfcf8;
+    --ink:   #171717;
+    --ink-2: #3a3a3a;
+    --ink-3: #6a6a6a;
+    --rule:  #d8d4cc;
+    --link:  #1f4d8f;
+    --code:  #b03a2e;
+    --hi:    #f4efe0;
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    font-size: 17px;
+    line-height: 1.58;
+    font-feature-settings: "kern", "liga", "onum";
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 72px 32px 120px;
+  }
+  @media (max-width: 600px) { main { padding: 48px 20px 80px; font-size: 16px; } }
+
+  /* header */
+  .hdr { margin-bottom: 48px; }
+  .hdr .meta {
+    font-size: 12px;
+    color: var(--ink-3);
+    letter-spacing: 0.02em;
+    margin-bottom: 20px;
+  }
+  .hdr h1 {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .hdr .sub {
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink-2);
+    margin: 0 0 24px;
+  }
+  .hdr .authors {
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 36px 0;
+  }
+
+  /* abstract */
+  .abstract {
+    font-size: 15px;
+    color: var(--ink-2);
+    margin: 32px 0 48px;
+    padding: 0 28px;
+    border-left: 2px solid var(--rule);
+  }
+  .abstract .lbl {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+    margin-bottom: 6px;
+  }
+
+  /* section headings */
+  h2 {
+    font-size: 21px;
+    font-weight: 700;
+    margin: 56px 0 14px;
+    line-height: 1.25;
+    letter-spacing: -0.005em;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 32px 0 8px;
+    line-height: 1.3;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 24px 0 6px;
+  }
+
+  p { margin: 0 0 14px; }
+
+  /* inline code and file paths */
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    font-size: 13.5px;
+    color: var(--code);
+  }
+
+  /* ASCII diagram */
+  pre.diagram {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ink);
+    background: var(--hi);
+    padding: 20px 22px;
+    margin: 24px 0 8px;
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+  }
+  pre.diagram .c { color: var(--code); }
+  .caption {
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ink-3);
+    margin: 4px 0 32px;
+  }
+
+  /* lists */
+  ul, ol { padding-left: 22px; margin: 10px 0 18px; }
+  li { margin: 5px 0; }
+  li p { margin-bottom: 6px; }
+
+  /* definition-style (used for stations and labs) */
+  .entry {
+    margin: 20px 0 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .entry:last-of-type { border-bottom: none; }
+  .entry h4 {
+    margin-top: 0;
+    margin-bottom: 4px;
+  }
+  .entry .tag {
+    font-size: 12px;
+    color: var(--ink-3);
+    font-style: italic;
+    margin-bottom: 10px;
+  }
+  .entry dl { margin: 0; }
+  .entry dt {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    margin-top: 10px;
+  }
+  .entry dd {
+    margin: 2px 0 0;
+    font-size: 15px;
+    color: var(--ink-2);
+  }
+  .entry .flag {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: var(--hi);
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+  .entry .flag b {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--code);
+    margin-bottom: 3px;
+  }
+
+  /* table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 18px 0 24px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px 8px 0;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule);
+  }
+  th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    border-bottom: 1.5px solid var(--ink);
+    padding-bottom: 6px;
+  }
+  td.field { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; color: var(--code); }
+  td.req   { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); white-space: nowrap; }
+
+  /* footnote-style references */
+  .refs {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .refs ol { padding-left: 22px; }
+  .refs a { color: var(--link); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px; }
+  .refs a:hover { text-decoration-color: var(--link); }
+
+  a { color: var(--link); }
+
+  /* suppress number-prefix visual weight */
+  .num { color: var(--ink-3); font-weight: 400; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<main>
+
+  <header class="hdr">
+    <div class="meta">Working paper · Revision C · 2026-04-15</div>
+    <h1>The WonderLens Pipeline</h1>
+    <p class="sub">An intern walkthrough, from entity list to runnable game.</p>
+    <div class="authors">Prepared for the intern rotation, April 2026.</div>
+  </header>
+
+  <hr>
+
+  <section class="abstract">
+    <span class="lbl">Abstract</span>
+    The WonderLens system spans three bands: a set of upstream Python scripts that produce structured data, an authoring layer that turns that data into a game design against the playbook, and a runtime that plays the resulting recipe. This note surveys the five stations an intern will touch, names the two implementation challenges that sit between the bands, and proposes five exercises for new interns. The design studio in this repository is cited only as one reference implementation; the playbook is the source of truth, and any authoring layer that reads the upstream YAMLs and emits recipes matching the contract in §5 is a valid one. The runtime itself is out of scope — it is a separate service, maintained by another team, that an intern's authoring layer hands recipes off to.
+  </section>
+
+  <h2><span class="num">1.</span> Overview</h2>
+
+  <p>The pipeline has three bands and five stations that an intern will touch. Data flows downstream only. Each band is simple in isolation; the interesting work is in the two seams between bands, where interns will spend most of their time.</p>
+
+  <pre class="diagram">
+  band i — upstream data (python scripts)
+  ┌────────────────┐   ┌────────────────┐   ┌────────────────┐
+  │ 1. entity list │──▶│ 2. ib themes   │──▶│ 3. tier guide  │
+  │  entities.csv  │   │ entity_ib.yaml │   │  tier.yaml     │
+  └────────────────┘   └────────────────┘   └────────────────┘
+                                                      │
+                                  <span class="c">challenge a</span>   │   read the yamls;
+                                                      │   do not re-guess
+                                                      ▼
+  band ii — authoring layer (the intern's work)
+  ┌──────────────────────────────────────────────────────────┐
+  │ 4. authoring layer                                       │
+  │    source of truth: docs/game_design_playbook.md         │
+  │    reference impl.: src/lib/pipeline.ts (or your own)    │
+  └──────────────────────────────────────────────────────────┘
+                                                      │
+                                  <span class="c">challenge b</span>   │   emit a recipe
+                                                      │   matching §5
+                                                      ▼
+  band iii — recipe handoff
+  ┌──────────────────────────────────────────────────────────┐
+  │ 5. recipe contract  (see §5 of this document)            │
+  │    the runtime — another team's service — consumes       │
+  │    any recipe matching the contract. its code is         │
+  │    out of scope for interns.                             │
+  └──────────────────────────────────────────────────────────┘
+  </pre>
+  <p class="caption">Figure 1. The pipeline, drawn plainly.</p>
+
+  <h2><span class="num">2.</span> The five stations</h2>
+
+  <p>The stations are numbered in order of data flow, not in order of importance. Station 4 is where an intern's work will live; the upstream scripts are fixed, and the runtime on the far side of station 5 is maintained by another team and is out of scope.</p>
+
+  <div class="entry">
+    <h4>2.1 Entity list <span class="num">· n°1</span></h4>
+    <div class="tag">Band I — upstream data</div>
+    <dl>
+      <dt>File</dt>
+      <dd><code>scripts/entity_list_generator.py</code></dd>
+      <dt>Output</dt>
+      <dd><code>entities.csv</code> — one row per entity with name, domain, and keywords.</dd>
+      <dt>Verify</dt>
+      <dd>Pick three rows across different domains; the keywords should feel evocative and age-appropriate.</dd>
+    </dl>
+  </div>
+
+  <div class="entry">
+    <h4>2.2 IB theme batch <span class="num">· n°2</span></h4>
+    <div class="tag">Band I — upstream data</div>
+    <dl>
+      <dt>File</dt>
+      <dd><code>scripts/ib_theme_batch_generator.py</code></dd>
+      <dt>Input</dt>
+      <dd>The entity CSV plus the PYP transdisciplinary theme catalogue.</dd>
+      <dt>Output</dt>
+      <dd><code>entity_ib_map.yaml</code> — per entity: an IB theme and one or more key concepts.</dd>
+      <dt>Verify</dt>
+      <dd>For the same three entities, is each assigned theme a credible choice?</dd>
+      <dt>Note</dt>
+      <dd>This is the authoritative IB assignment. It is meant to be read structurally by the authoring layer.</dd>
+    </dl>
+  </div>
+
+  <div class="entry">
+    <h4>2.3 Tier guidance <span class="num">· n°3</span></h4>
+    <div class="tag">Band I — upstream data</div>
+    <dl>
+      <dt>File</dt>
+      <dd><code>scripts/exploration_tier_generator.py</code></dd>
+      <dt>Output</dt>
+      <dd><code>tier_guidance.yaml</code> — per-entity, per-tier scaffolding.</dd>
+      <dt>Verify</dt>
+      <dd>Compare T0 and T2 scaffolding for one entity. T0 should be simpler and more concrete.</dd>
+    </dl>
+  </div>
+
+  <div class="entry">
+    <h4>2.4 Authoring layer <span class="num">· n°4</span></h4>
+    <div class="tag">Band II — the intern's work lives here</div>
+    <dl>
+      <dt>Source of truth</dt>
+      <dd><code>docs/game_design_playbook.md</code></dd>
+      <dt>Reference implementation</dt>
+      <dd><code>src/lib/pipeline.ts</code>, <code>prompts/generate.ts</code>, <code>design-schema.ts</code> — one way to do it, not the only way.</dd>
+      <dt>Must consume</dt>
+      <dd>The YAMLs from 2.2 and 2.3 as structured input (Challenge A).</dd>
+      <dt>Must emit</dt>
+      <dd>A recipe matching the contract in §5 (Challenge B).</dd>
+      <dt>Free to choose</dt>
+      <dd>Language, framework, storage, interface. A web app, a CLI, a Notion plugin, a Jupyter notebook, a bash pipeline — all valid.</dd>
+    </dl>
+    <div class="flag">
+      <b>Both challenges meet here.</b>
+      The implementation stands or falls on how cleanly it crosses the two boundaries on either side of this station.
+    </div>
+  </div>
+
+  <div class="entry">
+    <h4>2.5 Recipe handoff <span class="num">· n°5</span></h4>
+    <div class="tag">Band III — recipe handoff (runtime is out of scope)</div>
+    <dl>
+      <dt>What it is</dt>
+      <dd>The handoff point between the authoring layer and the runtime. An intern's work ends here: once a recipe matches the contract in §5, the runtime takes over.</dd>
+      <dt>Contract</dt>
+      <dd>§5 of this document is the authoritative interface. Any recipe that satisfies it will run.</dd>
+      <dt>Out of scope</dt>
+      <dd>The runtime itself — the loader, the server, the frontend — is maintained by a separate team. Interns do not read or modify its code.</dd>
+      <dt>Validation</dt>
+      <dd>The runtime team provides a contract validator. Pass your recipe through it; if it accepts, the recipe ships.</dd>
+    </dl>
+  </div>
+
+  <h2><span class="num">3.</span> The two challenges</h2>
+
+  <p>Any authoring layer, not just this repository's, must solve the two challenges below. They are not implementation choices; they are the definition of a correct authoring layer.</p>
+
+  <h3>3.1 Challenge A · Consume the YAMLs</h3>
+  <p>The upstream scripts exist so that IB themes and tier scaffolding are deterministic. An authoring layer that re-guesses them inside an LLM prompt throws that determinism away. The layer must read <code>entity_ib_map.yaml</code> and <code>tier_guidance.yaml</code> as structured input and cite the exact theme and key concept assigned.</p>
+  <ul>
+    <li>The assigned <code>ib_theme</code> and <code>ib_key_concept</code> should be deterministic, not sampled.</li>
+    <li>Tier scaffolding should not drift run-to-run for a single entity.</li>
+    <li><code>concepts_earned</code> should be pre-computed, not invented at export time.</li>
+    <li>If the layer cannot cite a source YAML for a given design, the game was lost upstream.</li>
+  </ul>
+
+  <h3>3.2 Challenge B · Emit a valid recipe</h3>
+  <p>The recipe contract in §5 is strict. An authoring layer that emits prose and relies on a second LLM pass to turn it into widgets, SFX cues, and tone markers is building on sand. The layer must produce a recipe the contract validator accepts on the first try, with every asset identifier already resolved. No bridge script. No second model. No prayer.</p>
+  <ul>
+    <li>YAML frontmatter with <code>activity_type</code>, <code>metadata</code>, <code>ib_theme</code>, <code>concepts_earned</code>.</li>
+    <li>Structured <code>screen_frames</code> with <code>widget</code>, <code>widget_params</code>, <code>animation</code>, <code>trigger</code>, <code>sfx_cue</code>.</li>
+    <li>Bracket tone markers (<code>[warm]</code>, <code>[excited]</code>) on every voice line.</li>
+    <li>A <code>celebration_frame</code> where the playbook calls for one.</li>
+    <li>For Category 5: <code>collection_catalog</code>, <code>collection_count</code>, <code>photo_features</code>.</li>
+  </ul>
+
+  <h2><span class="num">4.</span> Five exercises</h2>
+
+  <p>Do them in order. Each consumes the previous one's output. By the end of Exercise 5, the intern will have built a complete game from scratch against the playbook, validated it against the runtime loader, and know exactly where to extend it next.</p>
+
+  <div class="entry">
+    <h4>4.1 Exercise 1 · Generate the inputs</h4>
+    <dl>
+      <dt>Open</dt>
+      <dd><code>scripts/entity_list_generator.py</code>, <code>ib_theme_batch_generator.py</code>, <code>exploration_tier_generator.py</code></dd>
+      <dt>Run</dt>
+      <dd>All three in sequence.</dd>
+      <dt>Inspect</dt>
+      <dd>Pick three entities from the CSV. Trace each through both output YAMLs. Do the theme and tier make sense?</dd>
+      <dt>Question</dt>
+      <dd>If your authoring layer could read these files directly, what would it stop guessing?</dd>
+    </dl>
+  </div>
+
+  <div class="entry">
+    <h4>4.2 Exercise 2 · Read the playbook</h4>
+    <dl>
+      <dt>Open</dt>
+      <dd><code>docs/game_design_playbook.md</code></dd>
+      <dt>Focus</dt>
+      <dd>The 10-dimension rubric, the six pillars, the twelve game styles, the phase structure, the bracket tone markers.</dd>
+      <dt>Question</dt>
+      <dd>If you were scoring a design without looking at code, which rubric dimensions would be hardest to grade?</dd>
+    </dl>
+  </div>
+
+  <div class="entry">
+    <h4>4.3 Exercise 3 · Read the recipe contract</h4>
+    <dl>
+      <dt>Open</dt>
+      <dd>§5 of this document.</dd>
+      <dt>Exercise</dt>
+      <dd>Walk every required field. Note the cat 1 / cat 5 split. Find every field that references an asset ID.</dd>
+      <dt>Question</dt>
+      <dd>Which fields can be authored directly by an LLM, and which need deterministic sources from Band I?</dd>
+    </dl>
+  </div>
+
+  <div class="entry">
+    <h4>4.4 Exercise 4 · Inspect a reference game</h4>
+    <dl>
+      <dt>Open</dt>
+      <dd>A reference recipe file provided by the runtime team (for example, <code>polka_dot_patrol.md</code>).</dd>
+      <dt>Exercise</dt>
+      <dd>Read the frontmatter slowly. Map each field back to the playbook and forward to the recipe contract in §5.</dd>
+      <dt>Question</dt>
+      <dd>How much of the frontmatter could be filled in mechanically from Band I alone?</dd>
+    </dl>
+  </div>
+
+  <div class="entry">
+    <h4>4.5 Exercise 5 · Build a complete game <span class="num">· capstone</span></h4>
+    <dl>
+      <dt>Pick</dt>
+      <dd>A new entity that isn't yet in the CSV. Something specific and visual.</dd>
+      <dt>Prepare</dt>
+      <dd>Run the Band I scripts on it (or do the equivalent by hand). Produce its IB assignment and tier scaffolding.</dd>
+      <dt>Author</dt>
+      <dd>Build the design. Use the reference implementation in this repo, or write your own from scratch. Follow the playbook. Pick one pillar, one game style, one tier.</dd>
+      <dt>Emit</dt>
+      <dd>A recipe matching the contract in §5, on the first try. No post-processing. No bridge script.</dd>
+      <dt>Validate</dt>
+      <dd>Pass your recipe through the contract validator provided by the runtime team. Confirm it is accepted without errors.</dd>
+      <dt>Extend</dt>
+      <dd>Once it validates cleanly, add a round, swap an SFX cue, change the celebration frame. Re-validate after each change.</dd>
+    </dl>
+  </div>
+
+  <h2><span class="num">5.</span> Recipe contract</h2>
+
+  <p>The fields below are the authoritative interface between the authoring layer and the runtime. Any recipe an intern produces must satisfy this contract; any recipe that does will run. Use it as a checklist for Challenge B.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:38%;">Field</th>
+        <th style="width:12%;">Required</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="field">activity_type</td>
+        <td class="req">must</td>
+        <td>Runtime lookup key. Derived from entity and game style.</td>
+      </tr>
+      <tr>
+        <td class="field">metadata.ib_theme</td>
+        <td class="req">must</td>
+        <td>From <code>entity_ib_map.yaml</code>. Do not re-invent in a prompt.</td>
+      </tr>
+      <tr>
+        <td class="field">metadata.ib_key_concept</td>
+        <td class="req">must</td>
+        <td>Same source. A single concept, not a menu.</td>
+      </tr>
+      <tr>
+        <td class="field">metadata.concepts_earned</td>
+        <td class="req">must</td>
+        <td>Pre-computed from the rubric and playbook at authoring time.</td>
+      </tr>
+      <tr>
+        <td class="field">metadata.tier</td>
+        <td class="req">must</td>
+        <td>T0 / T1 / T2, paired with <code>tier_guidance.yaml</code>.</td>
+      </tr>
+      <tr>
+        <td class="field">metadata.round_count</td>
+        <td class="req">must</td>
+        <td>Integer. Must match the rounds authored in the voice script.</td>
+      </tr>
+      <tr>
+        <td class="field">voice_script.hook_line</td>
+        <td class="req">must</td>
+        <td>Opening line, with <code>hook_tone</code> marker.</td>
+      </tr>
+      <tr>
+        <td class="field">voice_script.rounds[].tone_marker</td>
+        <td class="req">must</td>
+        <td>Square-bracket tone per round, e.g. <code>[warm]</code>, <code>[curious]</code>.</td>
+      </tr>
+      <tr>
+        <td class="field">voice_script.synthesis_speech</td>
+        <td class="req">cat 5</td>
+        <td>Required for collection-based styles.</td>
+      </tr>
+      <tr>
+        <td class="field">voice_script.closing_line</td>
+        <td class="req">must</td>
+        <td>With <code>closing_tone</code>.</td>
+      </tr>
+      <tr>
+        <td class="field">screen_frames[].widget</td>
+        <td class="req">must</td>
+        <td>Named widget ID known to the frontend (e.g. <code>photo_display</code>, <code>counter</code>).</td>
+      </tr>
+      <tr>
+        <td class="field">screen_frames[].widget_params</td>
+        <td class="req">must</td>
+        <td>Widget-specific params. Type-checked at load.</td>
+      </tr>
+      <tr>
+        <td class="field">screen_frames[].animation</td>
+        <td class="req">must</td>
+        <td>Named animation ID (e.g. <code>sparkle_highlight</code>, <code>fade_in</code>).</td>
+      </tr>
+      <tr>
+        <td class="field">screen_frames[].sfx_cue</td>
+        <td class="req">must</td>
+        <td>Named SFX ID, resolved at runtime to an audio file.</td>
+      </tr>
+      <tr>
+        <td class="field">screen_frames[].trigger</td>
+        <td class="req">must</td>
+        <td>When the frame fires — round start, correct answer, closing.</td>
+      </tr>
+      <tr>
+        <td class="field">celebration_frame</td>
+        <td class="req">optional</td>
+        <td>A final screen on completion. Most playbook designs should have one.</td>
+      </tr>
+      <tr>
+        <td class="field">collection_catalog</td>
+        <td class="req">cat 5</td>
+        <td>Correct items and distractors, with IDs and match hints.</td>
+      </tr>
+      <tr>
+        <td class="field">collection_count</td>
+        <td class="req">cat 5</td>
+        <td>How many items before synthesis.</td>
+      </tr>
+      <tr>
+        <td class="field">photo_features</td>
+        <td class="req">cat 5</td>
+        <td>Hints for vision-based validation of captured photos.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">6.</span> Notes</h2>
+  <ol>
+    <li>The design studio in this repository is one reference implementation of Band II. It is useful for reading, not sacred. Any layer that solves the two challenges is a valid replacement.</li>
+    <li>The playbook, not this document, is the source of truth. If this document contradicts the playbook, trust the playbook and update this document.</li>
+    <li>The recipe contract in section 5 is maintained by the runtime team. If it changes, re-verify before using this as a checklist.</li>
+    <li>The runtime is out of scope. An intern's job ends when a recipe passes the contract validator.</li>
+    <li>Ship small. A working recipe that validates is worth more than a perfect design that does not.</li>
+  </ol>
+
+  <div class="refs">
+    <h2 style="font-size:13px;margin:0 0 10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);">References</h2>
+    <ol>
+      <li><a href="./game_design_playbook.md">The game design playbook</a> — source of truth.</li>
+      <li>The recipe contract — see §5 of this document.</li>
+      <li><a href="./2026-04-14-intern-pipeline-walkthrough.html">Rev A — Field notebook variant</a>.</li>
+      <li><a href="./2026-04-15-intern-pipeline-walkthrough-blueprint.html">Rev B — Blueprint variant</a>.</li>
+      <li><a href="./2026-04-15-intern-pipeline-walkthrough-museum.html">Rev C — Catalogue variant</a>.</li>
+    </ol>
+  </div>
+
+</main>
+
+</body>
+</html>
