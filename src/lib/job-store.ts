@@ -1,4 +1,4 @@
-import type { GenerationJob } from "@/lib/design-schema";
+import type { GenerationJob } from "@/lib/activity-bundle-schema";
 
 // ---------------------------------------------------------------------------
 // In-memory job store

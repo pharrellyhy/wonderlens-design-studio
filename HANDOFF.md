@@ -1,6 +1,65 @@
 # Session Handoff
 
-Last updated: 2026-04-27
+Last updated: 2026-05-08
+
+---
+
+## ActivityBundle Migration — Complete
+
+### Problem
+The on-disk activity layout was redesigned into a 5-file bundle per activity (`spec.md`, `prod.md`, `tag_block.yaml`, `recap.template.yaml`, `dashboard.template.yaml`) under `activities/<activity_id>/`. The studio was still emitting one `spec.md` + one `prod.md` from a flat `GameDesign` schema, so generation output, the export endpoint, and the existing-design importer were all misaligned with the canonical layout. The new `tag_block.yaml` carries closed-enum vocabularies (12 observation_angle, 10 mechanic, 4 entity_role, 7 IB key concepts, …) validated by `activities/_schema/tag_block.schema.json`, and recap/dashboard templates carry runtime placeholders the studio had no concept of.
+
+### Solution
+Replaced `GameDesign` with `ActivityBundle = { schemaVersion, activityId, generationMode, spec, prod, tagBlock, recap, dashboard }` and migrated every consumer. ONE LLM call returns the full bundle JSON; the existing 4-pass pipeline (generate → evaluate → fix → re-evaluate) keeps working unchanged at the orchestration level. 11 cross-doc invariants (e.g. `tagBlock.activity_id === bundle.activityId`, `recap.payloadDefaults.whatWeNoticed === tagBlock.activity_signature.observation_angle`) are enforced by Zod's `superRefine`. Export is now a ZIP download whose root is `<activity_id>/`. Import accepts ZIP or folder picker; the legacy single-`.md` parser is removed. Editor surfaces Spec / Prod / Tag Block as editable sections with closed-enum dropdowns, plus read-only Recap and Dashboard previews kept fresh by a cross-doc mirror in the store. The plan lives at `docs/plans/2026-05-07-activity-bundle-migration.md`.
+
+In a follow-up the importer also parses `## Self-Evaluation Scorecard` tables out of `spec.md` so author PASS/FAIL/N-A verdicts surface as initial rubric state, the editor's scorecard distinguishes "not evaluated yet" (neutral pills + banner) from a real all-fail, and an unrated import auto-triggers `/api/evaluate` on mount. Tone markers in all 5 canonical activities (`(parens)` / `*(parens)*`) were converted to `[brackets]` per D6.
+
+### Edits
+- `src/lib/activity-bundle-schema.ts` (NEW) — closed enums, 5 child schemas, `activityBundleSchema` with 11-invariant `superRefine`, renamed `variantResultSchema`/`generationJobSchema`, capitalisation map (lowercase studio pillar ↔ TitleCase tagBlock, `nurture ↔ Connection`).
+- `src/lib/bundle-export.ts` (NEW) — 5 renderers (`renderSpecMarkdown`, `renderProdMarkdown`, `renderTagBlockYaml`, `renderRecapYaml`, `renderDashboardYaml`) + `bundleToZip(bundle): Promise<{ bytes, filename }>`. Uses `jszip` + `js-yaml`.
+- `src/lib/bundle-import.ts` (NEW) — `importBundleFromZip` / `importBundleFromFiles` + narrow markdown parsers + scorecard parser (`parseSpecScorecard` returns `{ scores, evaluated }`); `BundleImportError` carries `missingFiles` and `zodIssues`.
+- `src/lib/__tests__/tag-block-schema-drift.test.ts` (NEW) — drift guard: every Zod enum is asserted against the canonical JSON Schema at test time. CI-blocking.
+- `src/lib/__tests__/bundle-roundtrip.test.ts` (NEW) — semantic round-trip on a hand-typed bundle + scorecard-parsing test.
+- `src/lib/design-schema.ts` — stripped `gameDesignSchema`/`variantResultSchema`/`generationJobSchema`/`synthesisTypeSchema`; primitives + 10D rubric constants kept.
+- `src/lib/pipeline.ts`, `runs-repository.ts`, `rubric-checks.ts`, `job-store.ts` — `design` → `bundle` throughout; D4 closing-step check repointed at `bundle.prod`; persisted `RunRecord.bundle` instead of `RunRecord.design`.
+- `src/lib/prompts/{generate,evaluate,fix,regenerate}.ts` — bundle-aware prompts. `generate.ts` inlines `activities/mystery_trail_butterfly/*` as a few-shot reference; lists every closed enum verbatim; states the 11 invariants. `regenerate.ts` rejects `recap.*` / `dashboard.*` paths (derived previews).
+- `src/app/api/{evaluate,regenerate,export,upload,library/[runId],generate,generate/opposite,generate/[jobId]/status}/route.ts` — `bundle` body field; `/api/export` returns `application/zip`; `/api/regenerate` 400s on derived-preview paths; opposite route derives lowercase pillar from `sourceRun.bundle.tagBlock.pillar` via reverse map.
+- `src/store/design-store.ts` — `activeBundle`/`setActiveBundle`; `updateField` write-guards `recap.*`/`dashboard.*`; `mirrorTagBlockSignatureChange` keeps recap + dashboard previews in sync when the user edits `tagBlock.activity_signature` fields. New `rubricEvaluated: boolean` flag distinguishes "not yet rated" from real evaluation.
+- `src/lib/api-client.ts` — `EvaluateParams`/`RegenerateParams`/`OpenRunResult` carry `bundle`; `exportDesign` returns `{ blob, filename }` from the new ZIP route; `ImportedBundleResult` now also carries `rubricEvaluated`.
+- `src/lib/generation-poller.ts` — `DesignVariant.bundle` from the renamed `VariantResult.bundle`.
+- `src/components/editor/NavigationPanel.tsx` — new grouped layout: Spec / Prod / Prod·Steps / TagBlock / Derived.
+- `src/components/editor/TagBlockPanel.tsx` (NEW) — closed-enum dropdowns + multi-selects + tier_support tri-state + entity_class_filter.
+- `src/components/editor/RecapPreview.tsx` (NEW) — read-only child-card preview + payloadDefaults table.
+- `src/components/editor/DashboardPreview.tsx` (NEW) — read-only session grid + contributesTo.
+- `src/components/editor/ScorecardPanel.tsx` — three visual states (unrated / pass / fail); banner when unrated; surfaces evaluator errors inline.
+- `src/components/gallery/VariantCard.tsx` — reads `bundle.prod`/`bundle.tagBlock`; new detail rows (focal_attribute, mechanic × observation_angle, reward_hook).
+- `src/app/editor/[designId]/page.tsx` — section restructure (spec / prod-basic / prod-overview / prod-attributes / prod-constellation / prod-step-N / tagBlock / recap-preview / dashboard-preview); ZIP-download export; `useEffect` auto-fires `/api/evaluate` when an unrated bundle is loaded.
+- `src/app/page.tsx`, `src/app/gallery/[entityId]/page.tsx`, `src/components/library/LibraryTabs.tsx` — `setActiveBundle` everywhere; importer-flow passes `evaluated=result.rubricEvaluated` so spec.md scorecards seed real verdicts.
+- `src/components/upload/ExistingDesignImporter.tsx` — drag-and-drop ZIP, "Pick ZIP" / "Pick folder" buttons (`webkitdirectory`), `BundleImportError`-aware error rendering.
+- `activities/{mystery_trail_butterfly,voice_stage_lion,polka_dot_patrol,color_scout_property,shape_quest_property}/prod.md` — tone markers converted from `(text)` / `*(text)*` to `[text]` so dialogue passes D6's "square brackets only" rule. 229 lines rewritten across the five activities.
+- `package.json` — added `jszip` (runtime), `tsx` (devDep — matches existing `npx tsx --test` convention from prior handoffs).
+- `docs/plans/2026-05-07-activity-bundle-migration.md` — design doc; harness plan file copied here per project convention.
+
+### NOT Changed
+- 10D rubric (D1–D10) is unchanged. D4 deterministic check moved from `design.steps` / `design.basicInfo.coreKeyConcepts` to `bundle.prod.steps` / `bundle.prod.basicInfo.coreIbKeyConcepts`; semantics identical.
+- `runs-repository.ts` filename scheme + atomic-write pattern.
+- The 4-pass pipeline orchestration (generate → evaluate → fix → re-evaluate, max 3 fix iterations).
+- `data/runs/*.json` — old fixtures remain deleted; only `.gitkeep` present.
+- The legacy single-`.md` importer was deleted in Phase 1; no fallback path. Bundle ZIP / folder is the only import shape.
+
+### Verification
+```
+./node_modules/.bin/tsc --noEmit --pretty false      # 0 errors
+./node_modules/.bin/eslint src                        # 0 errors
+./node_modules/.bin/tsx --test \
+  src/lib/__tests__/tag-block-schema-drift.test.ts \
+  src/lib/__tests__/bundle-roundtrip.test.ts          # 16/16 pass
+npm run build                                         # successful, 11 routes
+```
+
+End-to-end smoke (offline): parsing every canonical activity round-trips through `bundleToZip` + `importBundleFromZip` losslessly on `mystery_trail_butterfly` (the only one fully internally consistent at session time); re-rendered `tag_block.yaml` validates green against `activities/_schema/tag_block.schema.json` via the python `jsonschema` snippet in `activities/README.md`. Four other canonicals surface real on-disk drift the new validator correctly catches (color_scout / shape_quest gameStyle disagreement; polka_dot pillar→category→style mismatch; voice_stage_lion recommendedTier).
+
+Live-server `/api/export` HTTP smoke skipped: a pre-existing `npm run dev` (PID 86412) was holding port 3000 with stale code returning 502s. The route is a thin wrapper over `bundleToZip` (already verified offline) and is included in the successful `npm run build`.
 
 ---
 

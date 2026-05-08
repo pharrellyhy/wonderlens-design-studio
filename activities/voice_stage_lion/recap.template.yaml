@@ -1,0 +1,36 @@
+# Child recap payload shape for this game.
+# At runtime, {placeholders} are filled with session-specific values.
+recap_payload:
+  entity: "{runtime_entity}"            # e.g. lion
+  tier: "{runtime_tier}"                # T0 | T1 | T2
+  age_years: "{runtime_age}"
+
+  what_we_noticed: behavior
+  what_we_did:     voiced
+  entity_role:     subject
+
+  focal_attribute:
+    token: "lion_voice"
+    child_label: "the lion's voice"
+    badge_emoji_none: true
+
+  highlight_moment: "The judges gave you a standing ovation!"
+
+  finds:
+    - {label: "Happy roar",    photo: "{photo_round_1}"}
+    - {label: "Sleepy roar",   photo: "{photo_round_2}"}
+    - {label: "Whisper roar",  photo: "{photo_round_3}"}
+
+  difficulty_level: 2
+  next_step_hint:  "Next time, let's try voicing a different animal"
+
+  caregiver_observed: scaffold
+  reward_badge:       roar_star
+
+rendered:
+  title:  "You were the Roar Star today!"
+  line_1: "We heard a happy roar, a sleepy roar, and a whisper roar."
+  line_2: "Same lion — three totally different feelings."
+  line_3: "The judges loved every one of your roars!"
+  badge:  "Roar Star"
+  next:   "Next time, let's try voicing a different animal."

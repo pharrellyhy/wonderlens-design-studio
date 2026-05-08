@@ -7,10 +7,10 @@ import { deleteRun, getRun } from "@/lib/runs-repository";
 // ---------------------------------------------------------------------------
 //
 // Reads a single run record from disk and returns its rehydration payload:
-// the full GameDesign, its rubric scores, and the original designId. The
-// library "Open" button hits this endpoint, calls `setActiveDesign` on the
-// client zustand store with the result, and then routes to the editor — the
-// editor itself remains a pure client component reading from the store.
+// the full ActivityBundle, its rubric scores, and the original designId.
+// The library "Open" button hits this endpoint, hands the bundle to the
+// client store, and routes to the editor — the editor itself remains a pure
+// client component reading from the store.
 //
 // We do NOT rehydrate into the in-memory job store: the editor never reads
 // from there, and skipping that step keeps server-side state read-only.
@@ -31,7 +31,7 @@ export async function GET(
     return NextResponse.json({
       runId: run.runId,
       designId: run.designId,
-      design: run.design,
+      bundle: run.bundle,
       rubricScores: run.rubric,
     });
   } catch (error) {

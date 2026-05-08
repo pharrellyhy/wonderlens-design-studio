@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wonderlens/activity-autodesign/schemas/tag_block.schema.json",
+  "title": "Activity tag_block",
+  "description": "Structured metadata for a single activity. Canonical vocabulary lives in docs/activity_vocabulary.md — enum lists here MUST stay in sync with that doc (drift test compares them).",
+  "type": "object",
+  "required": [
+    "activity_id",
+    "version",
+    "template_type",
+    "pillar",
+    "game_style",
+    "entity",
+    "entity_binding",
+    "tier_range",
+    "key_concepts",
+    "progression",
+    "caregiver_role",
+    "activity_signature",
+    "matchability"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "activity_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]+$",
+      "description": "Lowercase snake_case; must match the parent directory name."
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "source_entity_exemplar": { "type": "string" },
+    "template_type": { "enum": ["cat1", "cat5"] },
+    "pillar": {
+      "enum": ["Discovery", "Performance", "Mystery", "Creation", "Adventure", "Connection"]
+    },
+    "game_style": { "type": "string" },
+
+    "entity": { "type": "string" },
+    "entity_class": { "type": "array", "items": { "type": "string" } },
+    "entity_binding": { "enum": ["bound", "parameterized", "agnostic"] },
+
+    "tier_range": {
+      "type": "object",
+      "required": ["primary", "span", "elasticity"],
+      "properties": {
+        "primary": { "enum": ["T0", "T1", "T2"] },
+        "span": {
+          "type": "array",
+          "items": { "enum": ["T0", "T1", "T2"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "elasticity": { "type": "string" }
+      }
+    },
+
+    "category": { "type": "string" },
+    "attributes": { "type": "array", "items": { "type": "string" } },
+
+    "key_concepts": {
+      "type": "array",
+      "items": {
+        "enum": ["Form", "Function", "Causation", "Change", "Connection", "Perspective", "Responsibility"]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "related_concepts": { "type": "array", "items": { "type": "string" } },
+    "atl_skills": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Recommended WonderLens thinking/learning skill tokens; see docs/activity_vocabulary.md. Not enum-enforced during legacy migration."
+    },
+    "transdisciplinary_theme": { "type": "string" },
+
+    "kud": {
+      "type": "object",
+      "properties": {
+        "know": { "type": "array", "items": { "type": "string" } },
+        "understand": { "type": "array", "items": { "type": "string" } },
+        "do": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "progression": {
+      "type": "object",
+      "required": ["topic_axis", "difficulty_level"],
+      "properties": {
+        "topic_axis": {
+          "enum": ["form", "function", "causation", "change", "connection", "perspective", "responsibility"],
+          "description": "Conceptual lens practiced by the activity. Orthogonal to activity_signature.observation_angle: the same axis can use many angles, and the same angle can support many axes."
+        },
+        "difficulty_level": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "next_step_hint": { "type": "string" },
+        "reward_hook": { "type": "string" }
+      }
+    },
+
+    "caregiver_role": {
+      "type": "array",
+      "items": { "enum": ["scaffold", "co-explorer", "observer"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+
+    "activity_signature": {
+      "type": "object",
+      "required": [
+        "observation_angle",
+        "mechanic",
+        "entity_role",
+        "focal_attribute",
+        "intro",
+        "bridge_prerequisites",
+        "preview_label",
+        "preview_prompt"
+      ],
+      "properties": {
+        "observation_angle": {
+          "enum": [
+            "color",
+            "shape",
+            "size",
+            "quantity",
+            "texture",
+            "material",
+            "pattern",
+            "function",
+            "origin",
+            "behavior",
+            "emotion",
+            "state"
+          ],
+          "description": "Closed enum — mirrors docs/activity_vocabulary.md observation_angle (12 values). Names the attribute/dimension under attention; orthogonal to progression.topic_axis, which names the conceptual lens."
+        },
+        "mechanic": {
+          "enum": [
+            "enumerate",
+            "compare",
+            "collect",
+            "sort",
+            "deduce",
+            "voice",
+            "build",
+            "predict",
+            "narrate",
+            "care"
+          ],
+          "description": "Closed enum — mirrors docs/activity_vocabulary.md mechanic (10 values)."
+        },
+        "entity_role": {
+          "enum": ["subject", "exemplar", "catalyst", "reference"],
+          "description": "Closed enum — mirrors docs/activity_vocabulary.md entity_role (4 values)."
+        },
+        "focal_attribute": { "type": "string", "minLength": 1 },
+        "intro": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Layer 2 presentation: one-sentence, third-person, observer-facing description of what the child does. May contain {placeholders} for parameterized entities. Rendered at session start."
+        },
+        "bridge_prerequisites": {
+          "type": "object",
+          "required": ["primary"],
+          "properties": {
+            "primary": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "color",
+                  "shape",
+                  "size",
+                  "quantity",
+                  "texture",
+                  "material",
+                  "pattern",
+                  "function",
+                  "origin",
+                  "behavior",
+                  "emotion",
+                  "state"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 3,
+              "uniqueItems": true,
+              "description": "Strongest transition angles; must use the same closed vocabulary as activity_signature.observation_angle."
+            },
+            "secondary": {
+              "type": "array",
+              "items": { "type": "string" },
+              "maxItems": 3,
+              "uniqueItems": true,
+              "description": "Prefer observation_angle enum values when possible. V1 permits non-enum editorial descriptors; only the enum subset participates in structured scoring."
+            }
+          }
+        },
+        "preview_label": { "type": "string", "minLength": 1 },
+        "preview_prompt": { "type": "string", "minLength": 1 },
+        "role_pivot_note": {
+          "type": "string",
+          "description": "Empty string when entity_role does not pivot (e.g., subject→subject)."
+        }
+      }
+    },
+
+    "matchability": {
+      "type": "object",
+      "required": ["entity_class_filter", "tier_support"],
+      "properties": {
+        "entity_class_filter": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Empty array = wide (matches any class)."
+        },
+        "tier_support": {
+          "type": "object",
+          "required": ["T0", "T1", "T2"],
+          "properties": {
+            "T0": { "type": "boolean" },
+            "T1": { "type": "boolean" },
+            "T2": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}

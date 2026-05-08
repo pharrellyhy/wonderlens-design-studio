@@ -1,11 +1,16 @@
 "use client";
 
-import { ArrowLeftRight, Award, Drama, TrendingUp } from "lucide-react";
-import type { GameDesign, RubricScores } from "@/lib/design-schema";
+import { ArrowLeftRight, Award, Crosshair, Layers } from "lucide-react";
+
+import {
+  TAG_BLOCK_PILLAR_TO_EXPERIENCE_PILLAR,
+  type ActivityBundle,
+} from "@/lib/activity-bundle-schema";
 import {
   RUBRIC_DIMENSIONS,
   RUBRIC_DIMENSION_COUNT,
   RUBRIC_DIMENSION_KEYS,
+  type RubricScores,
 } from "@/lib/design-schema";
 import { CategoryPill } from "@/components/common/CategoryPill";
 import { ModePill } from "@/components/common/ModePill";
@@ -16,7 +21,7 @@ interface VariantCardProps {
   status: "pending" | "complete" | "failed";
   category: string;
   gameStyle: string;
-  design?: GameDesign;
+  bundle?: ActivityBundle;
   rubricScores?: RubricScores;
   error?: string;
   parentDesignId?: string;
@@ -26,10 +31,6 @@ interface VariantCardProps {
   onGenerateOpposite: (designId: string) => void;
 }
 
-// The gameStyle pill shares the category's color (indigo for cat1, green
-// for cat5) so the two pills read as a matching pair. Kept inline because
-// gameStyle pills are only used in the variant gallery — not worth a
-// shared component for one call site.
 function gameStyleTagClass(category: string): string {
   return category === "cat1"
     ? "bg-indigo-900/50 text-indigo-300"
@@ -41,7 +42,7 @@ export function VariantCard({
   status,
   category,
   gameStyle,
-  design,
+  bundle,
   rubricScores,
   error,
   parentDesignId,
@@ -51,10 +52,13 @@ export function VariantCard({
   onGenerateOpposite,
 }: VariantCardProps) {
   const gameStyleClass = gameStyleTagClass(category);
-  const generationMode = design?.basicInfo.generationMode;
+  const generationMode = bundle?.generationMode;
+  const lowerPillar = bundle
+    ? TAG_BLOCK_PILLAR_TO_EXPERIENCE_PILLAR[bundle.tagBlock.pillar]
+    : null;
 
   // ── Pending placeholder ────────────────────────────────────────────────
-  if (status === "pending" || (status === "complete" && !design)) {
+  if (status === "pending" || (status === "complete" && !bundle)) {
     return (
       <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-5 min-h-[220px] flex flex-col">
         <div className="flex gap-1.5 flex-wrap mb-4">
@@ -78,7 +82,7 @@ export function VariantCard({
   }
 
   // ── Failed ─────────────────────────────────────────────────────────────
-  if (status === "failed" || !design || !rubricScores) {
+  if (status === "failed" || !bundle || !rubricScores) {
     return (
       <div className="bg-gray-800 border border-red-800/60 rounded-xl p-5 min-h-[220px] flex flex-col">
         <div className="flex gap-1.5 flex-wrap mb-3">
@@ -103,6 +107,11 @@ export function VariantCard({
   ).length;
   const allPass = passCount === RUBRIC_DIMENSION_COUNT;
 
+  const sig = bundle.tagBlock.activity_signature;
+  const focalAttribute = sig.focal_attribute;
+  const exploration = `${sig.mechanic} × ${sig.observation_angle}`;
+  const rewardHook = bundle.tagBlock.progression.reward_hook ?? "—";
+
   return (
     <div
       onClick={onClick}
@@ -116,7 +125,7 @@ export function VariantCard({
             {gameStyle}
           </span>
           {generationMode && <ModePill mode={generationMode} />}
-          <PillarPill pillar={design.basicInfo.experiencePillar} />
+          {lowerPillar && <PillarPill pillar={lowerPillar} />}
           {parentDesignId && (
             <span
               className="px-2 py-0.5 rounded text-xs font-medium bg-orange-900/50 text-orange-300"
@@ -137,33 +146,33 @@ export function VariantCard({
 
       {/* Title + description */}
       <h4 className="text-white font-semibold mb-2">
-        {design.basicInfo.activityName}
+        {bundle.prod.basicInfo.activityName}
       </h4>
       <p className="text-gray-400 text-sm leading-relaxed mb-3">
-        {design.overview.briefDescription}
+        {bundle.prod.overview.briefDescription}
       </p>
 
-      {/* Creative variables */}
+      {/* TagBlock signature highlights */}
       <div className="text-xs text-gray-500 space-y-1.5">
         <div className="flex items-start gap-2">
-          <Drama className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-indigo-400/70" />
+          <Crosshair className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-indigo-400/70" />
           <span>
-            <span className="text-gray-400 font-medium">Metaphor: </span>
-            {design.creativeVariables.metaphor}
+            <span className="text-gray-400 font-medium">Focal: </span>
+            {focalAttribute}
+          </span>
+        </div>
+        <div className="flex items-start gap-2">
+          <Layers className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-emerald-400/70" />
+          <span>
+            <span className="text-gray-400 font-medium">Cell: </span>
+            {exploration}
           </span>
         </div>
         <div className="flex items-start gap-2">
           <Award className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-400/70" />
           <span>
-            <span className="text-gray-400 font-medium">Badge: </span>
-            {design.creativeVariables.roleTitle}
-          </span>
-        </div>
-        <div className="flex items-start gap-2">
-          <TrendingUp className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-emerald-400/70" />
-          <span>
-            <span className="text-gray-400 font-medium">Escalation: </span>
-            {design.creativeVariables.escalationAxis}
+            <span className="text-gray-400 font-medium">Reward: </span>
+            {rewardHook}
           </span>
         </div>
       </div>

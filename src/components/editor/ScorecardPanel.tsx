@@ -19,6 +19,19 @@ import {
 interface ScorecardPanelProps {
   scores: RubricScores;
   issues: RubricIssue[];
+  /**
+   * Whether `scores` reflects a real LLM evaluation in this session. When
+   * false, the dimension list is rendered in a neutral "not evaluated"
+   * state instead of red/green pills, so an unrated import doesn't read as
+   * "scored 0/10".
+   */
+  evaluated: boolean;
+  /**
+   * Error message from the most recent evaluate attempt (if any). Shown
+   * inline at the top of the scorecard so the user knows the auto-trigger
+   * failed rather than thinking the rubric ran and produced all-fail.
+   */
+  evalError: string | null;
   onRerunRubric: () => void;
   onRegenerateWithFeedback: (feedback: string) => void;
   onExport: () => void;
@@ -32,6 +45,8 @@ const DIMENSION_KEYS = Object.keys(RUBRIC_DIMENSIONS) as DimensionKey[];
 export function ScorecardPanel({
   scores,
   issues,
+  evaluated,
+  evalError,
   onRerunRubric,
   onRegenerateWithFeedback,
   onExport,
@@ -63,6 +78,26 @@ export function ScorecardPanel({
         Quality Score
       </h4>
 
+      {/* Unrated banner — distinguishes "no evaluation yet" from a real
+          evaluated 0/10. Shown only when nothing has been rated this
+          session AND we're not currently evaluating. */}
+      {!evaluated && !isEvaluating && (
+        <div className="mb-3 rounded-md border border-blue-900/60 bg-blue-950/30 p-2.5 text-xs text-blue-200">
+          <span className="block font-semibold">Not evaluated yet</span>
+          <span className="block mt-1 text-blue-300/80">
+            Click <span className="font-semibold">Re-run Rubric</span> below
+            to score this design across D1–D10. Imported designs are not
+            auto-rated.
+          </span>
+        </div>
+      )}
+      {evalError && (
+        <div className="mb-3 rounded-md border border-red-700 bg-red-950/40 p-2.5 text-xs text-red-300">
+          <span className="block font-semibold">Evaluation failed</span>
+          <span className="block mt-1">{evalError}</span>
+        </div>
+      )}
+
       {/* Dimension scores */}
       <div className="space-y-1.5">
         {DIMENSION_KEYS.map((dim) => {
@@ -70,14 +105,26 @@ export function ScorecardPanel({
           const isOpen = expanded.has(dim);
           const issueText = issueByDim.get(dim);
 
+          // Three visual states: not yet rated (neutral), passed (green),
+          // failed (red). Only the LLM evaluator can promote a dimension
+          // to PASS, so the UI distinguishes a fresh-import default from a
+          // real fail outcome.
+          const containerClass = !evaluated
+            ? "bg-gray-900/40 border border-gray-800"
+            : isPass
+              ? "bg-green-950/40 border border-green-900/60"
+              : "bg-red-950/40 border border-red-900/60";
+          const verdictClass = !evaluated
+            ? "text-gray-500"
+            : isPass
+              ? "text-green-400"
+              : "text-red-400";
+          const verdictText = !evaluated ? "—" : isPass ? "PASS" : "FAIL";
+
           return (
             <div
               key={dim}
-              className={`rounded-md text-xs overflow-hidden ${
-                isPass
-                  ? "bg-green-950/40 border border-green-900/60"
-                  : "bg-red-950/40 border border-red-900/60"
-              }`}
+              className={`rounded-md text-xs overflow-hidden ${containerClass}`}
             >
               <button
                 onClick={() => toggle(dim)}
@@ -92,19 +139,15 @@ export function ScorecardPanel({
                   <span className="font-mono uppercase">{dim}</span>
                   <span className="truncate">{RUBRIC_DIMENSIONS[dim]}</span>
                 </span>
-                <span
-                  className={`font-semibold ${
-                    isPass ? "text-green-400" : "text-red-400"
-                  }`}
-                >
-                  {isPass ? "PASS" : "FAIL"}
+                <span className={`font-semibold ${verdictClass}`}>
+                  {verdictText}
                 </span>
               </button>
 
               {isOpen && (
                 <div className="px-3 pb-2.5 pt-1 text-gray-400 leading-relaxed border-t border-white/5 space-y-2">
                   <p>{RUBRIC_DIMENSION_DESCRIPTIONS[dim]}</p>
-                  {!isPass && issueText && (
+                  {evaluated && !isPass && issueText && (
                     <p className="text-red-300 bg-red-950/40 rounded px-2 py-1.5">
                       <span className="font-semibold">Issue: </span>
                       {issueText}

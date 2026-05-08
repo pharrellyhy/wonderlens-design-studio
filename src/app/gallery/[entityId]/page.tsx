@@ -25,7 +25,7 @@ export default function GalleryPage() {
   const parsedEntity = useDesignStore((s) => s.parsedEntity);
   const variants = useDesignStore((s) => s.variants);
   const setVariants = useDesignStore((s) => s.setVariants);
-  const setActiveDesign = useDesignStore((s) => s.setActiveDesign);
+  const setActiveBundle = useDesignStore((s) => s.setActiveBundle);
   const generationJobId = useDesignStore((s) => s.generationJobId);
   const setGenerationJobId = useDesignStore((s) => s.setGenerationJobId);
   const generationMode = useDesignStore((s) => s.generationMode);
@@ -253,8 +253,8 @@ export default function GalleryPage() {
 
   const handleSelectVariant = (variantId: string) => {
     const variant = variants.find((v) => v.id === variantId);
-    if (variant && variant.design && variant.rubricScores) {
-      setActiveDesign(variantId, variant.design, variant.rubricScores);
+    if (variant && variant.bundle && variant.rubricScores) {
+      setActiveBundle(variantId, variant.bundle, variant.rubricScores);
       router.push(`/editor/${variantId}`);
     }
   };
@@ -360,7 +360,7 @@ export default function GalleryPage() {
                 status={variant.status}
                 category={variant.category}
                 gameStyle={variant.gameStyle}
-                design={variant.design}
+                bundle={variant.bundle}
                 rubricScores={variant.rubricScores}
                 error={variant.error}
                 parentDesignId={variant.parentDesignId}

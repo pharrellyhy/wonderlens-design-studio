@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { gameDesignSchema, rubricScoresSchema, rubricIssueSchema } from "@/lib/design-schema";
+import { activityBundleSchema } from "@/lib/activity-bundle-schema";
+import { rubricScoresSchema, rubricIssueSchema } from "@/lib/design-schema";
 import { getServerLLMProvider } from "@/lib/llm/provider";
 import { parseJsonResponse } from "@/lib/pipeline";
 import { buildEvaluateMessages } from "@/lib/prompts/evaluate";
@@ -23,16 +24,16 @@ const evaluateResponseSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { design } = body as { design: unknown };
+    const { bundle } = body as { bundle: unknown };
 
-    if (!design) {
+    if (!bundle) {
       return NextResponse.json(
-        { error: "Missing required field: design" },
+        { error: "Missing required field: bundle" },
         { status: 400 },
       );
     }
 
-    const validatedDesign = gameDesignSchema.parse(design);
+    const validatedBundle = activityBundleSchema.parse(bundle);
 
     let provider;
     try {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 500 });
     }
 
-    const messages = buildEvaluateMessages(validatedDesign);
+    const messages = buildEvaluateMessages(validatedBundle);
 
     const rawResponse = await provider.generate(messages, {
       jsonMode: true,
@@ -56,12 +57,12 @@ export async function POST(request: NextRequest) {
     const result = evaluateResponseSchema.parse(parsed);
 
     // Apply deterministic D4 pre-check override — if the closing step's
-    // conceptReinforcement does not name at least one coreKeyConcept, D4 is a
-    // hard fail regardless of what the LLM decided.
+    // conceptReinforcement does not name at least one core IB key concept,
+    // D4 is a hard fail regardless of what the LLM decided.
     const { scores, issues } = applyD4Override(
       result.scores,
       result.issues,
-      validatedDesign,
+      validatedBundle,
     );
 
     return NextResponse.json({

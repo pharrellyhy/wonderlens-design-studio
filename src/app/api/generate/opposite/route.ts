@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { TAG_BLOCK_PILLAR_TO_EXPERIENCE_PILLAR } from "@/lib/activity-bundle-schema";
 import { PILLAR_STYLES } from "@/lib/design-schema";
 import type { Category } from "@/lib/design-schema";
 import { cleanupJobs } from "@/lib/job-store";
@@ -79,11 +80,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Preserve the source design's experience pillar — "opposite" flips the
-  // category only. PILLAR_STYLES is a total Record over all pillars so
-  // both branches are statically defined.
+  // Preserve the source bundle's experience pillar — "opposite" flips the
+  // category only. tagBlock.pillar is TitleCase; convert to the studio's
+  // lowercase pillar key to look up PILLAR_STYLES.
   const targetCategory = oppositeCategory(sourceRun.category);
-  const sourcePillar = sourceRun.design.basicInfo.experiencePillar;
+  const sourcePillar =
+    TAG_BLOCK_PILLAR_TO_EXPERIENCE_PILLAR[sourceRun.bundle.tagBlock.pillar];
   const targetGameStyle = PILLAR_STYLES[sourcePillar][targetCategory];
   const generationMode = sourceRun.generationMode;
 

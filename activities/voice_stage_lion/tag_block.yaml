@@ -1,0 +1,59 @@
+# ─── §0 · IDENTITY ────────────────────────────────────
+activity_id: voice_stage_lion
+version: 1
+source_entity_exemplar: lion
+template_type: cat1
+pillar: Performance
+game_style: voice_stage
+
+# ─── §1 · IB FRAME ────────────────────────────────────
+entity: lion
+entity_class: [big_cat, mammal, animal]
+entity_binding: bound
+tier_range:
+  primary: T0
+  span: [T0, T1, T2]
+  elasticity: "±1"
+
+category: animals
+attributes: [mane, roar, big_cat]
+
+key_concepts: [Form, Perspective]
+related_concepts: [imagination, expression]
+atl_skills: [communication, perspective-taking]
+transdisciplinary_theme: How_We_Express_Ourselves
+
+kud:
+  know:       ["lions have a mane and a loud roar", "a roar can express different feelings"]
+  understand: ["the same creature can express itself in many different ways"]
+  do:         ["give the lion a voice and personality"]
+
+progression:
+  topic_axis: perspective
+  difficulty_level: 2
+  next_step_hint: "Next time, try voicing a different animal with a different feeling"
+  reward_hook: "Earned the Roar Star badge"
+
+caregiver_role: [scaffold]
+
+# ─── §2 · ACTIVITY SIGNATURE ───────────────────────────
+activity_signature:
+  # ── Layer 1: editorial identity (fixed; matcher reads these) ──
+  observation_angle: behavior
+  mechanic: voice
+  entity_role: subject
+  bridge_prerequisites:
+    primary:   [behavior, function]
+    secondary: [sound, context]
+
+  # ── Layer 2: presentation (author templates; runtime renders) ──
+  focal_attribute: "lion_voice"
+  intro: "The child gives the {entity} a voice and personality to match its presence."
+  preview_label:  "Let's voice the lion!"
+  preview_prompt: "The lion looks fierce. What would it say if it could talk?"
+  role_pivot_note: ""
+
+# ─── §3 · MATCHABILITY (from 2026-04-20 spec) ─────────
+matchability:
+  entity_class_filter: [big_cat]
+  tier_support: {T0: yes, T1: yes, T2: yes}

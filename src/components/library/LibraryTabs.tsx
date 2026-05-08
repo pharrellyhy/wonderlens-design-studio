@@ -36,7 +36,7 @@ interface LibraryTabsProps {
 //   - `error` shows transient failure copy at the top of the active tab.
 export function LibraryTabs({ runs }: LibraryTabsProps) {
   const router = useRouter();
-  const setActiveDesign = useDesignStore((s) => s.setActiveDesign);
+  const setActiveBundle = useDesignStore((s) => s.setActiveBundle);
 
   const [tab, setTab] = useState<Tab>("table");
   const [localRuns, setLocalRuns] = useState<RunRecord[]>(runs);
@@ -50,10 +50,10 @@ export function LibraryTabs({ runs }: LibraryTabsProps) {
       setError(null);
       try {
         const result = await openLibraryRun(runId);
-        // Push the design back into the client zustand store so the editor
+        // Push the bundle back into the client zustand store so the editor
         // (which is a pure client component reading from the store) renders
-        // it on mount. `setActiveDesign` also clears stale rubric issues.
-        setActiveDesign(result.designId, result.design, result.rubricScores);
+        // it on mount. `setActiveBundle` also clears stale rubric issues.
+        setActiveBundle(result.designId, result.bundle, result.rubricScores);
         router.push(`/editor/${result.designId}`);
         // Clear immediately after kicking off navigation so that if the
         // user comes back via the browser Back button (or our nav link),
@@ -66,7 +66,7 @@ export function LibraryTabs({ runs }: LibraryTabsProps) {
         setBusyRunId(null);
       }
     },
-    [busyRunId, router, setActiveDesign],
+    [busyRunId, router, setActiveBundle],
   );
 
   const handleDelete = useCallback(

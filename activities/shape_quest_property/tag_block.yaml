@@ -1,0 +1,61 @@
+# ─── §0 · IDENTITY ────────────────────────────────────
+activity_id: shape_quest_property
+version: 1
+source_entity_exemplar: ladybug        # exemplar entity for illustrating the template
+template_type: cat5
+pillar: Adventure                       # quest_collector → Adventure
+game_style: quest_collector
+
+# ─── §1 · IB FRAME ────────────────────────────────────
+entity: "{parameterized_by_matched_property}"
+entity_class: []                        # filled at runtime from matched entity's class chain
+entity_binding: parameterized
+tier_range:
+  primary: T1
+  span: [T0, T1, T2]
+  elasticity: "±1"
+
+category: objects                       # filled at runtime
+attributes: []                          # filled at runtime
+
+key_concepts: [Form, Connection]
+related_concepts: [pattern, similarity, observation, design]
+atl_skills: [observation, classification]
+transdisciplinary_theme: How_We_Express_Ourselves
+
+kud:
+  know:       ["the focal shape appears on many kinds of things"]
+  understand: ["shape is a property we can use to group things"]
+  do:         ["find 3 things that share the focal shape", "turn the shape finds into a team adventure"]
+
+progression:
+  topic_axis: form
+  difficulty_level: 2                   # L2: extend attributes into category
+  next_step_hint: "Next time, notice another attribute alongside shape"
+  reward_hook: "Earned the Shape Quest badge"
+
+caregiver_role: [scaffold, co-explorer]
+
+# ─── §2 · ACTIVITY SIGNATURE ───────────────────────────
+activity_signature:
+  # ── Layer 1: editorial identity (fixed; matcher reads these) ──
+  observation_angle: shape
+  mechanic: collect
+  entity_role: exemplar
+  bridge_prerequisites:
+    primary:   [shape]
+    secondary: [size, pattern]
+
+  # ── Layer 2: presentation (author templates; runtime renders) ──
+  focal_attribute: "{matched_shape}"    # runtime-parameterized from matched property
+  intro: "The child finds three {shape} things using the photographed {entity} as a starting example."
+  preview_label:  "Find three {shape} things!"
+  preview_prompt: "You noticed the {shape} of the {entity}. Let's go find more {shape} things together."
+  role_pivot_note: |
+    The {entity} was our subject during the chat; now it becomes an
+    EXAMPLE of {shape} — we're going to find more {shape} things.
+
+# ─── §3 · MATCHABILITY (from 2026-04-20 spec) ─────────
+matchability:
+  entity_class_filter: []               # wide — runs against any shape-bearing entity
+  tier_support: {T0: yes, T1: yes, T2: yes}

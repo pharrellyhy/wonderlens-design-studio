@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { gameDesignSchema } from "@/lib/design-schema";
+import { activityBundleSchema } from "@/lib/activity-bundle-schema";
 import { getServerLLMProvider } from "@/lib/llm/provider";
 import { buildRegenerateMessages } from "@/lib/prompts/regenerate";
 
@@ -12,21 +12,38 @@ import { buildRegenerateMessages } from "@/lib/prompts/regenerate";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { design, fieldPath, comment } = body as {
-      design: unknown;
+    const { bundle, fieldPath, comment } = body as {
+      bundle: unknown;
       fieldPath?: string;
       comment: string;
     };
     const targetFieldPath = fieldPath ?? "";
 
-    if (!design || !comment) {
+    if (!bundle || !comment) {
       return NextResponse.json(
-        { error: "Missing required fields: design, comment" },
+        { error: "Missing required fields: bundle, comment" },
         { status: 400 },
       );
     }
 
-    const validatedDesign = gameDesignSchema.parse(design);
+    // Reject regeneration on derived previews — recap and dashboard are
+    // computed from spec/prod/tagBlock at validate time, so any user-driven
+    // change must land on those source-of-truth fields instead.
+    if (
+      targetFieldPath.startsWith("recap.") ||
+      targetFieldPath.startsWith("dashboard.") ||
+      targetFieldPath === "recap" ||
+      targetFieldPath === "dashboard"
+    ) {
+      return NextResponse.json(
+        {
+          error: `Field path '${targetFieldPath}' is a derived preview. Edit the corresponding spec/prod/tagBlock field instead.`,
+        },
+        { status: 400 },
+      );
+    }
+
+    const validatedBundle = activityBundleSchema.parse(bundle);
 
     let provider;
     try {
@@ -40,9 +57,9 @@ export async function POST(request: NextRequest) {
     }
 
     const messages = buildRegenerateMessages(
-      validatedDesign,
+      validatedBundle,
       targetFieldPath,
-      comment
+      comment,
     );
 
     // No jsonMode — output may be plain text (a single string value)
@@ -50,10 +67,8 @@ export async function POST(request: NextRequest) {
       temperature: 0.7,
     });
 
-    // Try JSON.parse first, fall back to cleaned string
     let updatedValue: unknown;
     try {
-      // Strip markdown fences if present
       let cleaned = rawResponse.trim();
       const fencePattern = /^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/;
       const match = fencePattern.exec(cleaned);
@@ -62,7 +77,6 @@ export async function POST(request: NextRequest) {
       }
       updatedValue = JSON.parse(cleaned);
     } catch {
-      // Not valid JSON — treat as a plain string value
       updatedValue = rawResponse.trim();
     }
 

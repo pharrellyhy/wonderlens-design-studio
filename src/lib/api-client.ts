@@ -1,9 +1,11 @@
 import type {
-  GameDesign,
+  ActivityBundle,
   GenerationJob,
+} from "./activity-bundle-schema";
+import type {
   GenerationMode,
-  RubricScores,
   RubricIssue,
+  RubricScores,
 } from "./design-schema";
 import type { ParsedEntity } from "./yaml-parser";
 
@@ -12,8 +14,6 @@ import type { ParsedEntity } from "./yaml-parser";
 export interface GenerateParams {
   entityYaml: string;
   variantConfigs?: Array<{ category: string; gameStyle: string }>;
-  // Required: the /api/generate route returns 400 if missing. Threaded from
-  // the upload/gallery UI toggle — never defaulted client-side.
   generationMode: GenerationMode;
 }
 
@@ -22,7 +22,7 @@ export interface GenerateOppositeParams {
 }
 
 export interface EvaluateParams {
-  design: GameDesign;
+  bundle: ActivityBundle;
 }
 
 export interface EvaluationResult {
@@ -31,19 +31,18 @@ export interface EvaluationResult {
 }
 
 export interface RegenerateParams {
-  design: GameDesign;
+  bundle: ActivityBundle;
   fieldPath: string;
   comment: string;
 }
 
 export interface ExportParams {
-  design: GameDesign;
-  format: "spec" | "prod" | "both";
+  bundle: ActivityBundle;
 }
 
 export interface ExportResult {
-  specMd?: string;
-  prodMd?: string;
+  blob: Blob;
+  filename: string;
 }
 
 // ── Helper ──────────────────────────────────────────────────────────────────
@@ -115,7 +114,9 @@ export async function fetchParentsWithOpposite(
   return data.parentIdsWithOpposite;
 }
 
-export async function evaluateDesign(params: EvaluateParams): Promise<EvaluationResult> {
+export async function evaluateDesign(
+  params: EvaluateParams,
+): Promise<EvaluationResult> {
   return apiFetch<EvaluationResult>("/api/evaluate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -133,12 +134,33 @@ export async function regenerateField(params: RegenerateParams): Promise<unknown
   return data.updatedValue;
 }
 
+/**
+ * Export a bundle as a ZIP archive. Returns the blob plus the suggested
+ * filename (taken from the server's content-disposition header so it
+ * matches the bundle's activityId).
+ */
 export async function exportDesign(params: ExportParams): Promise<ExportResult> {
-  return apiFetch<ExportResult>("/api/export", {
+  const response = await fetch("/api/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
+  if (!response.ok) {
+    let message = response.statusText;
+    try {
+      const body = await response.json();
+      message = body.error ?? message;
+    } catch {
+      // fall through with statusText
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const cd = response.headers.get("content-disposition") ?? "";
+  const m = /filename="([^"]+)"/.exec(cd);
+  const filename = m ? m[1] : `${params.bundle.activityId}.zip`;
+  return { blob, filename };
 }
 
 // ── Library actions ─────────────────────────────────────────────────────────
@@ -146,7 +168,7 @@ export async function exportDesign(params: ExportParams): Promise<ExportResult> 
 export interface OpenRunResult {
   runId: string;
   designId: string;
-  design: GameDesign;
+  bundle: ActivityBundle;
   rubricScores: RubricScores;
 }
 

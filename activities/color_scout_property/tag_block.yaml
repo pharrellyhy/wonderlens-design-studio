@@ -1,0 +1,61 @@
+# ─── §0 · IDENTITY ────────────────────────────────────
+activity_id: color_scout_property
+version: 1
+source_entity_exemplar: ladybug        # exemplar entity for illustrating the template
+template_type: cat5
+pillar: Adventure                       # quest_collector → Adventure
+game_style: quest_collector
+
+# ─── §1 · IB FRAME ────────────────────────────────────
+entity: "{parameterized_by_matched_property}"
+entity_class: []                        # filled at runtime from matched entity's class chain
+entity_binding: parameterized
+tier_range:
+  primary: T1
+  span: [T0, T1, T2]
+  elasticity: "±1"
+
+category: objects                       # filled at runtime
+attributes: []                          # filled at runtime
+
+key_concepts: [Form, Connection]
+related_concepts: [pattern, similarity, observation, identity]
+atl_skills: [observation, classification]
+transdisciplinary_theme: How_We_Express_Ourselves
+
+kud:
+  know:       ["the focal color appears on many kinds of things"]
+  understand: ["color is a property we can use to group things"]
+  do:         ["find 3 things that share the focal color", "turn the color finds into a team adventure"]
+
+progression:
+  topic_axis: form
+  difficulty_level: 2                   # L2: extend attributes into category
+  next_step_hint: "Next time, notice another attribute alongside color"
+  reward_hook: "Earned the Color Scout badge"
+
+caregiver_role: [scaffold, co-explorer]
+
+# ─── §2 · ACTIVITY SIGNATURE ───────────────────────────
+activity_signature:
+  # ── Layer 1: editorial identity (fixed; matcher reads these) ──
+  observation_angle: color
+  mechanic: collect
+  entity_role: exemplar
+  bridge_prerequisites:
+    primary:   [color]
+    secondary: [pattern, visibility]
+
+  # ── Layer 2: presentation (author templates; runtime renders) ──
+  focal_attribute: "{matched_color}"    # runtime-parameterized from matched property
+  intro: "The child finds three {color} things using the photographed {entity} as a starting example."
+  preview_label:  "Find three {color} things!"
+  preview_prompt: "You noticed the {color} of the {entity}. Let's go find more {color} things together."
+  role_pivot_note: |
+    The {entity} was our subject during the chat; now it becomes an
+    EXAMPLE of {color} — we're going to find more {color} things.
+
+# ─── §3 · MATCHABILITY (from 2026-04-20 spec) ─────────
+matchability:
+  entity_class_filter: []               # wide — runs against any color-bearing entity
+  tier_support: {T0: yes, T1: yes, T2: yes}

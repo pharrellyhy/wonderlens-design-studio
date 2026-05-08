@@ -1,6 +1,7 @@
 import { create } from "zustand";
+
+import type { ActivityBundle } from "@/lib/activity-bundle-schema";
 import type {
-  GameDesign,
   GenerationMode,
   RubricIssue,
   RubricScores,
@@ -12,13 +13,9 @@ export interface DesignVariant {
   category: string;
   gameStyle: string;
   status: "pending" | "complete" | "failed";
-  design?: GameDesign;
+  bundle?: ActivityBundle;
   rubricScores?: RubricScores;
   error?: string;
-  // When set, this variant was generated as the opposite category of
-  // another variant in the same gallery. Populated client-side at dispatch
-  // time — the in-memory VariantResult pushed by the poller does not carry
-  // parent info, so we stitch it in via `addVariant(..., { parentDesignId })`.
   parentDesignId?: string;
 }
 
@@ -34,39 +31,42 @@ interface DesignStore {
   updateVariant: (id: string, update: Partial<DesignVariant>) => void;
 
   // Editor state
-  activeDesign: GameDesign | null;
+  activeBundle: ActivityBundle | null;
   activeDesignId: string | null;
   rubricScores: RubricScores | null;
   rubricIssues: RubricIssue[];
-  setActiveDesign: (id: string, design: GameDesign, scores: RubricScores) => void;
+  /**
+   * False until the LLM rubric has actually scored this bundle in this
+   * session. Disambiguates "no evaluation yet" from "evaluated and failing
+   * everything" — the importer seeds rubricScores to all-fail by design,
+   * which would otherwise look identical to a real 0/10 score.
+   */
+  rubricEvaluated: boolean;
+  setActiveBundle: (
+    id: string,
+    bundle: ActivityBundle,
+    scores: RubricScores,
+    evaluated?: boolean,
+  ) => void;
   setRubricIssues: (issues: RubricIssue[]) => void;
 
-  // Update a field in the active design by path
   updateField: (path: string, value: unknown) => void;
 
   // Generation job tracking
   generationJobId: string | null;
   setGenerationJobId: (id: string | null) => void;
 
-  // Generation mode (mapping-informed vs freeform). Session-only — not
-  // persisted so it defaults fresh each visit. Threaded into POST /api/generate.
   generationMode: GenerationMode;
   setGenerationMode: (mode: GenerationMode) => void;
 
-  // Set of parent designIds that already have a persisted opposite on disk.
-  // Populated on gallery mount via GET /api/runs/opposites and updated when
-  // an opposite-generation job completes. Disables the "Generate opposite"
-  // button on cards whose parent is already in this set.
   parentsWithOpposite: string[];
   setParentsWithOpposite: (ids: string[]) => void;
   addParentWithOpposite: (id: string) => void;
 
-  // UI state
   activeSection: string;
   setActiveSection: (section: string) => void;
   setRubricScores: (scores: RubricScores) => void;
 
-  // Reset everything tied to the current upload session.
   resetSession: () => void;
 }
 
@@ -77,7 +77,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function setNestedValue(
   currentValue: unknown,
   pathSegments: string[],
-  nextValue: unknown
+  nextValue: unknown,
 ): unknown {
   const [segment, ...remainingSegments] = pathSegments;
 
@@ -91,7 +91,7 @@ function setNestedValue(
     nextArray[index] = setNestedValue(
       nextArray[index],
       remainingSegments,
-      nextValue
+      nextValue,
     );
     return nextArray;
   }
@@ -100,9 +100,87 @@ function setNestedValue(
   nextObject[segment] = setNestedValue(
     nextObject[segment],
     remainingSegments,
-    nextValue
+    nextValue,
   );
   return nextObject;
+}
+
+// ---------------------------------------------------------------------------
+// Cross-doc mirror — keep recap/dashboard previews fresh as the user edits
+// tagBlock.activity_signature fields.
+//
+// The schema's superRefine enforces these mirrors at validate time; the
+// editor surfaces recap/dashboard as read-only previews. Without this
+// mirror, the previews would silently go stale every time the user changes
+// the canonical observation_angle / mechanic / entity_role / focal_attribute
+// — and re-evaluate would surface I8/I9/I10 violations from the user's
+// perspective ("I never edited those!").
+// ---------------------------------------------------------------------------
+
+function mirrorTagBlockSignatureChange(
+  bundle: ActivityBundle,
+  path: string,
+  value: unknown,
+): ActivityBundle {
+  // We only mirror string-valued single-leaf changes; bulk replacements of
+  // activity_signature itself are out of scope (the user is doing surgery
+  // and is expected to fix recap/dashboard manually).
+  if (typeof value !== "string") return bundle;
+
+  const next: ActivityBundle = JSON.parse(JSON.stringify(bundle));
+  const sig = next.tagBlock.activity_signature;
+  switch (path) {
+    case "tagBlock.activity_signature.observation_angle":
+      next.recap.payloadDefaults.whatWeNoticed =
+        value as typeof sig.observation_angle;
+      next.dashboard.session.angle = value as typeof sig.observation_angle;
+      next.dashboard.contributesTo.curiosityRadial.angle =
+        value as typeof sig.observation_angle;
+      next.dashboard.contributesTo.explorationMatrix.cell = `${sig.mechanic} × ${value}`;
+      for (const entry of Object.values(
+        next.dashboard.contributesTo.keyConceptsExposure,
+      )) {
+        if (entry) entry.angle = value as typeof sig.observation_angle;
+      }
+      next.spec.identity.observationAngle = value as typeof sig.observation_angle;
+      return next;
+    case "tagBlock.activity_signature.mechanic":
+      next.dashboard.session.mechanic = value as typeof sig.mechanic;
+      next.dashboard.contributesTo.explorationMatrix.cell = `${value} × ${sig.observation_angle}`;
+      next.spec.identity.mechanic = value as typeof sig.mechanic;
+      return next;
+    case "tagBlock.activity_signature.entity_role":
+      next.recap.payloadDefaults.entityRole = value as typeof sig.entity_role;
+      next.dashboard.session.entityRole = value as typeof sig.entity_role;
+      next.spec.identity.entityRole = value as typeof sig.entity_role;
+      return next;
+    case "tagBlock.activity_signature.focal_attribute":
+      next.dashboard.session.focalAttribute = value;
+      return next;
+    case "tagBlock.progression.topic_axis":
+      next.dashboard.session.axis = value as typeof next.tagBlock.progression.topic_axis;
+      next.dashboard.contributesTo.curiosityRadial.axis =
+        value as typeof next.tagBlock.progression.topic_axis;
+      return next;
+    case "tagBlock.pillar":
+      next.spec.identity.pillar = value as typeof next.tagBlock.pillar;
+      return next;
+    case "tagBlock.game_style":
+      next.spec.identity.gameStyle = value;
+      next.prod.basicInfo.gameStyle = value;
+      return next;
+    default:
+      return bundle;
+  }
+}
+
+function isProtectedDerivedPath(path: string): boolean {
+  return (
+    path === "recap" ||
+    path === "dashboard" ||
+    path.startsWith("recap.") ||
+    path.startsWith("dashboard.")
+  );
 }
 
 export const useDesignStore = create<DesignStore>()((set) => ({
@@ -116,32 +194,44 @@ export const useDesignStore = create<DesignStore>()((set) => ({
   updateVariant: (id, update) =>
     set((state) => ({
       variants: state.variants.map((v) =>
-        v.id === id ? { ...v, ...update } : v
+        v.id === id ? { ...v, ...update } : v,
       ),
     })),
 
-  activeDesign: null,
+  activeBundle: null,
   activeDesignId: null,
   rubricScores: null,
   rubricIssues: [],
-  setActiveDesign: (id, design, scores) =>
+  rubricEvaluated: false,
+  setActiveBundle: (id, bundle, scores, evaluated = true) =>
     set({
       activeDesignId: id,
-      activeDesign: design,
+      activeBundle: bundle,
       rubricScores: scores,
       rubricIssues: [],
+      rubricEvaluated: evaluated,
     }),
   setRubricIssues: (issues) => set({ rubricIssues: issues }),
 
   updateField: (path, value) =>
     set((state) => {
-      if (!state.activeDesign) return state;
+      if (!state.activeBundle) return state;
+      if (isProtectedDerivedPath(path)) {
+        // Recap and dashboard are derived previews — block direct writes
+        // and surface a warning so callers notice. Mirror updates from
+        // tagBlock changes flow through the explicit mirror branch below.
+        console.warn(
+          `[design-store] Refusing to write derived path '${path}'. Edit the corresponding tagBlock field instead.`,
+        );
+        return state;
+      }
+      const updated = setNestedValue(
+        state.activeBundle,
+        path.split(/\.|\[|\]/).filter(Boolean),
+        value,
+      ) as ActivityBundle;
       return {
-        activeDesign: setNestedValue(
-          state.activeDesign,
-          path.split("."),
-          value
-        ) as GameDesign,
+        activeBundle: mirrorTagBlockSignatureChange(updated, path, value),
       };
     }),
 
@@ -160,21 +250,25 @@ export const useDesignStore = create<DesignStore>()((set) => ({
         : { parentsWithOpposite: [...state.parentsWithOpposite, id] },
     ),
 
-  activeSection: "basicInfo",
+  activeSection: "spec",
   setActiveSection: (section) => set({ activeSection: section }),
-  setRubricScores: (scores) => set({ rubricScores: scores }),
+  // Updating scores from a real evaluate response always flips the
+  // evaluated flag — that's the whole point of the call.
+  setRubricScores: (scores) =>
+    set({ rubricScores: scores, rubricEvaluated: true }),
 
   resetSession: () =>
     set({
       parsedEntity: null,
       variants: [],
-      activeDesign: null,
+      activeBundle: null,
       activeDesignId: null,
       rubricScores: null,
       rubricIssues: [],
+      rubricEvaluated: false,
       generationJobId: null,
       generationMode: "mapping-informed",
       parentsWithOpposite: [],
-      activeSection: "basicInfo",
+      activeSection: "spec",
     }),
 }));

@@ -1,0 +1,27 @@
+# Parent dashboard FRAGMENT produced by this game.
+# This is what gets merged into the device-scoped rollup at session end.
+dashboard_fragment:
+  session:
+    axis: perspective
+    angle: behavior
+    mechanic: voice
+    entity_role: subject
+    focal_attribute: "lion_voice"
+    entry_rung: "{runtime_entry_rung}"
+    exit_rung:  "{runtime_exit_rung}"
+    outcome:    "{runtime_outcome}"         # promote | hold | demote | soft_reframe
+
+  contributes_to:
+    curiosity_radial:
+      axis: perspective
+      angle: behavior                        # bumps perspective.by_angle.behavior.sessions
+    exploration_matrix:
+      cell: "voice × behavior"               # bumps this cell's count
+    key_concepts_exposure:
+      Perspective:
+        angle: behavior
+      Form:
+        angle: behavior
+    atl_skills_trail:
+      - communication
+      - perspective-taking

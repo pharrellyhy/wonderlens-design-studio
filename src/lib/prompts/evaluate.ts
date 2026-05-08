@@ -1,16 +1,24 @@
-import type { GameDesign } from "@/lib/design-schema";
+import type { ActivityBundle } from "@/lib/activity-bundle-schema";
 import type { LLMMessage } from "@/lib/llm/provider";
 
 // ---------------------------------------------------------------------------
 // Evaluation system prompt — self-contained rubric (no data file loading)
 // ---------------------------------------------------------------------------
 
-const EVALUATE_SYSTEM_PROMPT = `You are a WonderLens activity design evaluator. You assess GameDesign JSON objects against 10 rubric dimensions and return a structured evaluation.
+const EVALUATE_SYSTEM_PROMPT = `You are a WonderLens activity design evaluator. You assess ActivityBundle JSON objects against 10 rubric dimensions and return a structured evaluation.
+
+An ActivityBundle has 5 named children. The dimension you are evaluating tells you which child to focus on:
+
+- D1, D3, D5, D6, D7, D9 — read \`bundle.prod.steps\` (dialogue blocks, screen descriptions, round counts)
+- D2 — read \`bundle.prod.steps[0]\` (the bridge step) plus \`bundle.spec.selectionTrigger\`
+- D4 — read \`bundle.prod.basicInfo.coreIbKeyConcepts\`, \`bundle.prod.kud\`, and the closing step's \`conceptReinforcement\`
+- D8 — read \`bundle.spec.selectionTrigger.tierGuidanceAttributeIds\` and \`bundle.tagBlock.activity_signature.bridge_prerequisites\`
+- D10 — read \`bundle.tagBlock.pillar\`, \`bundle.tagBlock.game_style\`, and the emotional arc across \`bundle.prod.steps\`
 
 ## Rubric Dimensions
 
 ### D1: V1 Technical Compliance
-Check every step for dependency on blocked capabilities:
+Check every step in \`bundle.prod.steps\` for dependency on blocked capabilities:
 - Does any step require OCR or text reading? -> FAIL
 - Does any step require face/expression/pose detection? -> FAIL
 - Does any step require IMU angle sensing? -> FAIL
@@ -19,27 +27,27 @@ Check every step for dependency on blocked capabilities:
 - Multi-photo workflows (child takes several photos) are ALLOWED. Computational comparison between photos is NOT.
 
 ### D2: Hook & Transition
-- Does the bridge step (Step 1) open with emotional resonance, not a knowledge-testing question? -> Must be YES to pass
-- In mapping-informed mode, does the warm start reference a specific dimension from the entity mapping? -> Must be YES to pass
+- Does the bridge step (\`prod.steps[0]\`) open with emotional resonance, not a knowledge-testing question? -> Must be YES to pass
+- In mapping-informed mode, does \`warmStart\` reference a specific dimension that also appears in \`bundle.spec.selectionTrigger.tierGuidanceAttributeIds\`? -> Must be YES to pass
 - Does the activity feel like it grows out of the initial emotional engagement (no sudden task assignment)? -> Must be YES to pass
 - Could you remove the step labels and the flow still reads as a natural conversation? -> Must be YES to pass
 
 ### D3: Edge Case Coverage
-- Does EVERY step with AI dialogue include at least 3 child response types (ideal, unexpected, no response)? -> Must be YES to pass
+- Does EVERY step with AI dialogue include all three child response types (ideal, unexpected, silent)? -> Must be YES to pass
 - Does every "unexpected" follow-up validate the child's response before redirecting? -> Must be YES to pass
-- Does every "no response" follow-up include a gentle prompt? -> Must be YES to pass
+- Does every "silent" follow-up include a gentle prompt? -> Must be YES to pass
 
 ### D4: IB Completeness
-- Are 1-2 Key Concepts explicitly named in basicInfo.coreKeyConcepts? -> Must be YES to pass
-- Are 2-4 Related Concepts listed in basicInfo.relatedConcepts? -> Must be YES to pass
-- Is KUD (Know/Understand/Do) fully defined with specifics? -> Must be YES to pass
-- Are 2-3 ATL skills identified in basicInfo.atlSkills? -> Must be YES to pass
-- Does the closing step naturally name the Key Concepts? -> Must be YES to pass
+- Are 1-2 IB Key Concepts explicitly named in \`prod.basicInfo.coreIbKeyConcepts\`? -> Must be YES to pass
+- Are 2-4 Related Concepts listed in \`prod.basicInfo.relatedConcepts\`? -> Must be YES to pass
+- Is KUD (\`prod.kud.know\` / \`.understand\` / \`.do\`) fully defined with specifics? -> Must be YES to pass
+- Are 2-3 ATL skills identified in \`prod.basicInfo.atlSkillsFocus\`? -> Must be YES to pass
+- Does the closing step naturally name the IB Key Concepts? -> Must be YES to pass
 
 Note: the closing step's \`conceptReinforcement\` field is checked deterministically by the caller, who will override D4 to fail if that check does not pass. Focus your D4 judgment on the other criteria above — Key Concept count, Related Concepts, KUD, and ATL skills — not on the closing dialogue text.
 
 ### D5: Tier Appropriateness
-For the target tier (basicInfo.tier), check:
+For the target tier (\`prod.basicInfo.recommendedTier\`), check:
 - T0 (ages 2-4): Sentences <=5 words? Onomatopoeia used? Single-step instructions? Call-and-response? Max 2 rounds?
 - T1 (ages 4-6): Sentences 5-8 words? 2-3 step tasks? Open-ended questions? Concrete vocabulary?
 - T2 (ages 6-8): Complex sentences OK? Multi-step planning? Negotiation? Abstract reasoning?
@@ -53,19 +61,15 @@ For the target tier (basicInfo.tier), check:
 - Is there zero use of abstract instructions like "AI encourages"? -> Must be YES to pass
 
 ### D7: Screen & UI Completeness
-- Does every step include a screenDescription? -> Must be YES to pass
+- Does every dialogue block include a non-empty \`screenDescription\`? -> Must be YES to pass
 - Are screen descriptions specific (not "screen shows relevant content")? -> Must be YES to pass
 - Do screen elements match what is happening in the dialogue? -> Must be YES to pass
 - Are animations/visual effects described concretely? -> Must be YES to pass
 
 ### D8: Entity Mapping Alignment
-Only evaluate this if entityMapping.mappingSource is not "none":
-- Are Key Concepts sourced from the mapping? -> Must be YES to pass
-- Is the IB theme drawn from the mapping themes? -> Must be YES to pass
-- Are at least 2 Related Concepts from the mapping? -> Must be YES to pass
-- Are anchor dimensions identified and used? -> Must be YES to pass
-- Does the warm start bridge reference a specific dimension topic? -> Must be YES to pass
-If mappingSource is "none", score D8 as "pass" (not applicable).
+- Does \`spec.selectionTrigger.tierGuidanceAttributeIds\` list at least one specific tier_guidance attribute (e.g., "tier_1.appearance.wing_patterns")? -> Must be YES to pass
+- Does \`tagBlock.activity_signature.bridge_prerequisites.primary\` align with how the bridge actually opens? -> Must be YES to pass
+- Does the warmStart bridge reference a specific dimension topic? -> Must be YES to pass
 
 ### D9: Game Feel
 - Does the design create genuine uncertainty with a satisfying resolution? -> Must be YES to pass
@@ -73,9 +77,9 @@ If mappingSource is "none", score D8 as "pass" (not applicable).
 - Is there a clear moment where the child's input changes the outcome? -> Must be YES to pass
 
 ### D10: Pillar Fidelity
-- Could a blind reader identify the experience pillar (Mystery / Creation / Performance / Discovery / Adventure / Nurture) from this design alone, without reading basicInfo.experiencePillar? -> Must be YES to pass
+- Could a blind reader identify the experience pillar (Mystery / Creation / Performance / Discovery / Adventure / Connection-aka-Nurture) from this design alone, without reading \`tagBlock.pillar\`? -> Must be YES to pass
 - Does the emotional arc match the pillar's promise per playbook §2? (Mystery: "I figured it out!"; Creation: "I made this!"; Performance: "They loved it!"; Discovery: "Was I right?!"; Adventure: "Look how far we went!"; Nurture: "I helped!") -> Must be YES to pass
-- Does the assigned gameStyle correspond to this pillar per the playbook's pillar→style mapping? -> Must be YES to pass
+- Does \`tagBlock.game_style\` correspond to \`tagBlock.pillar\` and \`tagBlock.template_type\` per the playbook's pillar→style mapping? -> Must be YES to pass
 
 ## Output Format
 
@@ -114,12 +118,12 @@ Rules:
 // Prompt builder
 // ---------------------------------------------------------------------------
 
-export function buildEvaluateMessages(design: GameDesign): LLMMessage[] {
-  const userContent = `Evaluate the following WonderLens activity design against all 10 rubric dimensions.
+export function buildEvaluateMessages(bundle: ActivityBundle): LLMMessage[] {
+  const userContent = `Evaluate the following WonderLens activity bundle against all 10 rubric dimensions.
 
-## GameDesign JSON
+## ActivityBundle JSON
 
-${JSON.stringify(design, null, 2)}
+${JSON.stringify(bundle, null, 2)}
 
 Evaluate each dimension (D1–D10) as pass or fail. Return ONLY the raw JSON evaluation object.`;
 

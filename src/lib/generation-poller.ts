@@ -1,5 +1,8 @@
 import { pollGenerationStatus } from "@/lib/api-client";
-import type { GenerationJob, VariantResult } from "@/lib/design-schema";
+import type {
+  GenerationJob,
+  VariantResult,
+} from "@/lib/activity-bundle-schema";
 import { useDesignStore, type DesignVariant } from "@/store/design-store";
 
 const POLL_INTERVAL_MS = 3000;
@@ -98,7 +101,7 @@ async function tick(jobId: string, seen: Set<string>): Promise<void> {
       category: result.category,
       gameStyle: result.gameStyle,
       status: result.status,
-      design: result.design,
+      bundle: result.bundle,
       rubricScores: result.rubricScores,
       error: result.error,
     };
@@ -245,7 +248,7 @@ async function oppositeTick(jobId: string): Promise<void> {
     category: variantResult.category,
     gameStyle: variantResult.gameStyle,
     status: variantResult.status,
-    design: variantResult.design,
+    bundle: variantResult.bundle,
     rubricScores: variantResult.rubricScores,
     error: variantResult.error,
     parentDesignId: entry.parentDesignId,

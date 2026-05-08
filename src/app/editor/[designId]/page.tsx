@@ -1,27 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ClipboardList, Palette, Sparkles, Target } from "lucide-react";
+import {
+  ArrowLeft,
+  ClipboardList,
+  FileText,
+  LayoutGrid,
+  Sparkles,
+  Tag,
+  Target,
+} from "lucide-react";
+
 import { useDesignStore } from "@/store/design-store";
-import { evaluateDesign, regenerateField, exportDesign } from "@/lib/api-client";
+import {
+  evaluateDesign,
+  exportDesign,
+  regenerateField,
+} from "@/lib/api-client";
+import {
+  TAG_BLOCK_PILLAR_TO_EXPERIENCE_PILLAR,
+} from "@/lib/activity-bundle-schema";
 import { NavigationPanel } from "@/components/editor/NavigationPanel";
 import { ScorecardPanel } from "@/components/editor/ScorecardPanel";
 import { EditableField } from "@/components/editor/EditableField";
 import { DialogueBlockEditor } from "@/components/editor/DialogueBlock";
+import { TagBlockPanel } from "@/components/editor/TagBlockPanel";
+import { RecapPreview } from "@/components/editor/RecapPreview";
+import { DashboardPreview } from "@/components/editor/DashboardPreview";
 import { ModePill } from "@/components/common/ModePill";
 import { PillarPill } from "@/components/common/PillarPill";
-import {
-  CATEGORY_LABELS,
-  TIER_LABELS,
-  GAME_STYLES,
-} from "@/lib/design-schema";
 
 export default function EditorPage() {
   const router = useRouter();
-  const activeDesign = useDesignStore((s) => s.activeDesign);
+  const activeBundle = useDesignStore((s) => s.activeBundle);
   const rubricScores = useDesignStore((s) => s.rubricScores);
   const rubricIssues = useDesignStore((s) => s.rubricIssues);
+  const rubricEvaluated = useDesignStore((s) => s.rubricEvaluated);
   const activeSection = useDesignStore((s) => s.activeSection);
   const setActiveSection = useDesignStore((s) => s.setActiveSection);
   const updateField = useDesignStore((s) => s.updateField);
@@ -29,13 +44,50 @@ export default function EditorPage() {
   const setRubricIssues = useDesignStore((s) => s.setRubricIssues);
 
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const autoEvalFiredRef = useRef(false);
 
-  if (!activeDesign || !rubricScores) {
+  // Auto-trigger rubric evaluation when an unrated bundle is loaded
+  // (typically: the user just dropped a ZIP/folder via ExistingDesignImporter
+  // and the importer seeded all-fail by design). Hook MUST live before any
+  // early return — its ordering across renders is what React relies on.
+  useEffect(() => {
+    if (!activeBundle) return;
+    if (rubricEvaluated) return;
+    if (isEvaluating) return;
+    if (autoEvalFiredRef.current) return;
+    autoEvalFiredRef.current = true;
+    void (async () => {
+      setIsEvaluating(true);
+      setEvalError(null);
+      try {
+        const result = await evaluateDesign({ bundle: activeBundle });
+        setRubricScores(result.rubricScores);
+        setRubricIssues(result.issues);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Evaluation failed";
+        console.error("Failed to evaluate bundle on auto-trigger:", error);
+        setEvalError(message);
+      } finally {
+        setIsEvaluating(false);
+      }
+    })();
+  }, [
+    activeBundle,
+    rubricEvaluated,
+    isEvaluating,
+    setRubricScores,
+    setRubricIssues,
+  ]);
+
+  if (!activeBundle || !rubricScores) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-400 mb-4">
-            No design loaded. Please select a variant first.
+            No bundle loaded. Please select a variant first.
           </p>
           <button
             onClick={() => router.push("/")}
@@ -49,15 +101,14 @@ export default function EditorPage() {
     );
   }
 
-  const handleFieldChange = (path: string, value: string) => {
+  const handleStringFieldChange = (path: string, value: string) =>
     updateField(path, value);
-  };
 
   const handleAskAI = async (path: string, comment: string) => {
-    if (!activeDesign) return;
+    if (!activeBundle) return;
     try {
       const updatedValue = await regenerateField({
-        design: activeDesign,
+        bundle: activeBundle,
         fieldPath: path,
         comment: comment || "Please improve this",
       });
@@ -68,24 +119,28 @@ export default function EditorPage() {
   };
 
   const handleRerunRubric = async () => {
-    if (!activeDesign) return;
+    if (!activeBundle) return;
     setIsEvaluating(true);
+    setEvalError(null);
     try {
-      const result = await evaluateDesign({ design: activeDesign });
+      const result = await evaluateDesign({ bundle: activeBundle });
       setRubricScores(result.rubricScores);
       setRubricIssues(result.issues);
     } catch (error) {
-      console.error("Failed to evaluate design:", error);
+      const message =
+        error instanceof Error ? error.message : "Evaluation failed";
+      console.error("Failed to evaluate bundle:", error);
+      setEvalError(message);
     } finally {
       setIsEvaluating(false);
     }
   };
 
   const handleRegenerateWithFeedback = async (feedback: string) => {
-    if (!activeDesign) return;
+    if (!activeBundle) return;
     try {
       const updatedValue = await regenerateField({
-        design: activeDesign,
+        bundle: activeBundle,
         fieldPath: "",
         comment: feedback,
       });
@@ -98,47 +153,39 @@ export default function EditorPage() {
   };
 
   const handleExport = async () => {
-    if (!activeDesign) return;
+    if (!activeBundle) return;
+    setExportError(null);
     try {
-      const result = await exportDesign({
-        design: activeDesign,
-        format: "both",
-      });
-      const baseName = activeDesign.basicInfo.activityName
-        .replace(/\s+/g, "_")
-        .toLowerCase();
-
-      if (result.specMd) {
-        const blob = new Blob([result.specMd], { type: "text/markdown" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${baseName}_spec.md`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-
-      if (result.prodMd) {
-        const blob = new Blob([result.prodMd], { type: "text/markdown" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${baseName}_prod.md`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      const { blob, filename } = await exportDesign({ bundle: activeBundle });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Failed to export design:", error);
+      const message =
+        error instanceof Error ? error.message : "Export failed";
+      console.error("Failed to export bundle:", error);
+      setExportError(message);
     }
   };
 
-  // Layout: the global app shell in `src/app/layout.tsx` is `body` →
-  // sticky <nav> + a `flex-1 flex flex-col` wrapper for {children}. Using
-  // `flex-1 min-h-0` here makes the editor consume exactly the viewport
-  // space below the nav (without a calc()), and `min-h-0` lets the inner
-  // overflow-y-auto panel actually scroll instead of pushing the page
-  // taller than the viewport. h-screen was previously bleeding past the
-  // bottom because nav-height + 100vh > 100vh.
+  const lowerPillar =
+    TAG_BLOCK_PILLAR_TO_EXPERIENCE_PILLAR[activeBundle.tagBlock.pillar];
+
+  // ── Section index helpers ────────────────────────────────────────────────
+  const isStepSection = activeSection.startsWith("step-");
+  const stepNumber = isStepSection
+    ? Number(activeSection.split("-")[1])
+    : null;
+  const activeStep = stepNumber
+    ? activeBundle.prod.steps.find((s) => s.stepNumber === stepNumber)
+    : null;
+  const activeStepIndex = activeStep
+    ? activeBundle.prod.steps.indexOf(activeStep)
+    : -1;
+
   return (
     <div className="flex-1 min-h-0 bg-gray-950 text-gray-100 flex flex-col">
       {/* Header */}
@@ -152,389 +199,499 @@ export default function EditorPage() {
         </button>
         <div className="flex items-center gap-2">
           <h1 className="text-sm font-semibold text-white">
-            {activeDesign.basicInfo.activityName}
+            {activeBundle.prod.basicInfo.activityName}
           </h1>
-          <ModePill mode={activeDesign.basicInfo.generationMode} />
-          <PillarPill pillar={activeDesign.basicInfo.experiencePillar} />
+          <ModePill mode={activeBundle.generationMode} />
+          <PillarPill pillar={lowerPillar} />
         </div>
-        <div className="w-32" /> {/* Spacer for centering */}
+        <div className="w-32" />
       </header>
 
-      {/* Three-panel layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: Navigation */}
         <NavigationPanel
-          design={activeDesign}
+          bundle={activeBundle}
           activeSection={activeSection}
           onSectionChange={setActiveSection}
         />
 
-        {/* Center: Editor */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Basic Info */}
-          {activeSection === "basicInfo" && (
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold">
-                  <ClipboardList className="w-5 h-5 text-indigo-400" />
-                  Basic Info
-                </h3>
-                <button
-                  onClick={() => handleAskAI("basicInfo", "")}
-                  className="inline-flex items-center gap-1.5 bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1.5 rounded-md text-xs hover:bg-indigo-900/70 transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Ask AI to improve this section
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <EditableField
-                  label="Activity Name"
-                  value={activeDesign.basicInfo.activityName}
-                  fieldPath="basicInfo.activityName"
-                  onChange={handleFieldChange}
-                  onAskAI={handleAskAI}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-800 rounded-lg p-4">
-                    <label className="text-gray-400 text-xs uppercase tracking-wider">
-                      Activity Category
-                    </label>
-                    <select
-                      value={activeDesign.basicInfo.category}
-                      onChange={(e) =>
-                        handleFieldChange("basicInfo.category", e.target.value)
-                      }
-                      className="mt-2 w-full bg-gray-900 border border-gray-700 rounded-md p-2 text-gray-200 text-sm"
-                    >
-                      {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="bg-gray-800 rounded-lg p-4">
-                    <label className="text-gray-400 text-xs uppercase tracking-wider">
-                      Recommended Tier
-                    </label>
-                    <select
-                      value={activeDesign.basicInfo.tier}
-                      onChange={(e) =>
-                        handleFieldChange("basicInfo.tier", e.target.value)
-                      }
-                      className="mt-2 w-full bg-gray-900 border border-gray-700 rounded-md p-2 text-gray-200 text-sm"
-                    >
-                      {Object.entries(TIER_LABELS).map(([key, label]) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <label className="text-gray-400 text-xs uppercase tracking-wider">
-                    Game Style
-                  </label>
-                  <select
-                    value={activeDesign.basicInfo.gameStyle}
-                    onChange={(e) =>
-                      handleFieldChange("basicInfo.gameStyle", e.target.value)
-                    }
-                    className="mt-2 w-full bg-gray-900 border border-gray-700 rounded-md p-2 text-gray-200 text-sm"
-                  >
-                    {GAME_STYLES[activeDesign.basicInfo.category].map(
-                      (style) => (
-                        <option key={style} value={style}>
-                          {style}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-
-                <EditableField
-                  label="IB Theme"
-                  value={activeDesign.basicInfo.ibTheme}
-                  fieldPath="basicInfo.ibTheme"
-                  onChange={handleFieldChange}
-                  onAskAI={handleAskAI}
-                />
-
-                <EditableField
-                  label="Trigger Entity"
-                  value={activeDesign.basicInfo.triggerEntity}
-                  fieldPath="basicInfo.triggerEntity"
-                  onChange={handleFieldChange}
-                />
-
-                <EditableField
-                  label="Trigger Scene"
-                  value={activeDesign.basicInfo.triggerScene}
-                  fieldPath="basicInfo.triggerScene"
-                  onChange={handleFieldChange}
-                />
-              </div>
+          {exportError && (
+            <div className="mb-4 rounded-md border border-red-700 bg-red-900/30 p-3 text-sm text-red-300">
+              Export failed: {exportError}
             </div>
           )}
 
-          {/* Overview & KUD */}
-          {activeSection === "overview" && (
-            <div>
+          {/* SPEC */}
+          {activeSection === "spec" && (
+            <section>
               <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
-                <Target className="w-5 h-5 text-indigo-400" />
-                Overview & KUD
+                <FileText className="w-5 h-5 text-indigo-400" /> Authoring Spec
+              </h3>
+              <div className="space-y-4">
+                <EditableField
+                  label="Title"
+                  value={activeBundle.spec.title}
+                  fieldPath="spec.title"
+                  onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
+                />
+                <EditableField
+                  label="Subtitle"
+                  value={activeBundle.spec.subtitle ?? ""}
+                  fieldPath="spec.subtitle"
+                  onChange={handleStringFieldChange}
+                />
+                <EditableField
+                  label="Premise"
+                  value={activeBundle.spec.premise}
+                  fieldPath="spec.premise"
+                  onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
+                  multiline
+                />
+                <EditableField
+                  label="Pedagogical Rationale"
+                  value={activeBundle.spec.pedagogicalRationale}
+                  fieldPath="spec.pedagogicalRationale"
+                  onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
+                  multiline
+                />
+                <EditableField
+                  label="IB Axis (primary)"
+                  value={activeBundle.spec.target.ibAxisPrimary}
+                  fieldPath="spec.target.ibAxisPrimary"
+                  onChange={handleStringFieldChange}
+                />
+                <EditableField
+                  label="IB Axis (secondary)"
+                  value={activeBundle.spec.target.ibAxisSecondary ?? ""}
+                  fieldPath="spec.target.ibAxisSecondary"
+                  onChange={handleStringFieldChange}
+                />
+                <EditableField
+                  label="Tier elasticity"
+                  value={activeBundle.spec.target.tierElasticity}
+                  fieldPath="spec.target.tierElasticity"
+                  onChange={handleStringFieldChange}
+                />
+                <EditableField
+                  label="Age Notes"
+                  value={activeBundle.spec.target.ageNotes}
+                  fieldPath="spec.target.ageNotes"
+                  onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
+                  multiline
+                />
+                <EditableField
+                  label="Selection Trigger — Description"
+                  value={activeBundle.spec.selectionTrigger.description}
+                  fieldPath="spec.selectionTrigger.description"
+                  onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
+                  multiline
+                />
+                <EditableField
+                  label="Selection Trigger — Constellation Notes"
+                  value={
+                    activeBundle.spec.selectionTrigger.constellationNotes ?? ""
+                  }
+                  fieldPath="spec.selectionTrigger.constellationNotes"
+                  onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
+                  multiline
+                />
+              </div>
+            </section>
+          )}
+
+          {/* PROD — BASIC INFO */}
+          {activeSection === "prod-basic" && (
+            <section>
+              <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
+                <ClipboardList className="w-5 h-5 text-indigo-400" /> Basic Info
+              </h3>
+              <div className="space-y-4">
+                <EditableField
+                  label="Activity Name"
+                  value={activeBundle.prod.basicInfo.activityName}
+                  fieldPath="prod.basicInfo.activityName"
+                  onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
+                />
+                <EditableField
+                  label="Design Version"
+                  value={activeBundle.prod.basicInfo.designVersion}
+                  fieldPath="prod.basicInfo.designVersion"
+                  onChange={handleStringFieldChange}
+                />
+                <EditableField
+                  label="Last Updated"
+                  value={activeBundle.prod.basicInfo.lastUpdated}
+                  fieldPath="prod.basicInfo.lastUpdated"
+                  onChange={handleStringFieldChange}
+                />
+                <EditableField
+                  label="Related Concepts (comma-sep)"
+                  value={activeBundle.prod.basicInfo.relatedConcepts.join(
+                    ", ",
+                  )}
+                  fieldPath="prod.basicInfo.relatedConcepts"
+                  onChange={(path, value) =>
+                    updateField(
+                      path,
+                      value
+                        .split(/\s*,\s*/)
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                />
+                <EditableField
+                  label="ATL Skills Focus (comma-sep)"
+                  value={activeBundle.prod.basicInfo.atlSkillsFocus.join(", ")}
+                  fieldPath="prod.basicInfo.atlSkillsFocus"
+                  onChange={(path, value) =>
+                    updateField(
+                      path,
+                      value
+                        .split(/\s*,\s*/)
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                />
+                <p className="text-xs text-gray-500">
+                  Game style, category, recommended tier, and core IB key
+                  concepts are managed in the Tag Block panel — they mirror
+                  across spec/prod/tagBlock.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* PROD — OVERVIEW + KUD */}
+          {activeSection === "prod-overview" && (
+            <section>
+              <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
+                <Target className="w-5 h-5 text-indigo-400" /> Overview & KUD
               </h3>
               <div className="space-y-4">
                 <EditableField
                   label="Brief Description"
-                  value={activeDesign.overview.briefDescription}
-                  fieldPath="overview.briefDescription"
-                  onChange={handleFieldChange}
+                  value={activeBundle.prod.overview.briefDescription}
+                  fieldPath="prod.overview.briefDescription"
+                  onChange={handleStringFieldChange}
                   onAskAI={handleAskAI}
                   multiline
                 />
                 <EditableField
                   label="Design Highlight"
-                  value={activeDesign.overview.designHighlight}
-                  fieldPath="overview.designHighlight"
-                  onChange={handleFieldChange}
+                  value={activeBundle.prod.overview.designHighlight}
+                  fieldPath="prod.overview.designHighlight"
+                  onChange={handleStringFieldChange}
                   onAskAI={handleAskAI}
                   multiline
                 />
                 <EditableField
                   label="Typical Scenario"
-                  value={activeDesign.overview.typicalScenario}
-                  fieldPath="overview.typicalScenario"
-                  onChange={handleFieldChange}
+                  value={activeBundle.prod.overview.typicalScenario}
+                  fieldPath="prod.overview.typicalScenario"
+                  onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
+                  multiline
+                />
+                <EditableField
+                  label="K (Know) — semicolon-separated"
+                  value={activeBundle.prod.kud.know.join("; ")}
+                  fieldPath="prod.kud.know"
+                  onChange={(path, value) =>
+                    updateField(
+                      path,
+                      value
+                        .split(/\s*;\s*/)
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                  onAskAI={handleAskAI}
+                  multiline
+                />
+                <EditableField
+                  label="U (Understand) — semicolon-separated"
+                  value={activeBundle.prod.kud.understand.join("; ")}
+                  fieldPath="prod.kud.understand"
+                  onChange={(path, value) =>
+                    updateField(
+                      path,
+                      value
+                        .split(/\s*;\s*/)
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                  onAskAI={handleAskAI}
+                  multiline
+                />
+                <EditableField
+                  label="D (Do) — semicolon-separated"
+                  value={activeBundle.prod.kud.do.join("; ")}
+                  fieldPath="prod.kud.do"
+                  onChange={(path, value) =>
+                    updateField(
+                      path,
+                      value
+                        .split(/\s*;\s*/)
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
                   onAskAI={handleAskAI}
                   multiline
                 />
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Creative Variables */}
-          {activeSection === "creativeVariables" && (
-            <div>
+          {/* PROD — A.1 ENTITY ATTRIBUTES */}
+          {activeSection === "prod-attributes" && (
+            <section>
               <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
-                <Palette className="w-5 h-5 text-indigo-400" />
-                Creative Variables
+                <LayoutGrid className="w-5 h-5 text-indigo-400" /> Entity
+                Attributes Covered (A.1)
+              </h3>
+              <EditableField
+                label="Attribute IDs (one per line)"
+                value={activeBundle.prod.entityAttributesCovered.join("\n")}
+                fieldPath="prod.entityAttributesCovered"
+                onChange={(path, value) =>
+                  updateField(
+                    path,
+                    value
+                      .split(/\r?\n/)
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  )
+                }
+                onAskAI={handleAskAI}
+                multiline
+              />
+            </section>
+          )}
+
+          {/* PROD — A.2 CONSTELLATION ADAPTATION */}
+          {activeSection === "prod-constellation" && (
+            <section>
+              <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
+                <Sparkles className="w-5 h-5 text-indigo-400" /> Constellation
+                Adaptation Notes (A.2)
               </h3>
               <div className="space-y-4">
                 <EditableField
-                  label="Metaphor"
-                  value={activeDesign.creativeVariables.metaphor}
-                  fieldPath="creativeVariables.metaphor"
-                  onChange={handleFieldChange}
+                  label="Preserve (one per line)"
+                  value={(activeBundle.prod.constellationAdaptation?.preserve ?? []).join("\n")}
+                  fieldPath="prod.constellationAdaptation.preserve"
+                  onChange={(path, value) =>
+                    updateField(
+                      path,
+                      value
+                        .split(/\r?\n/)
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
                   onAskAI={handleAskAI}
+                  multiline
                 />
                 <EditableField
-                  label="Role Title"
-                  value={activeDesign.creativeVariables.roleTitle}
-                  fieldPath="creativeVariables.roleTitle"
-                  onChange={handleFieldChange}
+                  label="Swap (one per line)"
+                  value={(activeBundle.prod.constellationAdaptation?.swap ?? []).join("\n")}
+                  fieldPath="prod.constellationAdaptation.swap"
+                  onChange={(path, value) =>
+                    updateField(
+                      path,
+                      value
+                        .split(/\r?\n/)
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
                   onAskAI={handleAskAI}
+                  multiline
                 />
                 <EditableField
-                  label="Game Mechanic"
-                  value={activeDesign.creativeVariables.gameMechanic}
-                  fieldPath="creativeVariables.gameMechanic"
-                  onChange={handleFieldChange}
+                  label="Watch (one per line)"
+                  value={(activeBundle.prod.constellationAdaptation?.watch ?? []).join("\n")}
+                  fieldPath="prod.constellationAdaptation.watch"
+                  onChange={(path, value) =>
+                    updateField(
+                      path,
+                      value
+                        .split(/\r?\n/)
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    )
+                  }
                   onAskAI={handleAskAI}
+                  multiline
                 />
-                <EditableField
-                  label="Scenario Type"
-                  value={activeDesign.creativeVariables.scenarioType}
-                  fieldPath="creativeVariables.scenarioType"
-                  onChange={handleFieldChange}
-                  onAskAI={handleAskAI}
-                />
-                <EditableField
-                  label="Target Response Type"
-                  value={activeDesign.creativeVariables.targetResponseType}
-                  fieldPath="creativeVariables.targetResponseType"
-                  onChange={handleFieldChange}
-                  onAskAI={handleAskAI}
-                />
-                <EditableField
-                  label="Escalation Axis"
-                  value={activeDesign.creativeVariables.escalationAxis}
-                  fieldPath="creativeVariables.escalationAxis"
-                  onChange={handleFieldChange}
-                  onAskAI={handleAskAI}
-                />
-
-                {/* Cat 5 only fields */}
-                {activeDesign.basicInfo.category === "cat5" && (
-                  <>
-                    <EditableField
-                      label="Visual Feature"
-                      value={
-                        activeDesign.creativeVariables.visualFeature ?? ""
-                      }
-                      fieldPath="creativeVariables.visualFeature"
-                      onChange={handleFieldChange}
-                      onAskAI={handleAskAI}
-                    />
-                    <EditableField
-                      label="Collection Criterion"
-                      value={
-                        activeDesign.creativeVariables.collectionCriterion ?? ""
-                      }
-                      fieldPath="creativeVariables.collectionCriterion"
-                      onChange={handleFieldChange}
-                      onAskAI={handleAskAI}
-                    />
-                    <EditableField
-                      label="Stuck Hint"
-                      value={
-                        activeDesign.creativeVariables.stuckHint ?? ""
-                      }
-                      fieldPath="creativeVariables.stuckHint"
-                      onChange={handleFieldChange}
-                      onAskAI={handleAskAI}
-                    />
-                  </>
-                )}
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Steps */}
-          {activeDesign.steps.map((step, stepIndex) => {
-            const stepId = `step-${step.stepNumber}`;
-            const isStepActive =
-              activeSection === stepId ||
-              activeSection.startsWith(`${stepId}-`);
-
-            if (!isStepActive) return null;
-
-            return (
-              <div key={stepId}>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-white text-lg font-semibold">
-                    Step {step.stepNumber}: {step.title}
-                  </h3>
-                  <button
-                    onClick={() => handleAskAI(stepId, "")}
-                    className="inline-flex items-center gap-1.5 bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1.5 rounded-md text-xs hover:bg-indigo-900/70 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Ask AI to improve this step
-                  </button>
-                </div>
-
-                {/* Bridge: warm + cold */}
-                {step.type === "bridge" && (
-                  <div className="space-y-6">
-                    {(activeSection === stepId ||
-                      activeSection === `${stepId}-warm`) &&
-                      step.warmStart && (
-                        <div>
-                          <h4 className="text-indigo-300 text-sm font-semibold mb-3">
-                            Step 1a — Warm Start (post-conversation)
-                          </h4>
-                          <DialogueBlockEditor
-                            dialogue={step.warmStart}
-                            basePath={`steps.${stepIndex}.warmStart`}
-                            onChange={handleFieldChange}
-                            onAskAI={handleAskAI}
-                          />
-                        </div>
-                      )}
-                    {(activeSection === stepId ||
-                      activeSection === `${stepId}-cold`) &&
-                      step.coldStart && (
-                        <div>
-                          <h4 className="text-blue-300 text-sm font-semibold mb-3">
-                            Step 1b — Cold Start (standalone)
-                          </h4>
-                          <DialogueBlockEditor
-                            dialogue={step.coldStart}
-                            basePath={`steps.${stepIndex}.coldStart`}
-                            onChange={handleFieldChange}
-                            onAskAI={handleAskAI}
-                          />
-                        </div>
-                      )}
-                  </div>
-                )}
-
-                {/* Rounds */}
-                {step.type === "rounds" && step.rounds && (
-                  <div className="space-y-8">
-                    {step.rounds.map((round) => {
-                      const roundId = `${stepId}-round-${round.roundNumber}`;
-                      if (
-                        activeSection !== stepId &&
-                        activeSection !== roundId
-                      )
-                        return null;
-
-                      return (
-                        <div key={roundId}>
-                          <h4 className="text-purple-300 text-sm font-semibold mb-3">
-                            Round {round.roundNumber}
-                          </h4>
-                          <DialogueBlockEditor
-                            dialogue={round.dialogue}
-                            basePath={`steps.${stepIndex}.rounds.${round.roundNumber - 1}.dialogue`}
-                            onChange={handleFieldChange}
-                            onAskAI={handleAskAI}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Regular step dialogue */}
-                {step.type !== "bridge" &&
-                  step.type !== "rounds" &&
-                  step.dialogue && (
-                    <DialogueBlockEditor
-                      dialogue={step.dialogue}
-                      basePath={`steps.${stepIndex}.dialogue`}
-                      onChange={handleFieldChange}
-                      onAskAI={handleAskAI}
-                    />
-                  )}
-
-                {/* Closing-only fields: concept reinforcement + tomorrow hook */}
-                {step.type === "closing" && (
-                  <div className="mt-6 space-y-4">
-                    <EditableField
-                      label="Concept Reinforcement"
-                      value={step.conceptReinforcement ?? ""}
-                      fieldPath={`steps.${stepIndex}.conceptReinforcement`}
-                      onChange={handleFieldChange}
-                      onAskAI={handleAskAI}
-                      multiline
-                    />
-                    <EditableField
-                      label="Tomorrow Hook"
-                      value={step.tomorrowHook ?? ""}
-                      fieldPath={`steps.${stepIndex}.tomorrowHook`}
-                      onChange={handleFieldChange}
-                      onAskAI={handleAskAI}
-                      multiline
-                    />
-                  </div>
-                )}
+          {/* PROD — STEPS */}
+          {isStepSection && activeStep && activeStepIndex >= 0 && (
+            <section>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-white text-lg font-semibold">
+                  Step {activeStep.stepNumber}: {activeStep.title}
+                </h3>
+                <button
+                  onClick={() =>
+                    handleAskAI(`prod.steps.${activeStepIndex}`, "")
+                  }
+                  className="inline-flex items-center gap-1.5 bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1.5 rounded-md text-xs hover:bg-indigo-900/70 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Ask AI to improve this step
+                </button>
               </div>
-            );
-          })}
+
+              {activeStep.type === "bridge" && (
+                <div className="space-y-6">
+                  {(activeSection === `step-${activeStep.stepNumber}` ||
+                    activeSection === `step-${activeStep.stepNumber}-warm`) &&
+                    activeStep.warmStart && (
+                      <div>
+                        <h4 className="text-indigo-300 text-sm font-semibold mb-3">
+                          Warm Start (post-conversation)
+                        </h4>
+                        <DialogueBlockEditor
+                          dialogue={activeStep.warmStart}
+                          basePath={`prod.steps.${activeStepIndex}.warmStart`}
+                          onChange={handleStringFieldChange}
+                          onAskAI={handleAskAI}
+                        />
+                      </div>
+                    )}
+                  {(activeSection === `step-${activeStep.stepNumber}` ||
+                    activeSection === `step-${activeStep.stepNumber}-cold`) &&
+                    activeStep.coldStart && (
+                      <div>
+                        <h4 className="text-blue-300 text-sm font-semibold mb-3">
+                          Cold Start (standalone)
+                        </h4>
+                        <DialogueBlockEditor
+                          dialogue={activeStep.coldStart}
+                          basePath={`prod.steps.${activeStepIndex}.coldStart`}
+                          onChange={handleStringFieldChange}
+                          onAskAI={handleAskAI}
+                        />
+                      </div>
+                    )}
+                </div>
+              )}
+
+              {activeStep.type === "rounds" && activeStep.rounds && (
+                <div className="space-y-8">
+                  {activeStep.rounds.map((round, roundIndex) => {
+                    const roundId = `step-${activeStep.stepNumber}-round-${round.roundNumber}`;
+                    if (
+                      activeSection !== `step-${activeStep.stepNumber}` &&
+                      activeSection !== roundId
+                    )
+                      return null;
+
+                    return (
+                      <div key={roundId}>
+                        <h4 className="text-purple-300 text-sm font-semibold mb-3">
+                          Round {round.roundNumber}
+                        </h4>
+                        <DialogueBlockEditor
+                          dialogue={round.dialogue}
+                          basePath={`prod.steps.${activeStepIndex}.rounds.${roundIndex}.dialogue`}
+                          onChange={handleStringFieldChange}
+                          onAskAI={handleAskAI}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeStep.type !== "bridge" &&
+                activeStep.type !== "rounds" &&
+                activeStep.dialogue && (
+                  <DialogueBlockEditor
+                    dialogue={activeStep.dialogue}
+                    basePath={`prod.steps.${activeStepIndex}.dialogue`}
+                    onChange={handleStringFieldChange}
+                    onAskAI={handleAskAI}
+                  />
+                )}
+
+              {activeStep.type === "closing" && (
+                <div className="mt-6 space-y-4">
+                  <EditableField
+                    label="Concept Reinforcement"
+                    value={activeStep.conceptReinforcement ?? ""}
+                    fieldPath={`prod.steps.${activeStepIndex}.conceptReinforcement`}
+                    onChange={handleStringFieldChange}
+                    onAskAI={handleAskAI}
+                    multiline
+                  />
+                  <EditableField
+                    label="Tomorrow Hook"
+                    value={activeStep.tomorrowHook ?? ""}
+                    fieldPath={`prod.steps.${activeStepIndex}.tomorrowHook`}
+                    onChange={handleStringFieldChange}
+                    onAskAI={handleAskAI}
+                  />
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* TAG BLOCK */}
+          {activeSection === "tagBlock" && (
+            <section>
+              <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
+                <Tag className="w-5 h-5 text-indigo-400" /> Tag Block
+              </h3>
+              <TagBlockPanel
+                bundle={activeBundle}
+                onChange={(path, value) => updateField(path, value)}
+              />
+            </section>
+          )}
+
+          {/* RECAP PREVIEW */}
+          {activeSection === "recap-preview" && (
+            <section>
+              <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
+                <FileText className="w-5 h-5 text-emerald-400" /> Recap (preview)
+              </h3>
+              <RecapPreview bundle={activeBundle} />
+            </section>
+          )}
+
+          {/* DASHBOARD PREVIEW */}
+          {activeSection === "dashboard-preview" && (
+            <section>
+              <h3 className="inline-flex items-center gap-2 text-white text-lg font-semibold mb-4">
+                <LayoutGrid className="w-5 h-5 text-amber-400" /> Dashboard
+                (preview)
+              </h3>
+              <DashboardPreview bundle={activeBundle} />
+            </section>
+          )}
         </div>
 
-        {/* Right: Scorecard */}
         <ScorecardPanel
           scores={rubricScores}
           issues={rubricIssues}
+          evaluated={rubricEvaluated}
+          evalError={evalError}
           onRerunRubric={handleRerunRubric}
           onRegenerateWithFeedback={handleRegenerateWithFeedback}
           onExport={handleExport}

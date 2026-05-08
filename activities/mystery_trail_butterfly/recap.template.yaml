@@ -1,0 +1,36 @@
+# Child recap payload shape for this game.
+# At runtime, {placeholders} are filled with session-specific values.
+recap_payload:
+  entity: "{runtime_entity}"            # e.g. butterfly
+  tier: "{runtime_tier}"                # T0 | T1 | T2
+  age_years: "{runtime_age}"
+
+  what_we_noticed: pattern
+  what_we_did:     collected
+  entity_role:     subject
+
+  focal_attribute:
+    token: "butterfly_secret_world"
+    child_label: "the butterfly's secret world"
+    badge_emoji_none: true
+
+  highlight_moment: "You mapped the butterfly's whole secret world!"
+
+  finds:
+    - {label: "{find_1}", photo: "{photo_1}"}  # e.g. flower
+    - {label: "{find_2}", photo: "{photo_2}"}  # e.g. leaf
+    - {label: "{find_3}", photo: "{photo_3}"}  # e.g. wet spot
+
+  difficulty_level: 2
+  next_step_hint:  "Next time, let's compare how different animals build secret habitat worlds"
+
+  caregiver_observed: co-explorer
+  reward_badge:       butterfly_world_detective
+
+rendered:
+  title:  "You were a Butterfly World Detective today!"
+  line_1: "We followed riddle-clues through the park."
+  line_2: "Every find was part of the butterfly's habitat."
+  line_3: "You mapped the butterfly's secret world — its food, shelter, and water."
+  badge:  "Butterfly World Detective"
+  next:   "Next time, let's compare how different animals build secret habitat worlds."

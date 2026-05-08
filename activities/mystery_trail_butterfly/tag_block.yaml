@@ -1,0 +1,59 @@
+# ─── §0 · IDENTITY ────────────────────────────────────
+activity_id: mystery_trail_butterfly
+version: 1
+source_entity_exemplar: butterfly
+template_type: cat5
+pillar: Mystery
+game_style: mystery_trail
+
+# ─── §1 · IB FRAME ────────────────────────────────────
+entity: butterfly
+entity_class: [insect, animal]
+entity_binding: bound
+tier_range:
+  primary: T1
+  span: [T0, T1, T2]
+  elasticity: "±1"
+
+category: animals
+attributes: [wings, pattern, habitat]
+
+key_concepts: [Form, Connection]
+related_concepts: [habitat, pattern, connection, discovery]
+atl_skills: [observation, classification]
+transdisciplinary_theme: Sharing_The_Planet
+
+kud:
+  know:       ["butterflies have patterned wings and depend on flowers, leaves, and water"]
+  understand: ["flowers, leaves, and wet ground connect into a butterfly habitat"]
+  do:         ["find the parts of a butterfly's habitat hidden nearby"]
+
+progression:
+  topic_axis: connection
+  difficulty_level: 2
+  next_step_hint: "Next time, compare how different animals build secret habitat worlds"
+  reward_hook: "Earned the Butterfly World Detective badge"
+
+caregiver_role: [scaffold, co-explorer]
+
+# ─── §2 · ACTIVITY SIGNATURE ───────────────────────────
+activity_signature:
+  # ── Layer 1: editorial identity (fixed; matcher reads these) ──
+  observation_angle: pattern
+  mechanic: collect
+  entity_role: subject
+  bridge_prerequisites:
+    primary:   [pattern]
+    secondary: [color, shape]
+
+  # ── Layer 2: presentation (author templates; runtime renders) ──
+  focal_attribute: "butterfly_secret_world"
+  intro: "The child follows riddle-clues to map the {entity}'s secret habitat world."
+  preview_label:  "Solve the butterfly's secret world!"
+  preview_prompt: "The butterfly's wings are beautiful. Let's follow clues to find what it needs nearby!"
+  role_pivot_note: ""
+
+# ─── §3 · MATCHABILITY (from 2026-04-20 spec) ─────────
+matchability:
+  entity_class_filter: [insect]
+  tier_support: {T0: yes, T1: yes, T2: yes}

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import type { GenerationJob } from "@/lib/activity-bundle-schema";
 import { categorySchema, generationModeSchema } from "@/lib/design-schema";
-import type { GenerationJob } from "@/lib/design-schema";
 import { jobs, cleanupJobs } from "@/lib/job-store";
 import { getServerLLMProvider } from "@/lib/llm/provider";
 import { runGenerationJob, selectVariantConfigs } from "@/lib/pipeline";

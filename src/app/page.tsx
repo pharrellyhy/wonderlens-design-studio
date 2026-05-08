@@ -5,22 +5,31 @@ import { ExistingDesignImporter } from "@/components/upload/ExistingDesignImport
 import { YamlUploader } from "@/components/upload/YamlUploader";
 import { useDesignStore } from "@/store/design-store";
 import type { ParsedEntity } from "@/lib/yaml-parser";
-import type { ImportedDesignResult } from "@/lib/design-import";
+import type { ImportedBundleResult } from "@/lib/bundle-import";
 
 export default function Home() {
   const router = useRouter();
   const setParsedEntity = useDesignStore((s) => s.setParsedEntity);
-  const setActiveDesign = useDesignStore((s) => s.setActiveDesign);
+  const setActiveBundle = useDesignStore((s) => s.setActiveBundle);
   const resetSession = useDesignStore((s) => s.resetSession);
 
   const handleEntityParsed = (entity: ParsedEntity) => {
     setParsedEntity(entity);
   };
 
-  const handleDesignImported = (result: ImportedDesignResult) => {
+  const handleBundleImported = (result: ImportedBundleResult) => {
     const designId = `imported-${crypto.randomUUID()}`;
     resetSession();
-    setActiveDesign(designId, result.design, result.rubricScores);
+    // Trust the spec.md scorecard when it covers all 10 dimensions —
+    // those PASS verdicts are the author's evaluated state. Otherwise the
+    // importer falls back to all-fail and the editor auto-runs the LLM
+    // rubric on mount.
+    setActiveBundle(
+      designId,
+      result.bundle,
+      result.rubricScores,
+      result.rubricEvaluated,
+    );
     router.push(`/editor/${designId}`);
   };
 
@@ -68,7 +77,7 @@ export default function Home() {
           <div className="h-px flex-1 bg-gray-800" />
         </div>
 
-        <ExistingDesignImporter onDesignImported={handleDesignImported} />
+        <ExistingDesignImporter onBundleImported={handleBundleImported} />
       </main>
     </div>
   );

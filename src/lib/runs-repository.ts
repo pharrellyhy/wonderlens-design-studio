@@ -4,8 +4,8 @@ import path from "node:path";
 
 import { z } from "zod";
 
+import { activityBundleSchema } from "@/lib/activity-bundle-schema";
 import {
-  gameDesignSchema,
   generationModeSchema,
   rubricScoresSchema,
 } from "@/lib/design-schema";
@@ -26,17 +26,17 @@ export const runRecordSchema = z
     isOpposite: z.boolean(),
     // The parent's designId (matches in-memory VariantResult.id and
     // RunRecord.designId). Despite the "parentRunId" name, this holds the
-    // design's id, not the run file's hash id. See plan Section 2.
+    // bundle's id, not the run file's hash id.
     parentRunId: z.string().nullable(),
     rubric: rubricScoresSchema,
     totalScore: z.number().int().min(0).max(10),
     designId: z.string().min(1),
-    design: gameDesignSchema,
+    bundle: activityBundleSchema,
     durationMs: z.number().int().nonnegative(),
-    // Raw YAML that produced this run's design. Stored so the opposite-
+    // Raw YAML that produced this run's bundle. Stored so the opposite-
     // category endpoint can re-parse a `ParsedEntity` via `parseEntityYaml`
     // and feed it back into `generateVariant` without losing tier_guidance
-    // and dimension data that the design's `entityMapping` does not retain.
+    // and dimension data that the bundle's tagBlock alone does not retain.
     sourceEntityYaml: z.string().min(1),
   })
   .strict();
@@ -115,12 +115,12 @@ function isNodeErrnoException(error: unknown): error is NodeJS.ErrnoException {
  * This guarantees readers never observe a half-written JSON file.
  */
 export async function saveRun(run: RunRecord): Promise<void> {
-  // Enforce the denormalization invariant: the embedded design is the source
-  // of truth for generationMode. See plan 2026-04-14-autodesign-parity-changes
-  // Section 4 — "Note on generationMode denormalization".
+  // Enforce the denormalization invariant: the embedded bundle is the source
+  // of truth for generationMode. The flat field on the record is a sort key
+  // for the library; if they ever diverge, the bundle wins.
   const normalized = {
     ...run,
-    generationMode: run.design.basicInfo.generationMode,
+    generationMode: run.bundle.generationMode,
   };
   // Defensive: validate the caller-provided record before we touch disk.
   const validated = runRecordSchema.parse(normalized);
