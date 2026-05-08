@@ -20,7 +20,8 @@ export default function Home() {
   const handleBundleImported = (result: ImportedBundleResult) => {
     const designId = `imported-${crypto.randomUUID()}`;
     resetSession();
-    // Trust the spec.md scorecard when it covers all 10 dimensions —
+    // Trust the prod.md scorecard when it covers all 10 dimensions,
+    // falling back to spec.md for legacy activity bundles —
     // those PASS verdicts are the author's evaluated state. Otherwise the
     // importer falls back to all-fail and the editor auto-runs the LLM
     // rubric on mount.

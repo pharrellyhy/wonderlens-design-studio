@@ -12,11 +12,15 @@ import {
   type TemplateType,
   type TopicAxis,
 } from "@/lib/activity-bundle-schema";
-import { EditableField } from "@/components/editor/EditableField";
+import {
+  EditableField,
+  useFieldAiControls,
+} from "@/components/editor/EditableField";
 
 interface TagBlockPanelProps {
   bundle: ActivityBundle;
   onChange: (path: string, value: unknown) => void;
+  onAskAI?: (path: string, comment: string) => void;
 }
 
 const OBSERVATION_ANGLES: ObservationAngle[] = [
@@ -97,11 +101,15 @@ const CAREGIVER_ROLES: CaregiverRole[] = [
   "observer",
 ];
 
+const TIERS = ["T0", "T1", "T2"] as const;
+
 interface EnumSelectProps<T extends string> {
   label: string;
   value: T;
   options: readonly T[];
   onChange: (value: T) => void;
+  fieldPath: string;
+  onAskAI?: (path: string, comment: string) => void;
   helper?: string;
 }
 
@@ -110,13 +118,23 @@ function EnumSelect<T extends string>({
   value,
   options,
   onChange,
+  fieldPath,
+  onAskAI,
   helper,
 }: EnumSelectProps<T>) {
+  const { actionButtons, commentRow } = useFieldAiControls({
+    fieldPath,
+    onAskAI,
+  });
+
   return (
     <div className="bg-gray-800 rounded-lg p-4">
-      <label className="text-gray-400 text-xs uppercase tracking-wider">
-        {label}
-      </label>
+      <div className="flex justify-between items-center">
+        <label className="text-gray-400 text-xs uppercase tracking-wider">
+          {label}
+        </label>
+        {actionButtons}
+      </div>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
@@ -128,6 +146,7 @@ function EnumSelect<T extends string>({
           </option>
         ))}
       </select>
+      {commentRow}
       {helper && (
         <p className="mt-1 text-[11px] text-gray-500">{helper}</p>
       )}
@@ -140,6 +159,8 @@ interface MultiSelectProps<T extends string> {
   value: T[];
   options: readonly T[];
   onChange: (value: T[]) => void;
+  fieldPath: string;
+  onAskAI?: (path: string, comment: string) => void;
   helper?: string;
 }
 
@@ -148,8 +169,15 @@ function MultiSelect<T extends string>({
   value,
   options,
   onChange,
+  fieldPath,
+  onAskAI,
   helper,
 }: MultiSelectProps<T>) {
+  const { actionButtons, commentRow } = useFieldAiControls({
+    fieldPath,
+    onAskAI,
+  });
+
   const toggle = (option: T) => {
     if (value.includes(option)) {
       onChange(value.filter((v) => v !== option));
@@ -159,9 +187,12 @@ function MultiSelect<T extends string>({
   };
   return (
     <div className="bg-gray-800 rounded-lg p-4">
-      <label className="text-gray-400 text-xs uppercase tracking-wider">
-        {label}
-      </label>
+      <div className="flex justify-between items-center">
+        <label className="text-gray-400 text-xs uppercase tracking-wider">
+          {label}
+        </label>
+        {actionButtons}
+      </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {options.map((opt) => {
           const active = value.includes(opt);
@@ -181,6 +212,7 @@ function MultiSelect<T extends string>({
           );
         })}
       </div>
+      {commentRow}
       {helper && (
         <p className="mt-2 text-[11px] text-gray-500">{helper}</p>
       )}
@@ -188,7 +220,55 @@ function MultiSelect<T extends string>({
   );
 }
 
-export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
+interface TierSupportProps {
+  value: Record<(typeof TIERS)[number], boolean>;
+  onChange: (tier: (typeof TIERS)[number], active: boolean) => void;
+  onAskAI?: (path: string, comment: string) => void;
+}
+
+function TierSupport({ value, onChange, onAskAI }: TierSupportProps) {
+  const { actionButtons, commentRow } = useFieldAiControls({
+    fieldPath: "tagBlock.matchability.tier_support",
+    onAskAI,
+  });
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-4">
+      <div className="flex justify-between items-center">
+        <label className="text-gray-400 text-xs uppercase tracking-wider">
+          Tier Support
+        </label>
+        {actionButtons}
+      </div>
+      <div className="mt-2 flex gap-2">
+        {TIERS.map((tier) => {
+          const active = value[tier];
+          return (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => onChange(tier, !active)}
+              className={`px-3 py-1 rounded text-xs border transition-colors ${
+                active
+                  ? "bg-emerald-900/60 border-emerald-500 text-emerald-100"
+                  : "bg-gray-900 border-gray-700 text-gray-400"
+              }`}
+            >
+              {tier}
+            </button>
+          );
+        })}
+      </div>
+      {commentRow}
+    </div>
+  );
+}
+
+export function TagBlockPanel({
+  bundle,
+  onChange,
+  onAskAI,
+}: TagBlockPanelProps) {
   const tb = bundle.tagBlock;
   const sig = tb.activity_signature;
 
@@ -208,18 +288,22 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             value={tb.activity_id}
             fieldPath="tagBlock.activity_id"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
           <EditableField
             label="Source Entity Exemplar"
             value={tb.source_entity_exemplar ?? ""}
             fieldPath="tagBlock.source_entity_exemplar"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
           <EnumSelect
             label="Pillar"
             value={tb.pillar}
             options={PILLARS}
             onChange={(v) => handleField("tagBlock.pillar", v)}
+            fieldPath="tagBlock.pillar"
+            onAskAI={onAskAI}
             helper="Mirrors spec.identity.pillar via the cross-doc bind."
           />
           <EnumSelect
@@ -227,12 +311,15 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             value={tb.template_type}
             options={TEMPLATE_TYPES}
             onChange={(v) => handleField("tagBlock.template_type", v)}
+            fieldPath="tagBlock.template_type"
+            onAskAI={onAskAI}
           />
           <EditableField
             label="Game Style"
             value={tb.game_style}
             fieldPath="tagBlock.game_style"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
         </div>
       </section>
@@ -247,30 +334,38 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             value={tb.entity}
             fieldPath="tagBlock.entity"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
           <EnumSelect
             label="Entity Binding"
             value={tb.entity_binding}
             options={ENTITY_BINDINGS}
             onChange={(v) => handleField("tagBlock.entity_binding", v)}
+            fieldPath="tagBlock.entity_binding"
+            onAskAI={onAskAI}
           />
           <EnumSelect
             label="Tier — Primary"
             value={tb.tier_range.primary}
-            options={["T0", "T1", "T2"] as const}
+            options={TIERS}
             onChange={(v) => handleField("tagBlock.tier_range.primary", v)}
+            fieldPath="tagBlock.tier_range.primary"
+            onAskAI={onAskAI}
           />
           <EditableField
             label="Tier Elasticity"
             value={tb.tier_range.elasticity}
             fieldPath="tagBlock.tier_range.elasticity"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
           <MultiSelect
             label="Key Concepts"
             value={tb.key_concepts}
             options={IB_KEY_CONCEPTS}
             onChange={(v) => handleField("tagBlock.key_concepts", v)}
+            fieldPath="tagBlock.key_concepts"
+            onAskAI={onAskAI}
             helper="Closed IB vocabulary (TitleCase). Mirrors prod.basicInfo.coreIbKeyConcepts."
           />
           <MultiSelect
@@ -278,6 +373,8 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             value={tb.caregiver_role}
             options={CAREGIVER_ROLES}
             onChange={(v) => handleField("tagBlock.caregiver_role", v)}
+            fieldPath="tagBlock.caregiver_role"
+            onAskAI={onAskAI}
           />
         </div>
         <div className="grid grid-cols-2 gap-4 mt-4">
@@ -286,6 +383,8 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             value={tb.progression.topic_axis}
             options={TOPIC_AXES}
             onChange={(v) => handleField("tagBlock.progression.topic_axis", v)}
+            fieldPath="tagBlock.progression.topic_axis"
+            onAskAI={onAskAI}
             helper="Conceptual lens; lowercase. Mirrors dashboard.session.axis."
           />
           <EnumSelect
@@ -295,18 +394,22 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             onChange={(v) =>
               handleField("tagBlock.progression.difficulty_level", Number(v))
             }
+            fieldPath="tagBlock.progression.difficulty_level"
+            onAskAI={onAskAI}
           />
           <EditableField
             label="Next Step Hint"
             value={tb.progression.next_step_hint ?? ""}
             fieldPath="tagBlock.progression.next_step_hint"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
           <EditableField
             label="Reward Hook"
             value={tb.progression.reward_hook ?? ""}
             fieldPath="tagBlock.progression.reward_hook"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
         </div>
       </section>
@@ -323,6 +426,8 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             onChange={(v) =>
               handleField("tagBlock.activity_signature.observation_angle", v)
             }
+            fieldPath="tagBlock.activity_signature.observation_angle"
+            onAskAI={onAskAI}
             helper="Mirrors recap.payloadDefaults.whatWeNoticed and dashboard.session.angle."
           />
           <EnumSelect
@@ -332,6 +437,8 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             onChange={(v) =>
               handleField("tagBlock.activity_signature.mechanic", v)
             }
+            fieldPath="tagBlock.activity_signature.mechanic"
+            onAskAI={onAskAI}
           />
           <EnumSelect
             label="Entity Role"
@@ -340,18 +447,22 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             onChange={(v) =>
               handleField("tagBlock.activity_signature.entity_role", v)
             }
+            fieldPath="tagBlock.activity_signature.entity_role"
+            onAskAI={onAskAI}
           />
           <EditableField
             label="Focal Attribute"
             value={sig.focal_attribute}
             fieldPath="tagBlock.activity_signature.focal_attribute"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
           <EditableField
             label="Intro"
             value={sig.intro}
             fieldPath="tagBlock.activity_signature.intro"
             onChange={handleStringField}
+            onAskAI={onAskAI}
             multiline
           />
           <EditableField
@@ -359,12 +470,14 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             value={sig.preview_label}
             fieldPath="tagBlock.activity_signature.preview_label"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
           <EditableField
             label="Preview Prompt"
             value={sig.preview_prompt}
             fieldPath="tagBlock.activity_signature.preview_prompt"
             onChange={handleStringField}
+            onAskAI={onAskAI}
             multiline
           />
           <EditableField
@@ -372,6 +485,7 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
             value={sig.role_pivot_note}
             fieldPath="tagBlock.activity_signature.role_pivot_note"
             onChange={handleStringField}
+            onAskAI={onAskAI}
           />
         </div>
         <div className="mt-4">
@@ -385,6 +499,8 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
                 v,
               )
             }
+            fieldPath="tagBlock.activity_signature.bridge_prerequisites.primary"
+            onAskAI={onAskAI}
             helper="Up to 3 strongest transition angles from the observation-angle vocabulary."
           />
         </div>
@@ -395,35 +511,13 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
           §3 · Matchability
         </h4>
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-800 rounded-lg p-4">
-            <label className="text-gray-400 text-xs uppercase tracking-wider">
-              Tier Support
-            </label>
-            <div className="mt-2 flex gap-2">
-              {(["T0", "T1", "T2"] as const).map((tier) => {
-                const active = tb.matchability.tier_support[tier];
-                return (
-                  <button
-                    key={tier}
-                    type="button"
-                    onClick={() =>
-                      handleField(
-                        `tagBlock.matchability.tier_support.${tier}`,
-                        !active,
-                      )
-                    }
-                    className={`px-3 py-1 rounded text-xs border transition-colors ${
-                      active
-                        ? "bg-emerald-900/60 border-emerald-500 text-emerald-100"
-                        : "bg-gray-900 border-gray-700 text-gray-400"
-                    }`}
-                  >
-                    {tier}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <TierSupport
+            value={tb.matchability.tier_support}
+            onChange={(tier, active) =>
+              handleField(`tagBlock.matchability.tier_support.${tier}`, active)
+            }
+            onAskAI={onAskAI}
+          />
           <EditableField
             label="Entity Class Filter (comma-sep)"
             value={tb.matchability.entity_class_filter.join(", ")}
@@ -437,6 +531,7 @@ export function TagBlockPanel({ bundle, onChange }: TagBlockPanelProps) {
                   .filter(Boolean),
               )
             }
+            onAskAI={onAskAI}
           />
         </div>
       </section>

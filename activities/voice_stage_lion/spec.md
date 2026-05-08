@@ -49,7 +49,7 @@ Evaluated against `prod.md`, `tag_block.yaml`, `program.md` Phase 3, and `templa
 |---|-----------|-------|-------|
 | 1 | V1 Technical Compliance | PASS | The game uses the initial lion photo and spoken child responses only. It does not require OCR, face/pose detection, IMU sensing, non-speech audio recognition, or before/after comparison. |
 | 2 | Hook & Transition | PASS | Step 1 starts with emotional excitement about the lion's mane and roar, then naturally escalates into the Jungle Talent Show audience frame. |
-| 3 | Edge Case Coverage | PASS | Each step has ideal, unexpected, and no-response paths with 2s waits for silence. Condensed later roar rounds preserve the Round 1 branch pattern and the surprise-sound validation strategy. |
+| 3 | Edge Case Coverage | PASS | Each step has ideal, unexpected, and no-response paths with 2s waits for silence. All three roar rounds now include explicit branch copy and the surprise-sound validation strategy. |
 | 4 | IB Completeness | PASS | Perspective + Form are named in Basic Info, tag metadata, and closing. KUD, related concepts, and ATL skills are specific to lion form, vocal expression, listening, and emotional performance. |
 | 5 | Tier Appropriateness | PASS | Runtime and metadata now target T0: short call-and-response prompts, onomatopoeia, single action per round, and caregiver scaffolding as the primary support. |
 | 6 | Dialogue Specificity | PASS | AI lines are concrete spoken copy with tone markers; judge reactions are specific and playful, with no abstract "AI guides" placeholders in the runnable steps. |

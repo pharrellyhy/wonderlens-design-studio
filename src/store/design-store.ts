@@ -1,7 +1,9 @@
 import { create } from "zustand";
 
 import type { ActivityBundle } from "@/lib/activity-bundle-schema";
+import type { ImportedBundleResult } from "@/lib/bundle-import";
 import type {
+  DialogueBlock,
   GenerationMode,
   RubricIssue,
   RubricScores,
@@ -51,6 +53,11 @@ interface DesignStore {
   setRubricIssues: (issues: RubricIssue[]) => void;
 
   updateField: (path: string, value: unknown) => void;
+  addBridgeVariant: (
+    stepIndex: number,
+    variant: "warmStart" | "coldStart",
+  ) => void;
+  addRound: (stepIndex: number) => void;
 
   // Generation job tracking
   generationJobId: string | null;
@@ -62,6 +69,10 @@ interface DesignStore {
   parentsWithOpposite: string[];
   setParentsWithOpposite: (ids: string[]) => void;
   addParentWithOpposite: (id: string) => void;
+
+  importedBundles: ImportedBundleResult[];
+  setImportedBundles: (bundles: ImportedBundleResult[]) => void;
+  clearImportedBundles: () => void;
 
   activeSection: string;
   setActiveSection: (section: string) => void;
@@ -103,6 +114,19 @@ function setNestedValue(
     nextValue,
   );
   return nextObject;
+}
+
+function createEmptyDialogueBlock(): DialogueBlock {
+  return {
+    aiSays: "",
+    childResponses: { ideal: "", unexpected: "", silent: "" },
+    aiFollowUps: { ideal: "", unexpected: "", silent: "" },
+    screenDescription: "",
+  };
+}
+
+function cloneBundle(bundle: ActivityBundle): ActivityBundle {
+  return JSON.parse(JSON.stringify(bundle)) as ActivityBundle;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +258,41 @@ export const useDesignStore = create<DesignStore>()((set) => ({
         activeBundle: mirrorTagBlockSignatureChange(updated, path, value),
       };
     }),
+  addBridgeVariant: (stepIndex, variant) =>
+    set((state) => {
+      if (!state.activeBundle) return state;
+      const step = state.activeBundle.prod.steps[stepIndex];
+      if (!step || step.type !== "bridge" || step[variant]) return state;
+
+      const activeBundle = cloneBundle(state.activeBundle);
+      const nextStep = activeBundle.prod.steps[stepIndex];
+      if (!nextStep || nextStep.type !== "bridge") return state;
+
+      nextStep[variant] = createEmptyDialogueBlock();
+      return { activeBundle };
+    }),
+  addRound: (stepIndex) =>
+    set((state) => {
+      if (!state.activeBundle) return state;
+      const step = state.activeBundle.prod.steps[stepIndex];
+      if (!step || step.type !== "rounds") return state;
+
+      const activeBundle = cloneBundle(state.activeBundle);
+      const nextStep = activeBundle.prod.steps[stepIndex];
+      if (!nextStep || nextStep.type !== "rounds") return state;
+
+      const rounds = nextStep.rounds ?? [];
+      const nextRoundNumber =
+        rounds.reduce(
+          (highest, round) => Math.max(highest, round.roundNumber),
+          0,
+        ) + 1;
+      nextStep.rounds = [
+        ...rounds,
+        { roundNumber: nextRoundNumber, dialogue: createEmptyDialogueBlock() },
+      ];
+      return { activeBundle };
+    }),
 
   generationJobId: null,
   setGenerationJobId: (id) => set({ generationJobId: id }),
@@ -249,6 +308,10 @@ export const useDesignStore = create<DesignStore>()((set) => ({
         ? state
         : { parentsWithOpposite: [...state.parentsWithOpposite, id] },
     ),
+
+  importedBundles: [],
+  setImportedBundles: (bundles) => set({ importedBundles: bundles }),
+  clearImportedBundles: () => set({ importedBundles: [] }),
 
   activeSection: "spec",
   setActiveSection: (section) => set({ activeSection: section }),

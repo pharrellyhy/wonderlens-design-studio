@@ -30,7 +30,7 @@
     "source_entity_exemplar": { "type": "string" },
     "template_type": { "enum": ["cat1", "cat5"] },
     "pillar": {
-      "enum": ["Discovery", "Performance", "Mystery", "Creation", "Adventure", "Connection"]
+      "enum": ["Discovery", "Performance", "Mystery", "Creation", "Adventure", "Nurture"]
     },
     "game_style": { "type": "string" },
 

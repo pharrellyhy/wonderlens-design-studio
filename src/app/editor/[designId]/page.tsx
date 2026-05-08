@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileText,
   LayoutGrid,
+  Plus,
   Sparkles,
   Tag,
   Target,
@@ -42,6 +43,8 @@ export default function EditorPage() {
   const updateField = useDesignStore((s) => s.updateField);
   const setRubricScores = useDesignStore((s) => s.setRubricScores);
   const setRubricIssues = useDesignStore((s) => s.setRubricIssues);
+  const addBridgeVariant = useDesignStore((s) => s.addBridgeVariant);
+  const addRound = useDesignStore((s) => s.addRound);
 
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -185,6 +188,25 @@ export default function EditorPage() {
   const activeStepIndex = activeStep
     ? activeBundle.prod.steps.indexOf(activeStep)
     : -1;
+  const handleAddBridgeVariant = (variant: "warmStart" | "coldStart") => {
+    if (!activeStep || activeStepIndex < 0) return;
+    addBridgeVariant(activeStepIndex, variant);
+    setActiveSection(
+      `step-${activeStep.stepNumber}-${variant === "warmStart" ? "warm" : "cold"}`,
+    );
+  };
+  const handleAddRound = () => {
+    if (!activeStep || activeStepIndex < 0 || activeStep.type !== "rounds") {
+      return;
+    }
+    const nextRoundNumber =
+      (activeStep.rounds ?? []).reduce(
+        (highest, round) => Math.max(highest, round.roundNumber),
+        0,
+      ) + 1;
+    addRound(activeStepIndex);
+    setActiveSection(`step-${activeStep.stepNumber}-round-${nextRoundNumber}`);
+  };
 
   return (
     <div className="flex-1 min-h-0 bg-gray-950 text-gray-100 flex flex-col">
@@ -240,6 +262,7 @@ export default function EditorPage() {
                   value={activeBundle.spec.subtitle ?? ""}
                   fieldPath="spec.subtitle"
                   onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
                 />
                 <EditableField
                   label="Premise"
@@ -262,18 +285,21 @@ export default function EditorPage() {
                   value={activeBundle.spec.target.ibAxisPrimary}
                   fieldPath="spec.target.ibAxisPrimary"
                   onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
                 />
                 <EditableField
                   label="IB Axis (secondary)"
                   value={activeBundle.spec.target.ibAxisSecondary ?? ""}
                   fieldPath="spec.target.ibAxisSecondary"
                   onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
                 />
                 <EditableField
                   label="Tier elasticity"
                   value={activeBundle.spec.target.tierElasticity}
                   fieldPath="spec.target.tierElasticity"
                   onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
                 />
                 <EditableField
                   label="Age Notes"
@@ -324,12 +350,14 @@ export default function EditorPage() {
                   value={activeBundle.prod.basicInfo.designVersion}
                   fieldPath="prod.basicInfo.designVersion"
                   onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
                 />
                 <EditableField
                   label="Last Updated"
                   value={activeBundle.prod.basicInfo.lastUpdated}
                   fieldPath="prod.basicInfo.lastUpdated"
                   onChange={handleStringFieldChange}
+                  onAskAI={handleAskAI}
                 />
                 <EditableField
                   label="Related Concepts (comma-sep)"
@@ -344,8 +372,9 @@ export default function EditorPage() {
                         .split(/\s*,\s*/)
                         .map((s) => s.trim())
                         .filter(Boolean),
-                    )
+                      )
                   }
+                  onAskAI={handleAskAI}
                 />
                 <EditableField
                   label="ATL Skills Focus (comma-sep)"
@@ -358,8 +387,9 @@ export default function EditorPage() {
                         .split(/\s*,\s*/)
                         .map((s) => s.trim())
                         .filter(Boolean),
-                    )
+                      )
                   }
+                  onAskAI={handleAskAI}
                 />
                 <p className="text-xs text-gray-500">
                   Game style, category, recommended tier, and core IB key
@@ -547,6 +577,7 @@ export default function EditorPage() {
                   Step {activeStep.stepNumber}: {activeStep.title}
                 </h3>
                 <button
+                  type="button"
                   onClick={() =>
                     handleAskAI(`prod.steps.${activeStepIndex}`, "")
                   }
@@ -559,6 +590,30 @@ export default function EditorPage() {
 
               {activeStep.type === "bridge" && (
                 <div className="space-y-6">
+                  {(!activeStep.warmStart || !activeStep.coldStart) && (
+                    <div className="flex flex-wrap gap-2">
+                      {!activeStep.warmStart && (
+                        <button
+                          type="button"
+                          onClick={() => handleAddBridgeVariant("warmStart")}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-indigo-700 bg-indigo-950/30 px-3 py-1.5 text-xs text-indigo-200 transition-colors hover:bg-indigo-900/50"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Warm Start
+                        </button>
+                      )}
+                      {!activeStep.coldStart && (
+                        <button
+                          type="button"
+                          onClick={() => handleAddBridgeVariant("coldStart")}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-blue-700 bg-blue-950/30 px-3 py-1.5 text-xs text-blue-200 transition-colors hover:bg-blue-900/50"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Cold Start
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {(activeSection === `step-${activeStep.stepNumber}` ||
                     activeSection === `step-${activeStep.stepNumber}-warm`) &&
                     activeStep.warmStart && (
@@ -592,9 +647,19 @@ export default function EditorPage() {
                 </div>
               )}
 
-              {activeStep.type === "rounds" && activeStep.rounds && (
+              {activeStep.type === "rounds" && (
                 <div className="space-y-8">
-                  {activeStep.rounds.map((round, roundIndex) => {
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleAddRound}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-purple-700 bg-purple-950/30 px-3 py-1.5 text-xs text-purple-200 transition-colors hover:bg-purple-900/50"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Round
+                    </button>
+                  </div>
+                  {(activeStep.rounds ?? []).map((round, roundIndex) => {
                     const roundId = `step-${activeStep.stepNumber}-round-${round.roundNumber}`;
                     if (
                       activeSection !== `step-${activeStep.stepNumber}` &&
@@ -661,6 +726,7 @@ export default function EditorPage() {
               <TagBlockPanel
                 bundle={activeBundle}
                 onChange={(path, value) => updateField(path, value)}
+                onAskAI={handleAskAI}
               />
             </section>
           )}

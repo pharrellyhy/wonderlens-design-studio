@@ -39,7 +39,7 @@ function getStepIcon(stepType: Step["type"]): LucideIcon {
   }
 }
 
-interface SectionEntry {
+export interface SectionEntry {
   id: string;
   label: string;
   indent: number;
@@ -47,11 +47,20 @@ interface SectionEntry {
   group?: string;
 }
 
-export function NavigationPanel({
-  bundle,
-  activeSection,
-  onSectionChange,
-}: NavigationPanelProps) {
+function stepLabel(step: Step): string {
+  if (step.type !== "rounds") {
+    return `Step ${step.stepNumber}: ${step.title}`;
+  }
+
+  const roundCount = step.rounds?.length ?? 0;
+  const roundLabel = roundCount === 1 ? "1 round" : `${roundCount} rounds`;
+  const title = step.title
+    .replace(/\s*\(\s*\d+\s+rounds?\s*\)\s*$/i, "")
+    .trim();
+  return `Step ${step.stepNumber}: ${title} (${roundLabel})`;
+}
+
+export function buildNavigationSections(bundle: ActivityBundle): SectionEntry[] {
   const sections: SectionEntry[] = [
     {
       id: "spec",
@@ -93,25 +102,29 @@ export function NavigationPanel({
   for (const step of bundle.prod.steps) {
     sections.push({
       id: `step-${step.stepNumber}`,
-      label: `Step ${step.stepNumber}: ${step.title}`,
+      label: stepLabel(step),
       indent: 0,
       Icon: getStepIcon(step.type),
       group: "Prod · Steps",
     });
 
     if (step.type === "bridge") {
-      sections.push({
-        id: `step-${step.stepNumber}-warm`,
-        label: "Warm Start",
-        indent: 1,
-        group: "Prod · Steps",
-      });
-      sections.push({
-        id: `step-${step.stepNumber}-cold`,
-        label: "Cold Start",
-        indent: 1,
-        group: "Prod · Steps",
-      });
+      if (step.warmStart) {
+        sections.push({
+          id: `step-${step.stepNumber}-warm`,
+          label: "Warm Start",
+          indent: 1,
+          group: "Prod · Steps",
+        });
+      }
+      if (step.coldStart) {
+        sections.push({
+          id: `step-${step.stepNumber}-cold`,
+          label: "Cold Start",
+          indent: 1,
+          group: "Prod · Steps",
+        });
+      }
     }
 
     if (step.type === "rounds" && step.rounds) {
@@ -149,6 +162,16 @@ export function NavigationPanel({
       group: "Derived",
     },
   );
+
+  return sections;
+}
+
+export function NavigationPanel({
+  bundle,
+  activeSection,
+  onSectionChange,
+}: NavigationPanelProps) {
+  const sections = buildNavigationSections(bundle);
 
   // Group section entries by their `group` label so the panel renders
   // a small sticky header per section family. Order is preserved from the

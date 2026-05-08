@@ -26,8 +26,8 @@ export interface ImportedBundleResult {
   bundle: ActivityBundle;
   rubricScores: RubricScores;
   /**
-   * True when a `## Self-Evaluation Scorecard` table in spec.md provided
-   * a verdict for every dimension. The editor uses this to skip the
+   * True when a `## Self-Evaluation Scorecard` table in prod.md or spec.md
+   * provided a verdict for every dimension. The editor uses this to skip the
    * auto-rubric-rerun and render the author's PASS/FAIL pills as soon as
    * the import lands.
    */
@@ -54,8 +54,8 @@ const RUBRIC_DIMENSION_KEYS = [
 type RubricKey = (typeof RUBRIC_DIMENSION_KEYS)[number];
 
 /**
- * Extract D1..D10 verdicts from a `## Self-Evaluation Scorecard` table in
- * spec.md. Returns the parsed scores plus a flag indicating whether all 10
+ * Extract D1..D10 verdicts from a markdown `## Self-Evaluation Scorecard`
+ * table. Returns the parsed scores plus a flag indicating whether all 10
  * dimensions were accounted for.
  *
  * Table convention (consistent across canonical activities):
@@ -67,15 +67,15 @@ type RubricKey = (typeof RUBRIC_DIMENSION_KEYS)[number];
  * dimensions that don't apply to a given activity (e.g., D8 on bound
  * activities that didn't go through a mapping-informed assignment).
  */
-function parseSpecScorecard(
-  specMarkdown: string,
+function parseScorecard(
+  markdown: string,
 ): { scores: RubricScores; evaluated: boolean } {
   const scores: RubricScores = { ...ALL_FAIL_RUBRIC };
   const seen = new Set<RubricKey>();
 
   const re = /^\|\s*(\d+)\s*\|[^|]+\|\s*(PASS|FAIL|N\s*\/\s*A)\s*\|/gim;
   let match: RegExpExecArray | null;
-  while ((match = re.exec(specMarkdown)) !== null) {
+  while ((match = re.exec(markdown)) !== null) {
     const num = Number(match[1]);
     if (num < 1 || num > 10) continue;
     const key = `d${num}` as RubricKey;
@@ -89,6 +89,14 @@ function parseSpecScorecard(
   }
 
   return { scores, evaluated: seen.size === RUBRIC_DIMENSION_KEYS.length };
+}
+
+function parseImportedScorecard(files: FileMap): {
+  scores: RubricScores;
+  evaluated: boolean;
+} {
+  const prod = parseScorecard(files["prod.md"]);
+  return prod.evaluated ? prod : parseScorecard(files["spec.md"]);
 }
 
 export class BundleImportError extends Error {
@@ -131,7 +139,7 @@ export async function importBundleFromZip(
   const fileMap = await locateZipFiles(zip);
   const rootDir = inferZipRootDir(zip);
   const bundle = parseBundleFromFileMap(fileMap, rootDir);
-  const { scores, evaluated } = parseSpecScorecard(fileMap["spec.md"]);
+  const { scores, evaluated } = parseImportedScorecard(fileMap);
   return {
     bundle,
     rubricScores: scores,
@@ -140,19 +148,48 @@ export async function importBundleFromZip(
   };
 }
 
+export async function importBundlesFromZipFiles(
+  files: File[],
+): Promise<ImportedBundleResult[]> {
+  return Promise.all(
+    files.map(async (file) => importBundleFromZip(await file.arrayBuffer())),
+  );
+}
+
 export async function importBundleFromFiles(
   files: File[],
 ): Promise<ImportedBundleResult> {
-  const fileMap = await locateFolderFiles(files);
-  // No reliable root dir from a file list — fall back to tagBlock.activity_id.
-  const bundle = parseBundleFromFileMap(fileMap, undefined);
-  const { scores, evaluated } = parseSpecScorecard(fileMap["spec.md"]);
-  return {
-    bundle,
-    rubricScores: scores,
-    rubricEvaluated: evaluated,
-    sourceFormat: "files",
-  };
+  const results = await importBundlesFromFiles(files);
+  if (results.length !== 1) {
+    throw new BundleImportError(
+      `Expected one activity bundle, but found ${results.length}.`,
+    );
+  }
+  return results[0];
+}
+
+export async function importBundlesFromFiles(
+  files: File[],
+): Promise<ImportedBundleResult[]> {
+  const groups = groupFolderFilesByBundle(files);
+  const results: ImportedBundleResult[] = [];
+
+  for (const group of groups) {
+    const fileMap = await locateFolderFiles(group.files, group.label);
+    // Folder names are user-controlled and often differ from activity_id
+    // after download/unzip, so keep tag_block.activity_id as the source of
+    // truth instead of enforcing parent-directory equality.
+    const bundle = parseBundleFromFileMap(fileMap, undefined);
+    const { scores, evaluated } = parseImportedScorecard(fileMap);
+    results.push({
+      bundle,
+      rubricScores: scores,
+      rubricEvaluated: evaluated,
+      sourceFormat: "files",
+    });
+  }
+
+  return results;
 }
 
 // ============================================================================
@@ -195,7 +232,49 @@ function inferZipRootDir(zip: JSZip): string | undefined {
 // Locate the 5 required files from a folder picker File[]
 // ============================================================================
 
-async function locateFolderFiles(files: File[]): Promise<FileMap> {
+interface FolderFileGroup {
+  label: string;
+  files: File[];
+  order: number;
+}
+
+function groupFolderFilesByBundle(files: File[]): FolderFileGroup[] {
+  const groups = new Map<string, FolderFileGroup>();
+  let fallbackOrder = 0;
+
+  for (const file of files) {
+    const base = baseName(file.name).toLowerCase();
+    if (!(REQUIRED_FILES as readonly string[]).includes(base)) continue;
+
+    const groupKey = parentDirectory(filePath(file));
+    const existing = groups.get(groupKey);
+    if (existing) {
+      existing.files.push(file);
+      continue;
+    }
+
+    groups.set(groupKey, {
+      label: groupKey || "selected files",
+      files: [file],
+      order: fallbackOrder,
+    });
+    fallbackOrder += 1;
+  }
+
+  if (groups.size === 0) {
+    throw new BundleImportError(
+      `Selected files are missing required files: ${REQUIRED_FILES.join(", ")}`,
+      { missingFiles: [...REQUIRED_FILES] },
+    );
+  }
+
+  return [...groups.values()].sort((a, b) => a.order - b.order);
+}
+
+async function locateFolderFiles(
+  files: File[],
+  label = "selected folder",
+): Promise<FileMap> {
   const found: Partial<FileMap> = {};
   for (const file of files) {
     const base = baseName(file.name).toLowerCase();
@@ -206,7 +285,7 @@ async function locateFolderFiles(files: File[]): Promise<FileMap> {
   const missing = REQUIRED_FILES.filter((f) => found[f] === undefined);
   if (missing.length > 0) {
     throw new BundleImportError(
-      `Selected folder is missing required files: ${missing.join(", ")}`,
+      `${label} is missing required files: ${missing.join(", ")}`,
       { missingFiles: [...missing] },
     );
   }
@@ -215,6 +294,16 @@ async function locateFolderFiles(files: File[]): Promise<FileMap> {
 
 function baseName(p: string): string {
   return p.split("/").filter(Boolean).pop() ?? p;
+}
+
+function filePath(file: File): string {
+  return file.webkitRelativePath || file.name;
+}
+
+function parentDirectory(path: string): string {
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length <= 1) return "";
+  return parts.slice(0, -1).join("/");
 }
 
 // ============================================================================
@@ -515,10 +604,15 @@ function parseSpecMarkdown(text: string): Spec {
 
 function parseProdMarkdown(text: string): Prod {
   // Renderer output starts with `## {activityName}` directly, so the first
-  // (and only) `##` chunk holds the title plus all `###` subsections. Any
-  // preamble before the first `##` (rare) is discarded.
+  // activity `##` chunk holds the title plus all `###` subsections. Any
+  // preamble and trailing scorecard chunks are ignored for structural parsing.
   const top = splitByHeading(text, /^##\s+/m);
-  const titleAndBody = top.length > 1 ? top[1] : top[0] ?? "";
+  const titleAndBody =
+    top.find(
+      (section) =>
+        /^##\s+/.test(section) &&
+        !/^##\s+Self-Evaluation Scorecard\b/im.test(section),
+    ) ?? "";
   if (!/^##\s+/.test(titleAndBody)) {
     throw new BundleImportError(
       "prod.md: missing activity-name '## …' heading",
@@ -893,11 +987,29 @@ function parseSteps(flowBody: string): Step[] {
 
   const out: Step[] = [];
   for (const sec of sections) {
-    const headingMatch = /^####\s+Step\s+(\d+):\s*(.+?)\s*$/m.exec(sec);
+    const headingMatch = /^####\s+Step\s+(\d+)([ab])?:\s*(.+?)\s*$/im.exec(sec);
     if (!headingMatch) continue;
     const stepNumber = Number(headingMatch[1]);
-    const title = headingMatch[2].trim();
+    const bridgeSuffix = headingMatch[2]?.toLowerCase();
+    const title = headingMatch[3].trim();
     const body = sec.slice(headingMatch[0].length).replace(/^\n+/, "");
+    if (stepNumber === 1 && (bridgeSuffix === "a" || bridgeSuffix === "b")) {
+      const existing = out.find((step) => step.stepNumber === 1);
+      const bridge =
+        existing ??
+        ({
+          stepNumber,
+          title,
+          type: "bridge",
+        } satisfies Step);
+      if (bridgeSuffix === "a") {
+        bridge.warmStart = parseDialogueBlock(body);
+      } else {
+        bridge.coldStart = parseDialogueBlock(body);
+      }
+      if (!existing) out.push(bridge);
+      continue;
+    }
     out.push(buildStep(stepNumber, title, body));
   }
   if (out.length === 0) {
@@ -909,7 +1021,7 @@ function parseSteps(flowBody: string): Step[] {
 }
 
 function buildStep(stepNumber: number, title: string, body: string): Step {
-  const type = stepTypeFor(stepNumber);
+  const type = stepTypeFor(stepNumber, title);
 
   if (type === "rounds") {
     const roundChunks = splitByRoundHeading(body);
@@ -924,7 +1036,7 @@ function buildStep(stepNumber: number, title: string, body: string): Step {
       // Round 1 has full dialogue; Round 2+ are one-line summaries (no
       // **AI says:** marker). We synthesize a stub dialogue from the
       // summary so the schema stays uniform.
-      if (/\*\*AI says:\*\*/i.test(rest)) {
+      if (/\*\*AI says:?\*\*:?/i.test(rest)) {
         rounds.push({ roundNumber, dialogue: parseDialogueBlock(rest) });
       } else {
         rounds.push({
@@ -957,18 +1069,23 @@ function buildStep(stepNumber: number, title: string, body: string): Step {
     dialogue: parseDialogueBlock(body),
   };
   if (type === "closing") {
+    const dialogue = step.dialogue;
     step.conceptReinforcement =
-      matchOne(body, /^\*\*Concept reinforcement:\*\*\s*(.+?)\s*$/im) ?? "";
+      matchOne(body, /^\*\*Concept reinforcement:?\*\*:?\s*(.+?)\s*$/im) ??
+      dialogue?.aiSays ??
+      "";
     step.tomorrowHook =
-      matchOne(body, /^\*\*Tomorrow's hook:\*\*\s*(.+?)\s*$/im) ?? "";
+      matchOne(body, /^\*\*Tomorrow's hook:?\*\*:?\s*(.+?)\s*$/im) ?? "";
   }
   return step;
 }
 
-function stepTypeFor(stepNumber: number): Step["type"] {
+function stepTypeFor(stepNumber: number, title: string): Step["type"] {
   if (stepNumber === 1) return "bridge";
   if (stepNumber === 2) return "rules";
   if (stepNumber === 3) return "rounds";
+  if (/closing/i.test(title)) return "closing";
+  if (/celebration|synthesis|magic moment/i.test(title)) return "celebration";
   if (stepNumber === 4) return "celebration";
   return "closing";
 }
@@ -986,19 +1103,35 @@ function splitByRoundHeading(body: string): string[] {
 }
 
 function parseDialogueBlock(body: string): DialogueBlock {
-  const aiSays = matchOne(body, /^\*\*AI says:\*\*\s*([\s\S]+?)(?=\n\n|\n\*\*|$)/m) ?? "";
+  const aiSays =
+    extractBetween(
+      body,
+      /^\*\*AI says:?\*\*:?\s*/im,
+      /^\*\*(?:Possible child responses|Child responses):?\*\*:?\s*$/im,
+    ) ??
+    matchOne(body, /^\*\*AI says:?\*\*:?\s*([\s\S]+?)(?=\n\n|\n\*\*|$)/im) ??
+    "";
   const childSection =
-    extractBetween(body, /^\*\*Child responses:\*\*/m, /^\*\*AI follow-up:\*\*/m) ??
+    extractBetween(
+      body,
+      /^\*\*(?:Possible child responses|Child responses):?\*\*:?\s*$/im,
+      /^\*\*AI follow-up:?\*\*:?\s*$/im,
+    ) ??
     "";
   const followSection =
-    extractBetween(body, /^\*\*AI follow-up:\*\*/m, /^\*\*Screen:\*\*/m) ?? "";
-  const screen = matchOne(body, /^\*\*Screen:\*\*\s*([\s\S]+?)\s*$/m) ?? "";
+    extractBetween(
+      body,
+      /^\*\*AI follow-up:?\*\*:?\s*$/im,
+      /^\*\*Screen:?\*\*:?\s*/im,
+    ) ?? "";
+  const screen =
+    matchOne(body, /^\*\*Screen:?\*\*:?\s*([\s\S]+?)\s*$/im) ?? "";
 
   const childItems = numberedItems(childSection).map(stripParentheticalLabel);
   const followItems = numberedItems(followSection);
 
   return {
-    aiSays: aiSays.trim(),
+    aiSays: cleanDialogueText(aiSays),
     childResponses: {
       ideal: childItems[0] ?? "",
       unexpected: childItems[1] ?? "",
@@ -1009,8 +1142,16 @@ function parseDialogueBlock(body: string): DialogueBlock {
       unexpected: followItems[1] ?? "",
       silent: followItems[2] ?? "",
     },
-    screenDescription: screen.trim(),
+    screenDescription: cleanDialogueText(screen),
   };
+}
+
+function cleanDialogueText(text: string): string {
+  return text
+    .replace(/^\([^)]+\)\s*$/gm, "")
+    .replace(/^\*\*AI says:?\*\*:?\s*/gim, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function stubDialogueFromSummary(summary: string): DialogueBlock {

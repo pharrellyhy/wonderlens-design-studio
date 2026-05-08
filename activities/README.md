@@ -23,11 +23,19 @@ The directory name MUST equal the `activity_id` inside that dir's `tag_block.yam
 
 | File | Audience | Format | Runtime role |
 |---|---|---|---|
-| `spec.md` | authors, reviewers | Markdown prose | design reference; not loaded by runtime |
-| `prod.md` | authors, LLM prompt composer | Markdown prose | quoted into prompts; beat-level guidance |
+| `spec.md` | authors, reviewers | Markdown prose | design reference; not loaded by runtime; owns the self-evaluation scorecard |
+| `prod.md` | authors, LLM prompt composer | Markdown prose | quoted into prompts; beat-level guidance; all runtime rounds fully expanded |
 | `tag_block.yaml` | matcher, selector | YAML | machine-readable metadata; schema-validated |
 | `recap.template.yaml` | recap renderer | YAML with `{placeholders}` | per-session payload emitted at activity end |
 | `dashboard.template.yaml` | parent dashboard roller | YAML with `{placeholders}` | per-session fragment merged into device rollup |
+
+## Runtime completeness invariants
+
+- `prod.md` must not contain `## Self-Evaluation Scorecard`.
+- `spec.md` must contain exactly one `## Self-Evaluation Scorecard`.
+- Every Step 3 round in `prod.md` must be fully executable: AI dialogue, child response branches, AI follow-up branches, and screen state.
+- Do not use condensed placeholders such as "same structure," "AI gives a riddle," "later rounds follow," or one-line summaries in migrated `prod.md` files.
+- `dashboard.template.yaml` `dashboard_fragment.session.focal_attribute` must exactly equal `tag_block.yaml` `activity_signature.focal_attribute`.
 
 ## Canonical vocabulary
 

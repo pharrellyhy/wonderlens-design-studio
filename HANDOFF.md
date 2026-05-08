@@ -4,6 +4,78 @@ Last updated: 2026-05-08
 
 ---
 
+## Editor Sub-step Expansion + Field AI Controls — Complete
+
+### Problem
+The editor sidebar could reflect parsed sub-steps, but reviewers could not add missing bridge variants or extend a rounds step beyond the parsed rounds. Several editable dialogue/tag-block fields also lacked the same comment + regenerate affordances as the main editable fields.
+
+### Solution
+Added store helpers for extending existing structured step shapes: bridge steps can add a missing `warmStart` or `coldStart`, and rounds steps can append another round after the highest parsed `roundNumber`. The editor now exposes those actions in the active step view and immediately navigates to the new sub-step. Field-level AI controls were centralized and reused across main editable fields, dialogue textareas, response/follow-up boxes, screen descriptions, tag-block text fields, selects, multi-selects, and tier-support toggles.
+
+### Edits
+- `src/store/design-store.ts` — added `addBridgeVariant()` and `addRound()` helpers with empty `DialogueBlock` scaffolds.
+- `src/store/design-store.test.ts` — added regression coverage for adding a missing warm start and appending after non-contiguous parsed rounds.
+- `src/app/editor/[designId]/page.tsx` — added `Add Warm Start`, `Add Cold Start`, and `Add Round` actions; wired AI controls into every top-level editable field and the Tag Block panel.
+- `src/components/editor/EditableField.tsx` — extracted reusable comment/regen controls and made blank regen submit directly.
+- `src/components/editor/DialogueBlock.tsx` — added comment/regen controls to AI says, each child response, each AI follow-up, and screen description.
+- `src/components/editor/TagBlockPanel.tsx` — added comment/regen support to tag-block text fields, enum selects, multi-selects, and tier support.
+
+### NOT Changed
+- The data model still uses the existing `warmStart` / `coldStart` bridge fields and `rounds[]` array; no parallel arbitrary sub-step schema was introduced.
+- Recap and dashboard remain derived previews, not directly editable fields.
+- Field regeneration still goes through the existing `/api/regenerate` flow.
+
+### Verification
+```bash
+npx tsx --test src/store/design-store.test.ts
+npx tsx --test src/components/editor/NavigationPanel.test.ts
+npx tsx --test src/lib/__tests__/bundle-roundtrip.test.ts
+npx eslint src/components/editor/EditableField.tsx src/components/editor/DialogueBlock.tsx src/components/editor/TagBlockPanel.tsx 'src/app/editor/[designId]/page.tsx' src/store/design-store.ts src/store/design-store.test.ts
+npx tsc --noEmit --pretty false
+npm run build
+```
+
+---
+
+## Batch Activity Import — Complete
+
+### Problem
+The Review/Modify entry path accepted only one activity ZIP or one unpacked activity folder at a time. Dropping or selecting multiple activity archives was ignored after the first file, and selecting a parent folder containing several activity subfolders could mix required files by basename instead of keeping each activity bundle separate.
+
+### Solution
+Added batch import helpers for both ZIP files and folder file lists. Folder imports now group required files by their parent `webkitRelativePath`, so a parent directory containing multiple activity folders produces one parsed `ActivityBundle` per activity. The home-screen importer accepts multiple ZIPs, grouped folder files, or drag-and-drop batches. Single imports still open directly in the editor; multi-imports render a selectable list so the reviewer can choose which activity to modify. The imported batch list lives in the shared Zustand store, so opening one activity and clicking the editor's Back to Gallery button returns to the upload/review screen with the batch list still available. Upload scorecard seeding now prefers `## Self-Evaluation Scorecard` from `prod.md`, then falls back to `spec.md` when `prod.md` has no complete D1-D10 table. The prod parser now accepts authored prod files like `activities/color_scout_property/prod.md`, including `Step 1b`, colon-outside-bold dialogue labels, `Possible child responses`, six-step flows, and title-based closing detection. The editor sidebar now reflects parsed structure instead of placeholders: absent bridge variants are hidden, Step 3 round count is derived from `step.rounds.length`, and child round rows use the parsed round numbers.
+
+### Edits
+- `src/lib/bundle-import.ts` — added `importBundlesFromZipFiles` and `importBundlesFromFiles`; kept `importBundleFromFiles` as a single-bundle compatibility wrapper.
+- `src/lib/bundle-import.ts` — scorecard seeding prefers `prod.md` and falls back to `spec.md`; structural prod parsing ignores trailing scorecard blocks instead of treating them as the activity body.
+- `src/lib/bundle-import.ts` — authored-prod dialogue parser accepts `**AI says**:`, `**Possible child responses**:`, `Step 1a/1b`, and detects closing steps by title so Step 6 closings are not shadowed by Step 5 celebrations.
+- `src/lib/__tests__/bundle-roundtrip.test.ts` — added regression coverage for multiple folder-style imports, multiple selected ZIP archives, prod.md-over-spec.md scorecard precedence, spec.md scorecard fallback, and concrete `activities/color_scout_property/prod.md` content loading.
+- `src/components/upload/ExistingDesignImporter.tsx` — multi-file ZIP picker/drop handling, grouped folder imports, and a multi-import selection list.
+- `src/store/design-store.ts` — added `importedBundles` plus setter/clear actions; `resetSession()` intentionally preserves the batch list across editor navigation.
+- `src/store/design-store.test.ts` — regression for preserving an imported batch through `resetSession()` + `setActiveBundle()`.
+- `src/components/editor/NavigationPanel.tsx` — extracted parsed-section builder; hides absent warm/cold bridge entries and derives round count from parsed rounds.
+- `src/components/editor/NavigationPanel.test.ts` — regression for parsed-only sidebar entries and non-contiguous round numbers.
+
+### NOT Changed
+- Existing single ZIP/folder imports still open directly in the editor.
+- Bundle parsing, schema validation, and D4 rubric behavior were not changed.
+- Imported activities remain session-state editor entries; the batch list does not persist imports into the library.
+
+### Verification
+```bash
+npx tsx --test src/lib/__tests__/bundle-roundtrip.test.ts
+npx tsx --test src/store/design-store.test.ts
+npx tsx --test src/components/editor/NavigationPanel.test.ts
+npx eslint src/lib/bundle-import.ts src/lib/__tests__/bundle-roundtrip.test.ts src/components/upload/ExistingDesignImporter.tsx
+npx eslint src/components/editor/NavigationPanel.tsx src/components/editor/NavigationPanel.test.ts
+npx eslint src/store/design-store.ts src/store/design-store.test.ts
+npx eslint src/app/page.tsx
+npx tsc --noEmit --pretty false
+npm run build
+```
+
+---
+
 ## ActivityBundle Migration — Complete
 
 ### Problem
@@ -12,12 +84,12 @@ The on-disk activity layout was redesigned into a 5-file bundle per activity (`s
 ### Solution
 Replaced `GameDesign` with `ActivityBundle = { schemaVersion, activityId, generationMode, spec, prod, tagBlock, recap, dashboard }` and migrated every consumer. ONE LLM call returns the full bundle JSON; the existing 4-pass pipeline (generate → evaluate → fix → re-evaluate) keeps working unchanged at the orchestration level. 11 cross-doc invariants (e.g. `tagBlock.activity_id === bundle.activityId`, `recap.payloadDefaults.whatWeNoticed === tagBlock.activity_signature.observation_angle`) are enforced by Zod's `superRefine`. Export is now a ZIP download whose root is `<activity_id>/`. Import accepts ZIP or folder picker; the legacy single-`.md` parser is removed. Editor surfaces Spec / Prod / Tag Block as editable sections with closed-enum dropdowns, plus read-only Recap and Dashboard previews kept fresh by a cross-doc mirror in the store. The plan lives at `docs/plans/2026-05-07-activity-bundle-migration.md`.
 
-In a follow-up the importer also parses `## Self-Evaluation Scorecard` tables out of `spec.md` so author PASS/FAIL/N-A verdicts surface as initial rubric state, the editor's scorecard distinguishes "not evaluated yet" (neutral pills + banner) from a real all-fail, and an unrated import auto-triggers `/api/evaluate` on mount. Tone markers in all 5 canonical activities (`(parens)` / `*(parens)*`) were converted to `[brackets]` per D6.
+In a follow-up the importer also parses `## Self-Evaluation Scorecard` tables out of `prod.md` first, falling back to `spec.md`, so author PASS/FAIL/N-A verdicts surface as initial rubric state. The editor's scorecard distinguishes "not evaluated yet" (neutral pills + banner) from a real all-fail, and an unrated import auto-triggers `/api/evaluate` on mount. Tone markers in all 5 canonical activities (`(parens)` / `*(parens)*`) were converted to `[brackets]` per D6.
 
 ### Edits
 - `src/lib/activity-bundle-schema.ts` (NEW) — closed enums, 5 child schemas, `activityBundleSchema` with 11-invariant `superRefine`, renamed `variantResultSchema`/`generationJobSchema`, capitalisation map (lowercase studio pillar ↔ TitleCase tagBlock, `nurture ↔ Connection`).
 - `src/lib/bundle-export.ts` (NEW) — 5 renderers (`renderSpecMarkdown`, `renderProdMarkdown`, `renderTagBlockYaml`, `renderRecapYaml`, `renderDashboardYaml`) + `bundleToZip(bundle): Promise<{ bytes, filename }>`. Uses `jszip` + `js-yaml`.
-- `src/lib/bundle-import.ts` (NEW) — `importBundleFromZip` / `importBundleFromFiles` + narrow markdown parsers + scorecard parser (`parseSpecScorecard` returns `{ scores, evaluated }`); `BundleImportError` carries `missingFiles` and `zodIssues`.
+- `src/lib/bundle-import.ts` (NEW) — `importBundleFromZip` / `importBundleFromFiles` + narrow markdown parsers + scorecard parser (`parseScorecard` returns `{ scores, evaluated }`); `BundleImportError` carries `missingFiles` and `zodIssues`.
 - `src/lib/__tests__/tag-block-schema-drift.test.ts` (NEW) — drift guard: every Zod enum is asserted against the canonical JSON Schema at test time. CI-blocking.
 - `src/lib/__tests__/bundle-roundtrip.test.ts` (NEW) — semantic round-trip on a hand-typed bundle + scorecard-parsing test.
 - `src/lib/design-schema.ts` — stripped `gameDesignSchema`/`variantResultSchema`/`generationJobSchema`/`synthesisTypeSchema`; primitives + 10D rubric constants kept.
@@ -34,7 +106,7 @@ In a follow-up the importer also parses `## Self-Evaluation Scorecard` tables ou
 - `src/components/editor/ScorecardPanel.tsx` — three visual states (unrated / pass / fail); banner when unrated; surfaces evaluator errors inline.
 - `src/components/gallery/VariantCard.tsx` — reads `bundle.prod`/`bundle.tagBlock`; new detail rows (focal_attribute, mechanic × observation_angle, reward_hook).
 - `src/app/editor/[designId]/page.tsx` — section restructure (spec / prod-basic / prod-overview / prod-attributes / prod-constellation / prod-step-N / tagBlock / recap-preview / dashboard-preview); ZIP-download export; `useEffect` auto-fires `/api/evaluate` when an unrated bundle is loaded.
-- `src/app/page.tsx`, `src/app/gallery/[entityId]/page.tsx`, `src/components/library/LibraryTabs.tsx` — `setActiveBundle` everywhere; importer-flow passes `evaluated=result.rubricEvaluated` so spec.md scorecards seed real verdicts.
+- `src/app/page.tsx`, `src/app/gallery/[entityId]/page.tsx`, `src/components/library/LibraryTabs.tsx` — `setActiveBundle` everywhere; importer-flow passes `evaluated=result.rubricEvaluated` so imported scorecards seed real verdicts.
 - `src/components/upload/ExistingDesignImporter.tsx` — drag-and-drop ZIP, "Pick ZIP" / "Pick folder" buttons (`webkitdirectory`), `BundleImportError`-aware error rendering.
 - `activities/{mystery_trail_butterfly,voice_stage_lion,polka_dot_patrol,color_scout_property,shape_quest_property}/prod.md` — tone markers converted from `(text)` / `*(text)*` to `[text]` so dialogue passes D6's "square brackets only" rule. 229 lines rewritten across the five activities.
 - `package.json` — added `jszip` (runtime), `tsx` (devDep — matches existing `npx tsx --test` convention from prior handoffs).

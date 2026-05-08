@@ -11,12 +11,25 @@
 // Run: ./node_modules/.bin/tsx --test src/lib/__tests__/bundle-roundtrip.test.ts
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { activityBundleSchema } from "../activity-bundle-schema";
 import type { ActivityBundle } from "../activity-bundle-schema";
-import { bundleToZip } from "../bundle-export";
-import { importBundleFromZip } from "../bundle-import";
+import {
+  bundleToZip,
+  renderDashboardYaml,
+  renderProdMarkdown,
+  renderRecapYaml,
+  renderSpecMarkdown,
+  renderTagBlockYaml,
+} from "../bundle-export";
+import {
+  importBundleFromFiles,
+  importBundleFromZip,
+  importBundlesFromFiles,
+  importBundlesFromZipFiles,
+} from "../bundle-import";
 
 const fixture: ActivityBundle = activityBundleSchema.parse({
   schemaVersion: 1,
@@ -353,6 +366,78 @@ const fixture: ActivityBundle = activityBundleSchema.parse({
   },
 });
 
+function cloneBundle(overrides: {
+  activityId: string;
+  activityName: string;
+}): ActivityBundle {
+  return activityBundleSchema.parse({
+    ...fixture,
+    activityId: overrides.activityId,
+    spec: {
+      ...fixture.spec,
+      title: `${overrides.activityName} — Authoring Spec`,
+    },
+    prod: {
+      ...fixture.prod,
+      basicInfo: {
+        ...fixture.prod.basicInfo,
+        activityName: overrides.activityName,
+      },
+    },
+    tagBlock: {
+      ...fixture.tagBlock,
+      activity_id: overrides.activityId,
+    },
+  });
+}
+
+function fileWithRelativePath(
+  path: string,
+  contents: string,
+): File {
+  const file = new File([contents], path.split("/").pop() ?? path, {
+    type: "text/plain",
+  });
+  Object.defineProperty(file, "webkitRelativePath", {
+    value: path,
+    configurable: true,
+  });
+  return file;
+}
+
+function renderBundleFiles(bundle: ActivityBundle): File[] {
+  const root = bundle.activityId;
+  return [
+    fileWithRelativePath(`${root}/spec.md`, renderSpecMarkdown(bundle)),
+    fileWithRelativePath(`${root}/prod.md`, renderProdMarkdown(bundle)),
+    fileWithRelativePath(`${root}/tag_block.yaml`, renderTagBlockYaml(bundle)),
+    fileWithRelativePath(
+      `${root}/recap.template.yaml`,
+      renderRecapYaml(bundle),
+    ),
+    fileWithRelativePath(
+      `${root}/dashboard.template.yaml`,
+      renderDashboardYaml(bundle),
+    ),
+  ];
+}
+
+function activityFolderFiles(directory: string): File[] {
+  return [
+    "spec.md",
+    "prod.md",
+    "tag_block.yaml",
+    "recap.template.yaml",
+    "dashboard.template.yaml",
+  ].map((name) => new File([readFileSync(`${directory}/${name}`, "utf8")], name));
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
+
 test("ActivityBundle round-trip: render → unzip → re-parse → deep equal", async () => {
   const { bytes } = await bundleToZip(fixture);
   const parsed = await importBundleFromZip(bytes.buffer as ArrayBuffer);
@@ -366,17 +451,97 @@ test("ActivityBundle round-trip: render → unzip → re-parse → deep equal", 
   }
 });
 
-test("ActivityBundle import parses Self-Evaluation Scorecard from spec.md", async () => {
+test("ActivityBundle folder import groups multiple activities by parent directory", async () => {
+  const first = cloneBundle({
+    activityId: "mystery_trail_butterfly",
+    activityName: "The Butterfly World Detectives",
+  });
+  const second = cloneBundle({
+    activityId: "voice_stage_lion",
+    activityName: "Lion Voice Stage",
+  });
+
+  const parsed = await importBundlesFromFiles([
+    ...renderBundleFiles(first),
+    ...renderBundleFiles(second),
+  ]);
+
+  assert.deepEqual(
+    parsed.map((result) => result.bundle.activityId),
+    ["mystery_trail_butterfly", "voice_stage_lion"],
+  );
+  assert.deepEqual(
+    parsed.map((result) => result.bundle.prod.basicInfo.activityName),
+    ["The Butterfly World Detectives", "Lion Voice Stage"],
+  );
+});
+
+test("ActivityBundle zip import parses multiple selected archives", async () => {
+  const first = cloneBundle({
+    activityId: "mystery_trail_butterfly",
+    activityName: "The Butterfly World Detectives",
+  });
+  const second = cloneBundle({
+    activityId: "voice_stage_lion",
+    activityName: "Lion Voice Stage",
+  });
+  const firstZip = await bundleToZip(first);
+  const secondZip = await bundleToZip(second);
+
+  const parsed = await importBundlesFromZipFiles([
+    new File([toArrayBuffer(firstZip.bytes)], firstZip.filename, {
+      type: "application/zip",
+    }),
+    new File([toArrayBuffer(secondZip.bytes)], secondZip.filename, {
+      type: "application/zip",
+    }),
+  ]);
+
+  assert.deepEqual(
+    parsed.map((result) => result.bundle.activityId),
+    ["mystery_trail_butterfly", "voice_stage_lion"],
+  );
+});
+
+test("ActivityBundle import loads authored color_scout_property prod dialogue", async () => {
+  const parsed = await importBundleFromFiles(
+    activityFolderFiles("activities/color_scout_property"),
+  );
+  const steps = parsed.bundle.prod.steps;
+
+  assert.equal(steps.length, 6);
+  assert.equal(steps[0].stepNumber, 1);
+  assert.match(steps[0].coldStart?.aiSays ?? "", /SO red/);
+  assert.match(steps[0].coldStart?.childResponses.ideal ?? "", /strawberry/i);
+  assert.match(steps[0].coldStart?.screenDescription ?? "", /glowing color highlight/i);
+
+  assert.match(steps[1].dialogue?.aiSays ?? "", /official Color Scout/);
+  assert.match(steps[1].dialogue?.childResponses.unexpected ?? "", /only a little bit red/i);
+
+  const rounds = steps[2].rounds ?? [];
+  assert.equal(rounds.length, 3);
+  assert.match(rounds[0].dialogue.aiSays, /Quest find incoming/);
+  assert.match(rounds[0].dialogue.childResponses.ideal, /planet/i);
+  assert.match(rounds[0].dialogue.screenDescription, /Red\? YES!/);
+
+  assert.equal(steps[4].type, "celebration");
+  assert.equal(steps[5].type, "closing");
+  assert.match(steps[5].dialogue?.aiSays ?? "", /Color Quest Badge/);
+  assert.match(steps[5].conceptReinforcement ?? "", /Form/);
+  assert.match(steps[5].conceptReinforcement ?? "", /Connection/);
+});
+
+test("ActivityBundle import parses Self-Evaluation Scorecard from prod.md", async () => {
   // Inject a scorecard table after rendering so we can assert the parser
-  // picks up author PASS/FAIL verdicts (treating N/A as PASS).
+  // picks up author PASS/FAIL verdicts from prod.md (treating N/A as PASS).
   const JSZip = (await import("jszip")).default;
-  const { renderProdMarkdown, renderTagBlockYaml, renderRecapYaml, renderDashboardYaml, renderSpecMarkdown } = await import("../bundle-export");
   const baseSpec = renderSpecMarkdown(fixture);
-  const scorecard = `\n## Self-Evaluation Scorecard\n\n| # | Dimension | Score | Notes |\n|---|-----------|-------|-------|\n| 1 | V1 Technical Compliance | PASS | ok |\n| 2 | Hook & Transition | PASS | ok |\n| 3 | Edge Case Coverage | PASS | ok |\n| 4 | IB Completeness | PASS | ok |\n| 5 | Tier Appropriateness | PASS | ok |\n| 6 | Dialogue Specificity | PASS | ok |\n| 7 | Screen & UI Completeness | PASS | ok |\n| 8 | Entity Mapping Alignment | N/A | not applicable |\n| 9 | Game Feel | PASS | ok |\n| 10 | Pillar Fidelity | FAIL | drift |\n`;
+  const specScorecard = `\n## Self-Evaluation Scorecard\n\n| # | Dimension | Score | Notes |\n|---|-----------|-------|-------|\n| 1 | V1 Technical Compliance | FAIL | spec should be ignored |\n| 2 | Hook & Transition | FAIL | spec should be ignored |\n| 3 | Edge Case Coverage | FAIL | spec should be ignored |\n| 4 | IB Completeness | FAIL | spec should be ignored |\n| 5 | Tier Appropriateness | FAIL | spec should be ignored |\n| 6 | Dialogue Specificity | FAIL | spec should be ignored |\n| 7 | Screen & UI Completeness | FAIL | spec should be ignored |\n| 8 | Entity Mapping Alignment | FAIL | spec should be ignored |\n| 9 | Game Feel | FAIL | spec should be ignored |\n| 10 | Pillar Fidelity | FAIL | spec should be ignored |\n`;
+  const prodScorecard = `\n## Self-Evaluation Scorecard\n\n| # | Dimension | Score | Notes |\n|---|-----------|-------|-------|\n| 1 | V1 Technical Compliance | PASS | ok |\n| 2 | Hook & Transition | PASS | ok |\n| 3 | Edge Case Coverage | PASS | ok |\n| 4 | IB Completeness | PASS | ok |\n| 5 | Tier Appropriateness | PASS | ok |\n| 6 | Dialogue Specificity | PASS | ok |\n| 7 | Screen & UI Completeness | PASS | ok |\n| 8 | Entity Mapping Alignment | N/A | not applicable |\n| 9 | Game Feel | PASS | ok |\n| 10 | Pillar Fidelity | FAIL | drift |\n`;
   const zip = new JSZip();
   const root = zip.folder(fixture.activityId)!;
-  root.file("spec.md", baseSpec + scorecard);
-  root.file("prod.md", renderProdMarkdown(fixture));
+  root.file("spec.md", baseSpec + specScorecard);
+  root.file("prod.md", renderProdMarkdown(fixture) + prodScorecard);
   root.file("tag_block.yaml", renderTagBlockYaml(fixture));
   root.file("recap.template.yaml", renderRecapYaml(fixture));
   root.file("dashboard.template.yaml", renderDashboardYaml(fixture));
@@ -385,6 +550,26 @@ test("ActivityBundle import parses Self-Evaluation Scorecard from spec.md", asyn
   assert.equal(parsed.rubricEvaluated, true);
   assert.equal(parsed.rubricScores.d1, "pass");
   assert.equal(parsed.rubricScores.d8, "pass"); // N/A → pass
+  assert.equal(parsed.rubricScores.d10, "fail");
+});
+
+test("ActivityBundle import falls back to Self-Evaluation Scorecard from spec.md", async () => {
+  const JSZip = (await import("jszip")).default;
+  const scorecard = `\n## Self-Evaluation Scorecard\n\n| # | Dimension | Score | Notes |\n|---|-----------|-------|-------|\n| 1 | V1 Technical Compliance | PASS | ok |\n| 2 | Hook & Transition | PASS | ok |\n| 3 | Edge Case Coverage | PASS | ok |\n| 4 | IB Completeness | PASS | ok |\n| 5 | Tier Appropriateness | PASS | ok |\n| 6 | Dialogue Specificity | PASS | ok |\n| 7 | Screen & UI Completeness | PASS | ok |\n| 8 | Entity Mapping Alignment | N/A | not applicable |\n| 9 | Game Feel | PASS | ok |\n| 10 | Pillar Fidelity | FAIL | drift |\n`;
+  const zip = new JSZip();
+  const root = zip.folder(fixture.activityId)!;
+  root.file("spec.md", renderSpecMarkdown(fixture) + scorecard);
+  root.file("prod.md", renderProdMarkdown(fixture));
+  root.file("tag_block.yaml", renderTagBlockYaml(fixture));
+  root.file("recap.template.yaml", renderRecapYaml(fixture));
+  root.file("dashboard.template.yaml", renderDashboardYaml(fixture));
+
+  const bytes = await zip.generateAsync({ type: "uint8array" });
+  const parsed = await importBundleFromZip(bytes.buffer as ArrayBuffer);
+
+  assert.equal(parsed.rubricEvaluated, true);
+  assert.equal(parsed.rubricScores.d1, "pass");
+  assert.equal(parsed.rubricScores.d8, "pass");
   assert.equal(parsed.rubricScores.d10, "fail");
 });
 
