@@ -102,11 +102,11 @@ Each summary: round title + 1 sentence capturing the prompt + 1 sentence capturi
 
 | Source | Target |
 |--------|--------|
-| `> **AI says**: "*(tone)* text"` | `**AI says:** (tone) "text"` |
+| `> **AI says**: "*(tone)* text"` | `**AI says:** [tone] "text"` |
 | `> **Possible child responses**:` | `**Child responses:**` |
 | `> **AI follow-up**:` | `**AI follow-up:**` |
 | Blockquote style (`> `) everywhere | Regular markdown (no blockquotes) |
-| `*(tone)*` italic in quotes | `(tone)` plain parenthetical before the quote |
+| `*(tone)*` italic in quotes | `[tone]` square-bracket cue before the quote |
 | Always 3 branches | 2–3 branches; drop "No response" in Steps 4/5 celebration if it adds nothing |
 
 **Example transformation**:
@@ -128,7 +128,7 @@ Source:
 
 Target:
 ```
-**AI says:** (warm, surprised) "Oh wow, a banana!"
+**AI says:** [warm, surprised] "Oh wow, a banana!"
 
 **Child responses:**
 
@@ -138,12 +138,12 @@ Target:
 
 **AI follow-up:**
 
-1. (delighted) "Yes! This banana came from SO far away."
-2. (playful) "That's true, someone did bring it home!"
-3. (wait 3s) "This banana is pretty quiet too."
+1. [delighted] "Yes! This banana came from SO far away."
+2. [playful] "That's true, someone did bring it home!"
+3. [wait 3s] "This banana is pretty quiet too."
 ```
 
-**Tone format**: Simplify tone markers — `*(warm, surprised tone)*` → `(warm, surprised)`. Drop the word "tone" unless it reads awkwardly without it.
+**Cue tag format**: Simplify cue tags — `*(warm, surprised tone)*` → `[warm, surprised]`. Drop the word "tone" unless it reads awkwardly without it. Timing cues also use square brackets, e.g. `[wait 3s]`.
 
 ---
 

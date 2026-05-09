@@ -228,7 +228,7 @@ Generate the activity design in this EXACT structure. Do not skip sections, do n
 > **Context**: Child has just finished a tier_guidance conversation about [entity].
 > **Conversation anchor**: [dimension] — [specific attribute or topic referenced]
 >
-> **AI says**: "(tone/emotion marker) [warm start dialogue referencing conversation — see conversation_bridge.md §2]"
+> **AI says**: "[tone/emotion marker] [warm start dialogue referencing conversation — see conversation_bridge.md §2]"
 >
 > **Possible child responses**:
 > 1. (Ideal) "[specific response]"
@@ -238,7 +238,7 @@ Generate the activity design in this EXACT structure. Do not skip sections, do n
 > **AI follow-up**:
 > 1. "[exact response to ideal]"
 > 2. "[exact response to unexpected — always validate, then redirect]"
-> 3. "[exact response to silence — wait 2 sec, then gentle prompt]"
+> 3. "[wait 2s] [exact gentle prompt after silence]"
 >
 > **Screen**: [specific description — may include conversation recap visual element]
 
@@ -246,7 +246,7 @@ Generate the activity design in this EXACT structure. Do not skip sections, do n
 
 > **Context**: Child photographs [entity] with no prior conversation.
 >
-> **AI says**: "(tone/emotion marker) [standard emotional hook — see conversation_bridge.md §3]"
+> **AI says**: "[tone/emotion marker] [standard emotional hook — see conversation_bridge.md §3]"
 >
 > **Possible child responses**:
 > 1. (Ideal) "[specific response]"
@@ -256,7 +256,7 @@ Generate the activity design in this EXACT structure. Do not skip sections, do n
 > **AI follow-up**:
 > 1. "[exact response to ideal]"
 > 2. "[exact response to unexpected — always validate, then redirect]"
-> 3. "[exact response to silence — wait 2 sec, then gentle prompt]"
+> 3. "[wait 2s] [exact gentle prompt after silence]"
 >
 > **Screen**: [specific description of what the screen shows]
 
@@ -281,7 +281,7 @@ Generate the activity design in this EXACT structure. Do not skip sections, do n
 
 ### Format Rules
 
-- **Tone markers** are always in parentheses and italicized at the start of AI dialogue: "(excited discovery tone)", "(mysterious whisper)", "(warm celebration)", etc.
+- **Dialogue cue tags** use square brackets at the start of AI dialogue and follow-ups, including tone and timing cues: `[excited discovery]`, `[mysterious whisper]`, `[warm celebration]`, `[wait 2s]`. Never wrap these cue tags in parentheses.
 - **Round counts** should be specified as ranges: "3–5 rounds" not "4 rounds"
 - **Step count** varies by category: In-Device Verbal typically has 5 steps; Out-of-Device Collection may have 5–6 steps
 - **Closing speech** must celebrate FIRST, then naturally name Key Concepts. Concepts feel like praise, not vocabulary lessons.

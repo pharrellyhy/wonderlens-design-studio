@@ -451,6 +451,25 @@ test("ActivityBundle round-trip: render → unzip → re-parse → deep equal", 
   }
 });
 
+test("prod renderer brackets parenthesized dialogue timing tags", () => {
+  const bundle = activityBundleSchema.parse(JSON.parse(JSON.stringify(fixture)));
+  const bridge = bundle.prod.steps[0].coldStart;
+  assert.ok(bridge);
+  bridge.aiFollowUps.silent =
+    '(wait 2s) "That butterfly chose this flower for a reason."';
+
+  const markdown = renderProdMarkdown(bundle);
+
+  assert.match(
+    markdown,
+    /\[wait 2s\] "That butterfly chose this flower for a reason\."/,
+  );
+  assert.doesNotMatch(
+    markdown,
+    /\(wait 2s\) "That butterfly chose this flower for a reason\."/,
+  );
+});
+
 test("ActivityBundle folder import groups multiple activities by parent directory", async () => {
   const first = cloneBundle({
     activityId: "mystery_trail_butterfly",

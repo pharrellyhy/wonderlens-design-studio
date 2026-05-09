@@ -39,7 +39,7 @@ Rules:
 5. Maintain consistency: if you change dialogue in one step, ensure surrounding steps still flow naturally.
 6. Keep all tier-appropriate language constraints (T0/T1/T2 vocabulary and sentence length).
 7. Ensure every step still has complete childResponses (ideal, unexpected, silent) and aiFollowUps.
-8. Tone/emotion markers on AI dialogue MUST use square brackets, e.g., [warm] — NEVER parentheses.
+8. Dialogue cue tags MUST use square brackets, e.g., [warm], [wait 2s] — NEVER parentheses.
 9. The 11 cross-doc invariants (I1–I11) MUST hold after your fix. The most common ones to break:
    - tagBlock.activity_id === bundle.activityId
    - prod.basicInfo.gameStyle === tagBlock.game_style === spec.identity.gameStyle

@@ -242,22 +242,47 @@ function renderProdStep(step: Step): string[] {
 
 function renderDialogueBlock(d: DialogueBlock): string[] {
   const lines: string[] = [];
-  lines.push(`**AI says:** ${d.aiSays}`);
+  lines.push(`**AI says:** ${formatDialogueCue(d.aiSays)}`);
   lines.push("");
   lines.push("**Child responses:**");
   lines.push("");
-  lines.push(`1. (Ideal) ${d.childResponses.ideal}`);
-  lines.push(`2. (Unexpected) ${d.childResponses.unexpected}`);
-  lines.push(`3. (No response) ${d.childResponses.silent}`);
+  lines.push(`1. (Ideal) ${formatDialogueCue(d.childResponses.ideal)}`);
+  lines.push(`2. (Unexpected) ${formatDialogueCue(d.childResponses.unexpected)}`);
+  lines.push(`3. (No response) ${formatDialogueCue(d.childResponses.silent)}`);
   lines.push("");
   lines.push("**AI follow-up:**");
   lines.push("");
-  lines.push(`1. ${d.aiFollowUps.ideal}`);
-  lines.push(`2. ${d.aiFollowUps.unexpected}`);
-  lines.push(`3. ${d.aiFollowUps.silent}`);
+  lines.push(`1. ${formatDialogueCue(d.aiFollowUps.ideal)}`);
+  lines.push(`2. ${formatDialogueCue(d.aiFollowUps.unexpected)}`);
+  lines.push(`3. ${formatDialogueCue(d.aiFollowUps.silent)}`);
   lines.push("");
   lines.push(`**Screen:** ${d.screenDescription}`);
   return lines;
+}
+
+function formatDialogueCue(text: string): string {
+  let rest = text;
+  let out = "";
+  let changed = false;
+
+  while (true) {
+    const match = /^(\s*)\*?\(([^()\n]{1,64})\)\*?(\s*)/.exec(rest);
+    if (!match) break;
+
+    const [, leading, tag, trailing] = match;
+    if (!isDialogueCue(tag)) break;
+
+    out += `${leading}[${tag.trim()}]${trailing}`;
+    rest = rest.slice(match[0].length);
+    changed = true;
+  }
+
+  return changed ? out + rest : text;
+}
+
+function isDialogueCue(tag: string): boolean {
+  const trimmed = tag.trim();
+  return trimmed.length > 0 && !/[.!?]$/.test(trimmed);
 }
 
 // ============================================================================

@@ -56,7 +56,7 @@ When the field path resolves to a closed-enum field, your value MUST come from t
 1. Read the user's comment to understand WHAT they want changed and WHY.
 2. Look at the full bundle for context to ensure your change is consistent with the rest of the design.
 3. Preserve the style, tone, and tier-appropriateness of surrounding content.
-4. If changing dialogue, maintain tone markers in square brackets at the start of AI lines (e.g., [warm], [excited]).
+4. If changing dialogue, maintain cue tags in square brackets at the start of AI lines and timing follow-ups (e.g., [warm], [excited], [wait 2s]).
 5. If changing a DialogueBlock, include all fields: aiSays, childResponses (ideal, unexpected, silent), aiFollowUps (ideal, unexpected, silent), screenDescription.
 6. Ensure the change does not violate any rubric dimension or any of the 11 cross-doc invariants. Editing a closed-enum field on \`tagBlock\` will likely require a follow-up regeneration on the matching \`spec.identity\` field — but the user does that separately, not you.
 

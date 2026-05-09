@@ -90,7 +90,7 @@ mechanically for a bridged entity.
 
 1. [excited, conspiratorial] "I think you're RIGHT — the butterfly LOVES that flower! But here's the thing — I bet there are MORE things in this park that the butterfly loves. Things that are part of its secret world. What if we could find them all?"
 2. [warm, intrigued] "It IS amazing to watch! And you know what? That butterfly picked this exact spot for a reason. This flower is part of its secret world — and I bet there are MORE secret things nearby that it needs. Want to find out what they are?"
-3. (wait 2s) [gentle, wondering] "That butterfly chose this flower for a reason — it's part of the butterfly's secret world. And I bet there are MORE things in this park that the butterfly loves. I have an idea — want to be a detective and find them?"
+3. [wait 2s] [gentle, wondering] "That butterfly chose this flower for a reason — it's part of the butterfly's secret world. And I bet there are MORE things in this park that the butterfly loves. I have an idea — want to be a detective and find them?"
 
 **Screen:** Butterfly photo centered with shimmering wing glow, sparkles near petals, and a pulsing magnifying glass icon with "?" in the corner.
 
@@ -108,7 +108,7 @@ mechanically for a bridged entity.
 
 1. [thrilled] "Here comes your first riddle-clue! Listen carefully, Detective..."
 2. [encouraging] "Don't worry — I'll give you riddle-clues! Each one describes something nearby. You just listen, think, and search. The riddles will guide you! Here comes the first one..."
-3. (wait 2s) [playful whisper] "Okay Detective, here's how it works — I describe something, you find it! Easy! Let's start with your very first riddle-clue..."
+3. [wait 2s] [playful whisper] "Okay Detective, here's how it works — I describe something, you find it! Easy! Let's start with your very first riddle-clue..."
 
 **Screen:** Detective-themed mission card with "Butterfly World Detective" badge, butterfly silhouette, magnifying glass, 3 empty circle slots, butterfly photo above with golden star, and pulsing "CLUE #1" banner.
 
@@ -126,9 +126,9 @@ mechanically for a bridged entity.
 
 **AI follow-up:**
 
-1. (triumphant) "YES, Detective! A flower — that's it! Flowers are bright and colorful, and inside they have something called NECTAR — that's the sweet, yummy drink butterflies love! Your butterfly was sitting on a flower just like this one. First clue — SOLVED! Two more to go!"
+1. [triumphant] "YES, Detective! A flower — that's it! Flowers are bright and colorful, and inside they have something called NECTAR — that's the sweet, yummy drink butterflies love! Your butterfly was sitting on a flower just like this one. First clue — SOLVED! Two more to go!"
 2. [thoughtful, encouraging] "Ooh, interesting guess! That IS colorful! But my riddle says tiny creatures visit it to drink something sweet inside. Can you think of something that bees and butterflies land on to sip from? Something with petals? Look for one nearby!"
-3. (wait 2s) [helpful whisper] "Detective hint! Think about what your butterfly was sitting on when you took that first photo. Something with petals, something colorful. Look near the bushes or in the flower bed!"
+3. [wait 2s] [helpful whisper] "Detective hint! Think about what your butterfly was sitting on when you took that first photo. Something with petals, something colorful. Look near the bushes or in the flower bed!"
 
 **Screen:** New photo slides into first slot with golden sparkles and "SOLVED!" animation. Flower icon appears. Counter: "Clue 1 of 3 — SOLVED!" and "CLUE #2" banner pulses.
 
@@ -146,7 +146,7 @@ mechanically for a bridged entity.
 
 1. [impressed] "A leaf — BRILLIANT, Detective! Leaves are like little green umbrellas — butterflies hide under them when it's rainy or too hot. And baby caterpillars — that's what butterflies used to be — they MUNCH on leaves for food! Second clue — SOLVED! One more to go!"
 2. [validating, then redirecting] "Ooh, grass IS green! You're on the right track — but my riddle says something FLAT that creatures hide UNDER. Think bigger and flatter — something on a bush or a tree, something that could be like a tiny roof. Look up at the branches or on a bush — do you see something flat and green?"
-3. (wait 2s) [helpful] "Detective hint! Look at any tree or bush near you. See those flat, green things growing on the branches? They're like tiny green blankets! Grab a photo of one you can reach!"
+3. [wait 2s] [helpful] "Detective hint! Look at any tree or bush near you. See those flat, green things growing on the branches? They're like tiny green blankets! Grab a photo of one you can reach!"
 
 **STUCK BRANCH** (if child still cannot find a leaf):
 
@@ -162,7 +162,7 @@ mechanically for a bridged entity.
 
 1. [cheering] "Take the photo, Detective! That leaf is clue number two!"
 2. [warm, flexible] "If you can't reach a leaf, photograph a bush, grass, or plant nearby. It still helps us learn about where butterflies rest and where caterpillars eat!"
-3. (wait 2s) [gentle] "Try photographing the closest plant you can see. We can use that as our leaf clue."
+3. [wait 2s] [gentle] "Try photographing the closest plant you can see. We can use that as our leaf clue."
 
 **Screen:** Second photo slides into the second slot. A burst of green sparkles and "SOLVED!" animation. A small leaf icon appears. Counter updates to "Clue 2 of 3 — SOLVED!" and "CLUE #3" banner pulses.
 
@@ -180,7 +180,7 @@ mechanically for a bridged entity.
 
 1. [thrilled, almost shouting] "YES! You found it, Detective! Butterflies actually drink from puddles and wet mud — it's called 'puddling!' The wet ground has tiny minerals that butterflies need, like vitamins! Final clue — SOLVED! ALL clues solved!"
 2. [encouraging] "That does have water! But my riddle is about something on the GROUND — a puddle, a damp muddy spot, or even wet leaves. Butterflies land on the ground to drink! Look near a shady spot or where the ground dips down — any wet patches?"
-3. (wait 2s) [helpful whisper] "This one IS tricky! Look for a shady spot near a tree or a low place in the ground — water collects there. Even a patch of dark, damp dirt counts! Or check near a water fountain or faucet — the ground is often wet nearby."
+3. [wait 2s] [helpful whisper] "This one IS tricky! Look for a shady spot near a tree or a low place in the ground — water collects there. Even a patch of dark, damp dirt counts! Or check near a water fountain or faucet — the ground is often wet nearby."
 
 **STUCK BRANCH** (if child truly cannot find anything wet):
 
@@ -196,7 +196,7 @@ mechanically for a bridged entity.
 
 1. [encouraging] "Perfect — go photograph it! Dark dirt is damp dirt, and butterflies love it!"
 2. [warm, flexible] "That's totally fine! Take a photo of anything near the ground — a rock, some dirt, a patch of moss. Butterflies visit ALL of these! We'll count it, Detective!"
-3. (wait 2s) [gentle] "How about this — just photograph the ground near the closest tree. That counts! Butterflies love resting on cool, shady ground."
+3. [wait 2s] [gentle] "How about this — just photograph the ground near the closest tree. That counts! Butterflies love resting on cool, shady ground."
 
 **Screen:** Third photo slides into the final slot. A big burst of multi-colored sparkles and an "ALL CLUES SOLVED!" animation. All three slots glow with golden borders. A "REVEAL TIME!" banner appears and pulses dramatically. A large magnifying glass icon shimmers in the center.
 
@@ -213,8 +213,8 @@ mechanically for a bridged entity.
 **AI follow-up:**
 
 1. [amazed] "Bonus clue SOLVED! Birds eat berries and seeds, and birds and butterflies share the same park — they're neighbors! Now — are you ready for the BIG secret?"
-2. (accepting) "That's a great find! It's round and colorful — I'll count it! Now — ready for the BIG secret?"
-3. (laughing) "You want the secret? I don't blame you — okay, here it comes!"
+2. [accepting] "That's a great find! It's round and colorful — I'll count it! Now — ready for the BIG secret?"
+3. [laughing] "You want the secret? I don't blame you — okay, here it comes!"
 
 **Screen:** If bonus round played, a bonus "star" slot lights up next to the three main slots. Then the "REVEAL TIME!" banner appears.
 
@@ -232,7 +232,7 @@ mechanically for a bridged entity.
 
 1. [celebrating] "You DID find its world! The flower is like the butterfly's restaurant — that's where it eats. The leaf is like its bedroom — that's where it rests and where its babies grow. And the wet spot is like its drinking fountain! Everything your butterfly needs is right here, and YOU found it all, Detective!"
 2. [validating, adding detail] "It IS cool! And you know what's really amazing? The BABY butterflies — caterpillars — they eat the leaves. Then they grow up and drink nectar from the flowers. And the wet ground gives them special minerals to stay strong. It's all connected — like a circle!"
-3. (wait 2s) [warm, amazed] "You mapped the butterfly's whole world! The flower feeds it, the leaf shelters it, and the wet ground gives it water. Your butterfly chose this park because EVERYTHING it needs is right here. And you, Detective — you figured it out!"
+3. [wait 2s] [warm, amazed] "You mapped the butterfly's whole world! The flower feeds it, the leaf shelters it, and the wet ground gives it water. Your butterfly chose this park because EVERYTHING it needs is right here. And you, Detective — you figured it out!"
 
 **Screen:** Collection photos in a circle around the butterfly photo. Golden connection lines with labels: "Nectar," "Shelter & Food for babies," "Water & Minerals." Shimmering "HABITAT" word above. Butterfly wing animations near connection lines.
 
@@ -250,7 +250,7 @@ mechanically for a bridged entity.
 
 1. [delighted] "Exactly! This park has EVERYTHING a butterfly needs — food, water, shelter — all in one place. That's why it lives here!"
 2. [warmly] "It IS pretty — and here's a secret: pretty things like flowers aren't just pretty for US — they're USEFUL for the butterfly! The bright colors help the butterfly find the nectar."
-3. (wait 2s) [sharing a wonder] "I think it's because this park has everything on the butterfly's checklist — food from flowers, shelter from leaves, and water from the ground."
+3. [wait 2s] [sharing a wonder] "I think it's because this park has everything on the butterfly's checklist — food from flowers, shelter from leaves, and water from the ground."
 
 #### Step 5: Closing + IB Concepts
 
@@ -266,6 +266,6 @@ mechanically for a bridged entity.
 
 1. [encouraging] "Next time you see a butterfly, look around — see if you can spot its flower restaurant, its leaf bedroom, and its puddle fountain! You'll see its whole world now. Bye for now, Detective!"
 2. [warm] "A bee world would have clues too! Today you solved the butterfly world, and your detective badge is saved. Bye, Detective!"
-3. (wait 2s) [warm] "Your detective badge is saved! Every butterfly you see has its own secret world — now YOU know how to find it. Bye, Detective!"
+3. [wait 2s] [warm] "Your detective badge is saved! Every butterfly you see has its own secret world — now YOU know how to find it. Bye, Detective!"
 
 **Screen:** Golden "Butterfly World Detective Badge" — circular, butterfly silhouette center, 3 collection photos as insets with connection labels. "Form" styled with petal-shaped fills, "Connection" with linked habitat lines. Habitat icon between concepts. Soft chime. Animated butterflies drift and settle on badge.

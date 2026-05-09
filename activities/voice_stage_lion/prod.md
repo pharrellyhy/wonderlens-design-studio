@@ -82,7 +82,7 @@ describes how The Lion's Big Show adapts mechanically for a bridged entity.
 
 1. [amazed] "WOW! So loud! I think some jungle friends heard that roar. They want MORE! Want to put on a BIG show?"
 2. [warm, excited] "Your lion! So fuzzy! I bet it has a big roar hiding inside. Want to help it do a BIG show? Some silly judges want to hear it!"
-3. (wait 2s) [playful whisper] "Psst... I think your lion wants to say RRRR! Can you help? Some jungle friends are waiting!"
+3. [wait 2s] [playful whisper] "Psst... I think your lion wants to say RRRR! Can you help? Some jungle friends are waiting!"
 
 **Screen:** Lion photo centered with golden savanna-grass framing, soft sparkles around the mane, and three small animal silhouettes (parrot, monkey, elephant) peeking in from the right edge.
 
@@ -100,7 +100,7 @@ describes how The Lion's Big Show adapts mechanically for a bridged entity.
 
 1. [cheering] "YES! Here comes Round One! Judges are ready! Parrot is on her branch. Monkey has popcorn. Elephant has big ears open. Let's GO!"
 2. [warm, playful] "Judges are silly friends watching the show! Monkey loves it! Ready? You roar, judges go WOW! Here comes Round One!"
-3. (wait 2s) [encouraging] "It's easy! Just roar when I say! Judges love EVERY roar! Ready? Here comes the first one!"
+3. [wait 2s] [encouraging] "It's easy! Just roar when I say! Judges love EVERY roar! Ready? Here comes the first one!"
 
 **Screen:** "JUNGLE TALENT SHOW" banner in jungle-leaf lettering; lion photo on a small stage at center-left; three cartoon judge characters (parrot on branch, monkey with popcorn, elephant with big ears) on the right; "Round 1" star badge in corner.
 
@@ -118,9 +118,9 @@ describes how The Lion's Big Show adapts mechanically for a bridged entity.
 
 **AI follow-up:**
 
-1. (audience goes wild) "OHHH! Parrot fell off the branch — AGAIN! Monkey is jumping up and down! Elephant flapped his ears SO hard the popcorn flew! They LOVED that happy roar! BIG gold star!"
+1. [audience goes wild] "OHHH! Parrot fell off the branch — AGAIN! Monkey is jumping up and down! Elephant flapped his ears SO hard the popcorn flew! They LOVED that happy roar! BIG gold star!"
 2. [delighted, laughing] "Meow?! Ha! The judges LOVE surprises! Parrot is giggling so hard she's spinning! Monkey says 'Do it again!' Even the elephant is smiling! Gold star for the surprise sound!"
-3. (wait 2s) [gentle] "Even a tiny roar counts! Try a little one... rrrr? The judges are waiting with their big silly faces!"
+3. [wait 2s] [gentle] "Even a tiny roar counts! Try a little one... rrrr? The judges are waiting with their big silly faces!"
 
 **Screen:** Stage spotlight on lion photo with golden sun animation; parrot tumbles off branch, monkey bounces with popcorn flying, elephant flaps ears; gold star stamps in the score area.
 
@@ -138,7 +138,7 @@ describes how The Lion's Big Show adapts mechanically for a bridged entity.
 
 1. [hushed, amazed] "Ohhh... look! Parrot's eyes are closing. Monkey put down the popcorn and is yawning. Elephant is swaying... back and forth... back and forth. Your sleepy roar made the WHOLE audience almost fall asleep! That was beautiful! Second gold star!"
 2. [laughing quietly] "A BIG roar! Ha! The judges jumped awake! Monkey spilled the popcorn everywhere! That wasn't sleepy, but the judges LOVED the surprise! Elephant says 'Whoa! Wide awake now!' Star for the wake-up call!"
-3. (wait 2s) [gentle, modeling] "Try it like this... rrrrrr... nice and soft, like you're tucking the lion in. Even a tiny whisper counts. The judges have their blankets ready!"
+3. [wait 2s] [gentle, modeling] "Try it like this... rrrrrr... nice and soft, like you're tucking the lion in. Even a tiny whisper counts. The judges have their blankets ready!"
 
 **Screen:** Stage dims to moonlit blue-purple tones; a crescent moon rises behind the lion photo. If child responds softly, parrot droops on branch with half-closed eyes, monkey yawns with popcorn lowered, and elephant sways gently. If child roars loudly, judges startle awake comically. Second gold star stamps in and "Round 2 COMPLETE" appears in soft starlight letters.
 
@@ -156,7 +156,7 @@ describes how The Lion's Big Show adapts mechanically for a bridged entity.
 
 1. [absolutely stunned, building to explosion] "Wait... did you hear that? Parrot leaned in... Monkey leaned in... Elephant put his GIANT ear right up close... and... THEY HEARD IT! A WHISPER ROAR! The crowd is going BANANAS! Monkey is doing backflips! Parrot is screeching 'ENCORE! ENCORE!' Elephant STOMPED so hard the whole jungle shook! Nobody thought it was possible! THIRD GOLD STAR!"
 2. [delighted, amazed] "You did a BIG roar instead! And guess what? The judges LOVED the surprise! Parrot says 'That's NOT a whisper — that's a SUPER roar!' Monkey fell over laughing! The elephant says 'My ears are still ringing!' They give you the star for being BRAVE! Gold star number three!"
-3. (wait 2s) [encouraging whisper] "The quiet... IS the whisper roar! Even silence can be a performance! Parrot is leaning in so close she almost fell off again! Try a teensy tiny one? Even just... 'rr'?"
+3. [wait 2s] [encouraging whisper] "The quiet... IS the whisper roar! Even silence can be a performance! Parrot is leaning in so close she almost fell off again! Try a teensy tiny one? Even just... 'rr'?"
 
 **Screen:** Stage goes dramatic with a single spotlight narrowed on the lion photo. "SURPRISE CHALLENGE" banner flashes in bold red-gold letters. If child whispers, judges lean forward in exaggerated poses, then explode into celebration: confetti burst, parrot spirals, monkey backflips, elephant trumpets with trunk up. Third gold star stamps in with extra sparkle and "Round 3 COMPLETE — ALL STARS!" flashes.
 
@@ -174,7 +174,7 @@ describes how The Lion's Big Show adapts mechanically for a bridged entity.
 
 1. [overjoyed] "The BEST Roar Star the jungle has EVER seen! Every judge says you win! Parrot wants your autograph!"
 2. [thrilled] "ENCORE? The judges are SO happy! They say 'come back anytime!' You can roar for them again another day, Roar Star!"
-3. (wait 2s) [warm] "Look at that big smile! The judges see it too. Parrot says 'That smile is the best encore!' You are a real Roar Star!"
+3. [wait 2s] [warm] "Look at that big smile! The judges see it too. Parrot says 'That smile is the best encore!' You are a real Roar Star!"
 
 **Screen:** Full celebration — confetti rain, parrot spiraling with rainbow sparkles, monkey throwing popcorn confetti, elephant raising trunk with golden trumpet-blast rays; large golden "ROAR STAR" badge descends with lion photo framed inside, three gold stars underneath.
 
@@ -192,6 +192,6 @@ describes how The Lion's Big Show adapts mechanically for a bridged entity.
 
 1. [warm, proud] "RRRR! That's lion saying 'Thank you, Roar Star!' Bye bye! The judges are waving!"
 2. [warm, simple] "Perspective means same lion, different roars — that's what YOU showed! Monkeys are fun too — maybe next time! Bye, Roar Star!"
-3. (wait 2s) [soft, closing] "The judges are waving goodbye. Parrot says 'See you next time!' Bye bye, Roar Star. RRRR!"
+3. [wait 2s] [soft, closing] "The judges are waving goodbye. Parrot says 'See you next time!' Bye bye, Roar Star. RRRR!"
 
 **Screen:** Lion photo at center with "Perspective" (speech-bubble icon) and "Form" (lion-silhouette icon) in jungle-leaf lettering; "ROAR STAR" badge with three gold stars in the corner; three judges waving; warm golden savanna sunset fade.

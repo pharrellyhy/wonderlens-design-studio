@@ -171,6 +171,11 @@ DialogueBlock = {
   "screenDescription": string   // concrete, implementable description
 }
 
+Dialogue cue tags in any dialogue string MUST use square brackets, never
+parentheses. This includes tone tags and timing tags, e.g. "[warm]",
+"[excited]", "[wait 2s]". Branch labels such as Ideal / Unexpected /
+No response are renderer labels, not content to include inside JSON values.
+
 TagBlock = {
   "activity_id": string,                         // == bundle.activityId
   "version": 1,

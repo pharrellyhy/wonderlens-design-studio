@@ -4,6 +4,35 @@ Last updated: 2026-05-08
 
 ---
 
+## Dialogue Cue Brackets — Complete
+
+### Problem
+Some dialogue cue tags, especially silent-branch timing cues like `(wait 2s)`, still appeared with parentheses in prod markdown and in prompt/reference examples. The canonical reference bundle is inlined into generation prompts, so those examples could keep teaching the model the old wrapper.
+
+### Solution
+Normalized dialogue cue tags to square brackets in export rendering, prompt guidance, transform/reference docs, and authored activity examples. Child-response branch labels such as `(Ideal)`, `(Unexpected)`, and `(No response)` remain unchanged because they are structural labels, not dialogue cue tags.
+
+### Edits
+- `src/lib/bundle-export.ts` — added a scoped formatter that converts leading dialogue cues such as `(wait 2s)` or `(triumphant)` to `[wait 2s]` / `[triumphant]` when rendering prod markdown.
+- `src/lib/__tests__/bundle-roundtrip.test.ts` — added regression coverage for parenthesized timing tags in prod export.
+- `src/lib/prompts/{generate,fix,regenerate}.ts` — clarified that dialogue cue tags, including timing cues, must use square brackets.
+- `data/program.md`, `data/transform.md`, `data/conversation_bridge.md` — updated guidance and target examples to square-bracket cue tags.
+- `activities/{mystery_trail_butterfly,polka_dot_patrol,voice_stage_lion}/prod.md` — converted existing `(wait 2s)` and remaining AI follow-up cue tags to square brackets.
+
+### NOT Changed
+- Child-response branch labels remain parenthesized.
+- The ActivityBundle schema and importer behavior were not changed.
+- The “Source” side of `data/transform.md` still shows old parenthesized examples because that section documents input being transformed.
+
+### Verification
+```bash
+./node_modules/.bin/tsx --test src/lib/__tests__/bundle-roundtrip.test.ts
+npx eslint src/lib/bundle-export.ts src/lib/prompts/generate.ts src/lib/prompts/fix.ts src/lib/prompts/regenerate.ts src/lib/__tests__/bundle-roundtrip.test.ts
+git diff --check
+```
+
+---
+
 ## Editor Sub-step Expansion + Field AI Controls — Complete
 
 ### Problem
