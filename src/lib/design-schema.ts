@@ -171,7 +171,7 @@ export const RUBRIC_DIMENSIONS = {
   d7: "Screen & UI Completeness",
   d8: "Entity Mapping Alignment",
   d9: "Game Feel",
-  d10: "Pillar Fidelity",
+  d10: "Mechanic Fidelity + Scaffold Honesty",
 } as const;
 
 export const RUBRIC_DIMENSION_DESCRIPTIONS: Record<
@@ -187,7 +187,7 @@ export const RUBRIC_DIMENSION_DESCRIPTIONS: Record<
   d7: "Every step has a specific screenDescription a UI designer could implement; key UI affordances are named.",
   d8: "Creative variables (metaphor, role, game mechanic) connect meaningfully to the entity's attributes and dimensions.",
   d9: "The design creates genuine uncertainty with a satisfying resolution; the child experiences real stakes, not just structured Q&A.",
-  d10: "A blind reader could identify the experience pillar (Mystery / Creation / Performance / Discovery / Adventure / Nurture) from this design alone; the emotional arc matches the pillar's promise.",
+  d10: "The repeated child action matches the declared mechanic, and the scaffold is honest about product/runtime capabilities and assumptions.",
 };
 
 export const RUBRIC_DIMENSION_KEYS = Object.keys(RUBRIC_DIMENSIONS) as Array<

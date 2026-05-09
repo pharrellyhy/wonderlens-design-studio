@@ -1,6 +1,97 @@
 # Session Handoff
 
-Last updated: 2026-05-08
+Last updated: 2026-05-09
+
+---
+
+## Review Import Header Alignment — Fixed
+
+### Problem
+The `/review` empty import state rendered the title and description against the wide page container while the import selection card was centered at `max-w-2xl`, leaving the intro visually offset from the card.
+
+### Solution
+Constrained the review intro wrapper to the same centered `max-w-2xl` width as the import card and added a focused regression test for that layout contract.
+
+### Edits
+- `src/app/review/page.tsx` — aligned the review intro wrapper with the importer card width.
+- `src/app/review/page.test.ts` — added a regression check for the centered `max-w-2xl` intro wrapper.
+
+### NOT Changed
+- Import behavior, review-console state, and editor handoff behavior were not changed.
+- The main review console remains inside the existing `max-w-5xl` page container.
+
+### Verification
+```bash
+npx tsx --test src/app/review/page.test.ts
+npx eslint src/app/review/page.tsx src/app/review/page.test.ts
+npm run build
+```
+
+Manual visual check at `http://localhost:3000/review` with a `1140x508` viewport measured `h1_x=234.0`, `card_x=234.0`, `delta=0.0`.
+
+---
+
+## Review Console Integration — Implemented
+
+### Problem
+The studio needed a review-first workflow for generated 5-file activity bundles. The home page mixed YAML generation and existing-activity review, and imported bundles jumped straight into the editor without surfacing adaptation rationale, asset dependencies, deterministic QA diagnostics, or batch-review status.
+
+### Solution
+Implemented the review console integration from `docs/plans/2026-05-09-review-console-integration.md`. The home page is now a task selector, `/generate` preserves YAML generation, and `/review` imports single or batch activity bundles into a read-only review console before editor handoff. Imports now derive review metadata from `spec.md` and run deterministic diagnostics for mechanic fidelity, asset dependency completeness, V1 blockers, product-decision risks, scorecard placement drift, and cross-file alignment.
+
+### Edits
+- `src/app/page.tsx`, `src/app/generate/page.tsx`, `src/app/review/page.tsx`, `src/app/layout.tsx` — task-first routing and Review/Generate/Library nav.
+- `src/components/home/*` — home task cards and selector test.
+- `src/components/review/*` — review console, bundle list, filters, flow review, diagnostics, asset brief, adaptation rationale, and summary panels.
+- `src/components/upload/ExistingDesignImporter.tsx` — dual import modes: legacy editor handoff or review-console batch handoff.
+- `src/lib/review-metadata.ts`, `src/lib/review-diagnostics.ts`, `src/lib/bundle-import.ts` — derived metadata and diagnostics on every `ImportedBundleResult`.
+- `src/lib/activity-bundle-schema.ts`, `src/components/editor/TagBlockPanel.tsx`, `src/lib/design-schema.ts`, `src/lib/prompts/{generate,regenerate,evaluate}.ts` — narrow vocabulary sync: `Nurture` tag-block pillar and D10 “Mechanic Fidelity + Scaffold Honesty”.
+- `src/store/design-store.ts` — session-only per-bundle review status.
+- Tests added/updated under `src/components/home`, `src/components/review`, `src/store`, and `src/lib/__tests__`.
+
+### NOT Changed
+- Canonical activity bundle files remain the same 5-file format.
+- Review metadata is derived in the studio; no tag-block `asset_policy` field was added.
+- Imported review batches are session state only; they are not auto-persisted to Library.
+- The full editor remains the editing surface; the console is read-first and diagnostic-focused.
+
+### Verification
+```bash
+npx tsx --test src/components/home/HomeTaskSelector.test.tsx
+npx tsx --test src/components/review/ReviewConsole.test.tsx
+npx tsx --test src/store/review-status.test.ts
+npx tsx --test src/lib/__tests__/review-diagnostics.test.ts
+npx tsx --test src/lib/__tests__/bundle-roundtrip.test.ts
+npx tsx --test src/lib/__tests__/tag-block-schema-drift.test.ts
+npx tsx --test src/lib/__tests__/prompt-vocabulary.test.ts
+npx eslint src/app/page.tsx src/app/generate/page.tsx src/app/review/page.tsx src/app/layout.tsx src/components/home/*.tsx src/components/review/*.tsx src/components/upload/ExistingDesignImporter.tsx src/components/editor/TagBlockPanel.tsx src/store/design-store.ts src/store/review-status.test.ts src/lib/review-metadata.ts src/lib/review-diagnostics.ts src/lib/bundle-import.ts src/lib/activity-bundle-schema.ts src/lib/design-schema.ts src/lib/prompts/generate.ts src/lib/prompts/regenerate.ts src/lib/prompts/evaluate.ts src/lib/__tests__/review-diagnostics.test.ts src/lib/__tests__/bundle-roundtrip.test.ts src/lib/__tests__/prompt-vocabulary.test.ts
+npm run build
+```
+
+---
+
+## Review Console Integration Plan — Complete
+
+### Problem
+The studio home page currently mixes YAML generation, generation mode guidance, and existing-bundle review in one long page. Generated activity packages also need a review-first surface for adaptation rationale, asset dependencies, mechanic fidelity, V1 blockers, and cross-file checks rather than forcing reviewers to inspect five files manually.
+
+### Solution
+Added an implementation plan for integrating a review console into the existing Design Studio instead of building a separate app. The plan recommends a task-first landing page with separate Review and Generate paths, derived review metadata from `spec.md`, deterministic diagnostics, asset brief visualization, and incremental reuse of the existing importer/editor/library.
+
+### Edits
+- `docs/plans/2026-05-09-review-console-integration.md` — new implementation plan covering UX, routes, data model, diagnostics, component plan, phases, verification, acceptance criteria, risks, and open questions.
+
+### NOT Changed
+- No application code was changed.
+- No schema, prompt, or runtime behavior was changed.
+- No image generation was added.
+
+### Verification
+```bash
+git diff --check
+sed -n '1,260p' docs/plans/2026-05-09-review-console-integration.md
+git diff -- HANDOFF.md
+```
 
 ---
 

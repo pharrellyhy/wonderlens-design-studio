@@ -44,10 +44,16 @@ export default function RootLayout({
             </Link>
             <div className="flex items-center gap-1 text-sm">
               <Link
-                href="/"
+                href="/review"
                 className="px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
               >
-                Upload
+                Review
+              </Link>
+              <Link
+                href="/generate"
+                className="px-3 py-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              >
+                Generate
               </Link>
               <Link
                 href="/library"

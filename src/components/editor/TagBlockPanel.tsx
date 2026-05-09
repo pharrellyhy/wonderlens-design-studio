@@ -84,7 +84,7 @@ const PILLARS: TagBlockPillar[] = [
   "Mystery",
   "Creation",
   "Adventure",
-  "Connection",
+  "Nurture",
 ];
 
 const ENTITY_BINDINGS: EntityBinding[] = [

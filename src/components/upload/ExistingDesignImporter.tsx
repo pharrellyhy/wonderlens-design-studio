@@ -12,11 +12,13 @@ import {
 import { useDesignStore } from "@/store/design-store";
 
 interface ExistingDesignImporterProps {
-  onBundleImported: (result: ImportedBundleResult) => void;
+  onBundleImported?: (result: ImportedBundleResult) => void;
+  onBundlesImported?: (results: ImportedBundleResult[]) => void;
 }
 
 export function ExistingDesignImporter({
   onBundleImported,
+  onBundlesImported,
 }: ExistingDesignImporterProps) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,22 +30,37 @@ export function ExistingDesignImporter({
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
 
+  const resetImportState = useCallback(() => {
+    setError(null);
+    setMissingFiles(null);
+  }, []);
+
   const finalize = useCallback(
     (results: ImportedBundleResult[]) => {
-      setError(null);
-      setMissingFiles(null);
+      resetImportState();
       if (results.length === 0) {
         setError("No activity bundles were found.");
         return;
       }
+      if (onBundlesImported) {
+        setImportedBundles(results);
+        onBundlesImported(results);
+        return;
+      }
       if (results.length === 1) {
         clearImportedBundles();
-        onBundleImported(results[0]);
+        onBundleImported?.(results[0]);
         return;
       }
       setImportedBundles(results);
     },
-    [clearImportedBundles, onBundleImported, setImportedBundles],
+    [
+      clearImportedBundles,
+      onBundleImported,
+      onBundlesImported,
+      resetImportState,
+      setImportedBundles,
+    ],
   );
 
   const reportError = useCallback((err: unknown) => {
@@ -58,12 +75,12 @@ export function ExistingDesignImporter({
     clearImportedBundles();
   }, [clearImportedBundles]);
 
-  const handleZips = useCallback(
-    async (files: File[]) => {
+  const runImport = useCallback(
+    async (loadBundles: () => Promise<ImportedBundleResult[]>) => {
       setBusy(true);
       clearImportedBundles();
       try {
-        finalize(await importBundlesFromZipFiles(files));
+        finalize(await loadBundles());
       } catch (err) {
         reportError(err);
       } finally {
@@ -73,19 +90,14 @@ export function ExistingDesignImporter({
     [clearImportedBundles, finalize, reportError],
   );
 
+  const handleZips = useCallback(
+    (files: File[]) => runImport(() => importBundlesFromZipFiles(files)),
+    [runImport],
+  );
+
   const handleFolder = useCallback(
-    async (files: File[]) => {
-      setBusy(true);
-      clearImportedBundles();
-      try {
-        finalize(await importBundlesFromFiles(files));
-      } catch (err) {
-        reportError(err);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [clearImportedBundles, finalize, reportError],
+    (files: File[]) => runImport(() => importBundlesFromFiles(files)),
+    [runImport],
   );
 
   const handleDroppedFiles = useCallback(
@@ -156,12 +168,7 @@ export function ExistingDesignImporter({
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const list = event.target.files;
       if (!list || list.length === 0) return;
-      const files: File[] = [];
-      for (let i = 0; i < list.length; i++) {
-        const f = list.item(i);
-        if (f) files.push(f);
-      }
-      void handleFolder(files);
+      void handleFolder(Array.from(list));
     },
     [handleFolder],
   );
@@ -234,7 +241,7 @@ export function ExistingDesignImporter({
         </div>
       </div>
 
-      {importedBundles.length > 1 && (
+      {!onBundlesImported && onBundleImported && importedBundles.length > 1 && (
         <div className="mt-4 rounded-lg border border-gray-700 bg-gray-900/70 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>

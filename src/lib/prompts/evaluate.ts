@@ -13,7 +13,7 @@ An ActivityBundle has 5 named children. The dimension you are evaluating tells y
 - D2 — read \`bundle.prod.steps[0]\` (the bridge step) plus \`bundle.spec.selectionTrigger\`
 - D4 — read \`bundle.prod.basicInfo.coreIbKeyConcepts\`, \`bundle.prod.kud\`, and the closing step's \`conceptReinforcement\`
 - D8 — read \`bundle.spec.selectionTrigger.tierGuidanceAttributeIds\` and \`bundle.tagBlock.activity_signature.bridge_prerequisites\`
-- D10 — read \`bundle.tagBlock.pillar\`, \`bundle.tagBlock.game_style\`, and the emotional arc across \`bundle.prod.steps\`
+- D10 — read \`bundle.tagBlock.activity_signature.mechanic\`, \`bundle.tagBlock.game_style\`, and the scaffold/capability honesty across \`bundle.spec\` and \`bundle.prod.steps\`
 
 ## Rubric Dimensions
 
@@ -76,10 +76,10 @@ For the target tier (\`prod.basicInfo.recommendedTier\`), check:
 - Does the child experience real stakes, not just structured Q&A? -> Must be YES to pass
 - Is there a clear moment where the child's input changes the outcome? -> Must be YES to pass
 
-### D10: Pillar Fidelity
-- Could a blind reader identify the experience pillar (Mystery / Creation / Performance / Discovery / Adventure / Connection-aka-Nurture) from this design alone, without reading \`tagBlock.pillar\`? -> Must be YES to pass
-- Does the emotional arc match the pillar's promise per playbook §2? (Mystery: "I figured it out!"; Creation: "I made this!"; Performance: "They loved it!"; Discovery: "Was I right?!"; Adventure: "Look how far we went!"; Nurture: "I helped!") -> Must be YES to pass
-- Does \`tagBlock.game_style\` correspond to \`tagBlock.pillar\` and \`tagBlock.template_type\` per the playbook's pillar→style mapping? -> Must be YES to pass
+### D10: Mechanic Fidelity + Scaffold Honesty
+- Does Step 3's repeated child action match \`bundle.tagBlock.activity_signature.mechanic\`? -> Must be YES to pass
+- Does the scaffold avoid pretending unsupported V1 capabilities exist, especially runtime-generated images, OCR, pose detection, before/after comparison, non-speech audio detection, and drawing/coloring UI? -> Must be YES to pass
+- If the design depends on assumptions or product capability decisions, are those assumptions explicit instead of hidden inside runtime dialogue? -> Must be YES to pass
 
 ## Output Format
 

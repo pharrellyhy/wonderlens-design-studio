@@ -21,6 +21,11 @@ export interface DesignVariant {
   parentDesignId?: string;
 }
 
+export type ReviewStatus =
+  | "unreviewed"
+  | "needs_product_decision"
+  | "ready_to_edit";
+
 interface DesignStore {
   // Upload state
   parsedEntity: ParsedEntity | null;
@@ -73,6 +78,8 @@ interface DesignStore {
   importedBundles: ImportedBundleResult[];
   setImportedBundles: (bundles: ImportedBundleResult[]) => void;
   clearImportedBundles: () => void;
+  reviewStatuses: Record<string, ReviewStatus>;
+  setReviewStatus: (activityId: string, status: ReviewStatus) => void;
 
   activeSection: string;
   setActiveSection: (section: string) => void;
@@ -311,7 +318,15 @@ export const useDesignStore = create<DesignStore>()((set) => ({
 
   importedBundles: [],
   setImportedBundles: (bundles) => set({ importedBundles: bundles }),
-  clearImportedBundles: () => set({ importedBundles: [] }),
+  clearImportedBundles: () => set({ importedBundles: [], reviewStatuses: {} }),
+  reviewStatuses: {},
+  setReviewStatus: (activityId, status) =>
+    set((state) => ({
+      reviewStatuses: {
+        ...state.reviewStatuses,
+        [activityId]: status,
+      },
+    })),
 
   activeSection: "spec",
   setActiveSection: (section) => set({ activeSection: section }),
@@ -332,6 +347,7 @@ export const useDesignStore = create<DesignStore>()((set) => ({
       generationJobId: null,
       generationMode: "mapping-informed",
       parentsWithOpposite: [],
+      reviewStatuses: {},
       activeSection: "spec",
     }),
 }));

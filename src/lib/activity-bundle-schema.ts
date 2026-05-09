@@ -89,7 +89,7 @@ export const tagBlockPillarSchema = z.enum([
   "Mystery",
   "Creation",
   "Adventure",
-  "Connection",
+  "Nurture",
 ]);
 export type TagBlockPillar = z.infer<typeof tagBlockPillarSchema>;
 
@@ -114,12 +114,7 @@ export type CaregiverRole = z.infer<typeof caregiverRoleSchema>;
 //
 // `experiencePillarSchema` (lowercase) is the studio's internal pillar name
 // used for game-style routing in PILLAR_STYLES. `tagBlockPillarSchema`
-// (TitleCase) mirrors the on-disk vocabulary defined by the JSON Schema and
-// `docs/activity_vocabulary.md`. Most pillars match modulo case; the only
-// non-trivial pair is `nurture` ↔ `Connection` — the studio uses "Nurture" as
-// an experience pillar name, but the canonical activity vocabulary names that
-// pillar "Connection". Confirm against docs/activity_vocabulary.md before
-// shipping.
+// (TitleCase) mirrors the on-disk vocabulary defined by the JSON Schema.
 
 export const EXPERIENCE_PILLAR_TO_TAG_BLOCK_PILLAR: Record<
   ExperiencePillar,
@@ -130,19 +125,17 @@ export const EXPERIENCE_PILLAR_TO_TAG_BLOCK_PILLAR: Record<
   performance: "Performance",
   discovery: "Discovery",
   adventure: "Adventure",
-  // TODO(2026-05-07): confirm `nurture → Connection` against
-  // docs/activity_vocabulary.md before ungating Phase 4.
-  nurture: "Connection",
+  nurture: "Nurture",
 };
 
-export const TAG_BLOCK_PILLAR_TO_EXPERIENCE_PILLAR: Record<
-  TagBlockPillar,
-  ExperiencePillar
-> = Object.fromEntries(
-  (Object.entries(EXPERIENCE_PILLAR_TO_TAG_BLOCK_PILLAR) as Array<
-    [ExperiencePillar, TagBlockPillar]
-  >).map(([lo, hi]) => [hi, lo]),
-) as Record<TagBlockPillar, ExperiencePillar>;
+export const TAG_BLOCK_PILLAR_TO_EXPERIENCE_PILLAR = {
+  Mystery: "mystery",
+  Creation: "creation",
+  Performance: "performance",
+  Discovery: "discovery",
+  Adventure: "adventure",
+  Nurture: "nurture",
+} as const satisfies Record<TagBlockPillar, ExperiencePillar>;
 
 // ============================================================================
 // activity_id pattern (shared)
