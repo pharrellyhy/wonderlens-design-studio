@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 
+import { EXPERIENCE_PILLAR_TO_TAG_BLOCK_PILLAR } from "@/lib/activity-bundle-schema";
 import {
   PILLAR_LABELS,
   type ExperiencePillar,
@@ -101,7 +102,7 @@ Spec = {
     "constellationNotes"?: string         // optional prose on neighbour-entity adaptation
   },
   "identity": {                     // mirrors tagBlock — see invariants I5–I7
-    "pillar": "Discovery" | "Performance" | "Mystery" | "Creation" | "Adventure" | "Connection",
+    "pillar": "Discovery" | "Performance" | "Mystery" | "Creation" | "Adventure" | "Nurture",
     "gameStyle": string,
     "mechanic": Mechanic,
     "observationAngle": ObservationAngle,
@@ -181,7 +182,7 @@ TagBlock = {
   "version": 1,
   "source_entity_exemplar"?: string,             // e.g. "butterfly"
   "template_type": "cat1" | "cat5",
-  "pillar": "Discovery" | "Performance" | "Mystery" | "Creation" | "Adventure" | "Connection",
+  "pillar": "Discovery" | "Performance" | "Mystery" | "Creation" | "Adventure" | "Nurture",
   "game_style": string,
   "entity": string,
   "entity_class"?: string[],                     // e.g. ["insect", "animal"]
@@ -410,21 +411,6 @@ function buildModeGuidance(generationMode: GenerationMode): string {
 }
 
 // ---------------------------------------------------------------------------
-// Pillar capitalisation map (lowercase studio pillar → TitleCase tagBlock)
-// ---------------------------------------------------------------------------
-
-const TAG_BLOCK_PILLAR_FOR: Record<ExperiencePillar, string> = {
-  mystery: "Mystery",
-  creation: "Creation",
-  performance: "Performance",
-  discovery: "Discovery",
-  adventure: "Adventure",
-  // Editorial vocabulary names this pillar "Connection"; the studio's
-  // experience-pillar enum names it "nurture".
-  nurture: "Connection",
-};
-
-// ---------------------------------------------------------------------------
 // Prompt builder
 // ---------------------------------------------------------------------------
 
@@ -443,7 +429,7 @@ export function buildGenerateMessages(
 
   const modeGuidance = buildModeGuidance(generationMode);
 
-  const tagBlockPillar = TAG_BLOCK_PILLAR_FOR[pillar];
+  const tagBlockPillar = EXPERIENCE_PILLAR_TO_TAG_BLOCK_PILLAR[pillar];
 
   const userContent = `Design a WonderLens activity bundle with the following inputs:
 

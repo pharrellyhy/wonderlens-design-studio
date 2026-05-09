@@ -592,6 +592,31 @@ test("ActivityBundle import falls back to Self-Evaluation Scorecard from spec.md
   assert.equal(parsed.rubricScores.d10, "fail");
 });
 
+test("ActivityBundle import derives review metadata from spec.md", async () => {
+  const JSZip = (await import("jszip")).default;
+  const reviewSections = `\n## Adaptation Rationale\n\n- **Input mode:** concept_only\n- **Canonical mechanic:** collect\n- **Readiness:** generate_with_assumptions\n- **Product capability flags:** asset_display\n- **Assumptions:**\n  - Reviewer supplied a concept-only brief.\n\n## Asset Brief\n\n- **Asset policy:** optional_support\n\n### Asset: detective_badge\n\n- **Asset type:** badge\n- **Requiredness:** optional\n- **Generation timing:** pre_generated\n- **Use step:** Step 2\n- **Prompt_en:** Friendly detective badge.\n- **Display behavior:** show beside role title\n- **Fallback behavior:** omit badge\n`;
+  const zip = new JSZip();
+  const root = zip.folder(fixture.activityId)!;
+  root.file("spec.md", renderSpecMarkdown(fixture) + reviewSections);
+  root.file("prod.md", renderProdMarkdown(fixture));
+  root.file("tag_block.yaml", renderTagBlockYaml(fixture));
+  root.file("recap.template.yaml", renderRecapYaml(fixture));
+  root.file("dashboard.template.yaml", renderDashboardYaml(fixture));
+
+  const bytes = await zip.generateAsync({ type: "uint8array" });
+  const parsed = await importBundleFromZip(bytes.buffer as ArrayBuffer);
+
+  assert.equal(parsed.reviewMetadata.adaptation?.inputMode, "concept_only");
+  assert.equal(parsed.reviewMetadata.adaptation?.canonicalMechanic, "collect");
+  assert.equal(parsed.reviewMetadata.assetPolicy, "optional_support");
+  assert.equal(parsed.reviewMetadata.assets[0]?.assetId, "detective_badge");
+  assert.ok(
+    parsed.diagnostics.some(
+      (diagnostic) => diagnostic.id === "mechanic.canonical_match",
+    ),
+  );
+});
+
 test("ActivityBundle zip filename uses activityId", async () => {
   const { filename } = await bundleToZip(fixture);
   assert.equal(filename, "mystery_trail_butterfly.zip");

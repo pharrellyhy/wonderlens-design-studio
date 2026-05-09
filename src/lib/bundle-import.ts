@@ -17,6 +17,11 @@ import {
   type RubricScores,
   type Step,
 } from "./design-schema";
+import { buildReviewDiagnostics, type ReviewDiagnostic } from "./review-diagnostics";
+import {
+  parseActivityReviewMetadata,
+  type ActivityReviewMetadata,
+} from "./review-metadata";
 
 // ============================================================================
 // Public types
@@ -25,6 +30,8 @@ import {
 export interface ImportedBundleResult {
   bundle: ActivityBundle;
   rubricScores: RubricScores;
+  reviewMetadata: ActivityReviewMetadata;
+  diagnostics: ReviewDiagnostic[];
   /**
    * True when a `## Self-Evaluation Scorecard` table in prod.md or spec.md
    * provided a verdict for every dimension. The editor uses this to skip the
@@ -127,6 +134,7 @@ const REQUIRED_FILES = [
 
 type RequiredFileName = (typeof REQUIRED_FILES)[number];
 type FileMap = Record<RequiredFileName, string>;
+const REQUIRED_FILE_NAMES = new Set<string>(REQUIRED_FILES);
 
 // ============================================================================
 // Entry points
@@ -140,12 +148,7 @@ export async function importBundleFromZip(
   const rootDir = inferZipRootDir(zip);
   const bundle = parseBundleFromFileMap(fileMap, rootDir);
   const { scores, evaluated } = parseImportedScorecard(fileMap);
-  return {
-    bundle,
-    rubricScores: scores,
-    rubricEvaluated: evaluated,
-    sourceFormat: "zip",
-  };
+  return buildImportedBundleResult(bundle, fileMap, scores, evaluated, "zip");
 }
 
 export async function importBundlesFromZipFiles(
@@ -181,15 +184,37 @@ export async function importBundlesFromFiles(
     // truth instead of enforcing parent-directory equality.
     const bundle = parseBundleFromFileMap(fileMap, undefined);
     const { scores, evaluated } = parseImportedScorecard(fileMap);
-    results.push({
-      bundle,
-      rubricScores: scores,
-      rubricEvaluated: evaluated,
-      sourceFormat: "files",
-    });
+    results.push(
+      buildImportedBundleResult(bundle, fileMap, scores, evaluated, "files"),
+    );
   }
 
   return results;
+}
+
+function buildImportedBundleResult(
+  bundle: ActivityBundle,
+  files: FileMap,
+  rubricScores: RubricScores,
+  rubricEvaluated: boolean,
+  sourceFormat: ImportedBundleResult["sourceFormat"],
+): ImportedBundleResult {
+  const reviewMetadata = parseActivityReviewMetadata(files["spec.md"]);
+  const diagnostics = buildReviewDiagnostics({
+    bundle,
+    reviewMetadata,
+    specMarkdown: files["spec.md"],
+    prodMarkdown: files["prod.md"],
+  });
+
+  return {
+    bundle,
+    rubricScores,
+    reviewMetadata,
+    diagnostics,
+    rubricEvaluated,
+    sourceFormat,
+  };
 }
 
 // ============================================================================
@@ -202,9 +227,9 @@ async function locateZipFiles(zip: JSZip): Promise<FileMap> {
 
   for (const entry of entries) {
     const base = baseName(entry.name).toLowerCase();
-    if ((REQUIRED_FILES as readonly string[]).includes(base)) {
+    if (isRequiredFileName(base)) {
       const text = await entry.async("string");
-      found[base as RequiredFileName] = text;
+      found[base] = text;
     }
   }
 
@@ -244,7 +269,7 @@ function groupFolderFilesByBundle(files: File[]): FolderFileGroup[] {
 
   for (const file of files) {
     const base = baseName(file.name).toLowerCase();
-    if (!(REQUIRED_FILES as readonly string[]).includes(base)) continue;
+    if (!isRequiredFileName(base)) continue;
 
     const groupKey = parentDirectory(filePath(file));
     const existing = groups.get(groupKey);
@@ -278,8 +303,8 @@ async function locateFolderFiles(
   const found: Partial<FileMap> = {};
   for (const file of files) {
     const base = baseName(file.name).toLowerCase();
-    if ((REQUIRED_FILES as readonly string[]).includes(base)) {
-      found[base as RequiredFileName] = await file.text();
+    if (isRequiredFileName(base)) {
+      found[base] = await file.text();
     }
   }
   const missing = REQUIRED_FILES.filter((f) => found[f] === undefined);
@@ -304,6 +329,10 @@ function parentDirectory(path: string): string {
   const parts = path.split("/").filter(Boolean);
   if (parts.length <= 1) return "";
   return parts.slice(0, -1).join("/");
+}
+
+function isRequiredFileName(name: string): name is RequiredFileName {
+  return REQUIRED_FILE_NAMES.has(name);
 }
 
 // ============================================================================
@@ -336,11 +365,9 @@ function parseBundleFromFileMap(
   // (the conservative choice — mapping-informed mode binds outputs more
   // tightly to entity dimensions, so wrongly defaulting to it would lock
   // imports we shouldn't lock).
-  const xMode = (tagBlock as Record<string, unknown>)["x_generation_mode"];
-  const generationMode =
-    xMode === "mapping-informed" || xMode === "freeform"
-      ? xMode
-      : "freeform";
+  const generationMode = parseGenerationMode(
+    (tagBlock as Record<string, unknown>)["x_generation_mode"],
+  );
 
   const bundleInput = {
     schemaVersion: 1 as const,
@@ -361,6 +388,13 @@ function parseBundleFromFileMap(
     );
   }
   return result.data;
+}
+
+function parseGenerationMode(value: unknown): ActivityBundle["generationMode"] {
+  if (value === "mapping-informed" || value === "freeform") {
+    return value;
+  }
+  return "freeform";
 }
 
 function formatZodIssues(issues: readonly z.core.$ZodIssue[]): string {

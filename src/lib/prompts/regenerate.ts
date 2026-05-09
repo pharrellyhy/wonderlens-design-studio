@@ -45,7 +45,7 @@ When the field path resolves to a closed-enum field, your value MUST come from t
 - \`tagBlock.activity_signature.entity_role\`: one of subject, exemplar, catalyst, reference
 - \`tagBlock.key_concepts[*]\` and \`prod.basicInfo.coreIbKeyConcepts[*]\`: TitleCase IB concepts — Form, Function, Causation, Change, Connection, Perspective, Responsibility
 - \`tagBlock.progression.topic_axis\`: lowercase axis — form, function, causation, change, connection, perspective, responsibility
-- \`tagBlock.pillar\` and \`spec.identity.pillar\`: TitleCase pillar — Discovery, Performance, Mystery, Creation, Adventure, Connection
+- \`tagBlock.pillar\` and \`spec.identity.pillar\`: TitleCase pillar — Discovery, Performance, Mystery, Creation, Adventure, Nurture
 - \`tagBlock.entity_binding\`: bound | parameterized | agnostic
 - \`tagBlock.template_type\` and \`prod.basicInfo.activityCategory\`: cat1 | cat5
 - \`tagBlock.tier_range.primary\`, \`tagBlock.tier_range.span[*]\`, \`prod.basicInfo.recommendedTier\`: T0 | T1 | T2
